@@ -5,6 +5,9 @@ cookies.txt
 # Database
 data/*.db
 
+# Test reports
+reports/
+
 # Python
 __pycache__/
 *.py[cod]
