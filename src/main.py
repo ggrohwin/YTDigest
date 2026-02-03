@@ -65,7 +65,7 @@ def format_duration(iso_duration: str | None) -> str:
 templates.env.filters["format_duration"] = format_duration
 
 app_config: AppConfig | None = None
-background_task: asyncio.Task | None = None
+background_tasks: list[asyncio.Task] = []
 
 
 def load_config() -> AppConfig:
@@ -135,24 +135,97 @@ async def background_transcript_fetcher():
             # Continue running despite errors
 
 
+async def refresh_video_metadata() -> tuple[int, int]:
+    """Fetch video metadata from all channels and generate pending summaries.
+
+    Returns tuple of (videos_fetched, summaries_generated).
+    """
+    if not app_config:
+        return 0, 0
+
+    published_after = datetime.now(timezone.utc) - timedelta(days=app_config.digest.max_age_days)
+    total_videos = 0
+    total_summaries = 0
+
+    # Fetch video metadata from all channels
+    for channel in app_config.channels:
+        logger.info(f"Fetching videos from {channel.name}...")
+        videos = get_channel_uploads(
+            channel_id=channel.id,
+            channel_name=channel.name,
+            max_results=app_config.digest.max_videos_per_channel,
+            published_after=published_after
+        )
+        for video in videos:
+            await save_video(video)
+            total_videos += 1
+
+    # Generate summaries for videos that have transcripts but no summaries
+    videos_needing_summaries = await get_videos_with_transcripts_without_summaries(
+        days=app_config.digest.max_age_days
+    )
+    for video in videos_needing_summaries:
+        transcript = await get_transcript(video.id)
+        if transcript:
+            logger.info(f"Generating summary for: {video.title}")
+            summary = summarize_video(
+                video_id=video.id,
+                title=video.title,
+                channel=video.channel_name,
+                transcript=transcript.content
+            )
+            if summary:
+                await save_summary(summary)
+                total_summaries += 1
+
+    return total_videos, total_summaries
+
+
+async def background_video_fetcher():
+    """Background task that periodically refreshes video metadata."""
+    logger.info("Background video fetcher started")
+
+    while True:
+        try:
+            if not app_config:
+                await asyncio.sleep(10)
+                continue
+
+            await asyncio.sleep(app_config.digest.video_refresh_interval)
+
+            logger.info("[Background] Refreshing video metadata...")
+            videos_fetched, summaries_generated = await refresh_video_metadata()
+            logger.info(f"[Background] Fetched {videos_fetched} videos, generated {summaries_generated} summaries")
+
+        except asyncio.CancelledError:
+            logger.info("Background video fetcher stopped")
+            raise
+        except Exception as e:
+            logger.error(f"[Background] Error in video fetcher: {e}")
+            # Continue running despite errors
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize app on startup."""
-    global app_config, background_task
+    global app_config, background_tasks
     await init_db()
     app_config = load_config()
     logger.info(f"Loaded {len(app_config.channels)} channels from config")
 
-    # Start background transcript fetcher
-    background_task = asyncio.create_task(background_transcript_fetcher())
+    # Start background tasks
+    background_tasks = [
+        asyncio.create_task(background_transcript_fetcher()),
+        asyncio.create_task(background_video_fetcher()),
+    ]
 
     yield
 
-    # Stop background task on shutdown
-    if background_task:
-        background_task.cancel()
+    # Stop all background tasks on shutdown
+    for task in background_tasks:
+        task.cancel()
         try:
-            await background_task
+            await task
         except asyncio.CancelledError:
             pass
 
@@ -209,43 +282,7 @@ async def api_refresh():
         )
 
     try:
-        published_after = datetime.now(timezone.utc) - timedelta(days=app_config.digest.max_age_days)
-        total_videos = 0
-        total_summaries = 0
-
-        # Step 1: Fetch video metadata from all channels
-        for channel in app_config.channels:
-            logger.info(f"Fetching videos from {channel.name}...")
-
-            videos = get_channel_uploads(
-                channel_id=channel.id,
-                channel_name=channel.name,
-                max_results=app_config.digest.max_videos_per_channel,
-                published_after=published_after
-            )
-
-            for video in videos:
-                await save_video(video)
-                total_videos += 1
-
-        # Step 2: Generate summaries for videos that have transcripts but no summaries
-        videos_needing_summaries = await get_videos_with_transcripts_without_summaries(
-            days=app_config.digest.max_age_days
-        )
-
-        for video in videos_needing_summaries:
-            transcript = await get_transcript(video.id)
-            if transcript:
-                logger.info(f"Generating summary for: {video.title}")
-                summary = summarize_video(
-                    video_id=video.id,
-                    title=video.title,
-                    channel=video.channel_name,
-                    transcript=transcript.content
-                )
-                if summary:
-                    await save_summary(summary)
-                    total_summaries += 1
+        total_videos, total_summaries = await refresh_video_metadata()
 
         # Count pending transcripts for user feedback
         pending_transcripts = await get_videos_without_transcripts(

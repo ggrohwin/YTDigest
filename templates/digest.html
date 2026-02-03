@@ -41,13 +41,16 @@
                     class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center"
                 >
                     <span id="refreshSpinner" class="spinner hidden"></span>
-                    <span id="refreshText">Refresh</span>
+                    <span id="refreshText">Get New Videos</span>
                 </button>
             </div>
         </header>
 
         <!-- Status message -->
-        <div id="statusMessage" class="hidden mb-6 p-4 rounded-lg"></div>
+        <div id="statusMessage" class="hidden mb-6 p-4 rounded-lg flex justify-between items-center">
+            <span id="statusText"></span>
+            <button onclick="closeStatus()" class="ml-4 font-bold hover:opacity-70">&times;</button>
+        </div>
 
         <!-- Videos list -->
         <div id="videosList" class="space-y-6">
@@ -123,7 +126,7 @@
             {% else %}
                 <div class="bg-white rounded-lg shadow-md p-8 text-center">
                     <p class="text-gray-500 text-lg mb-4">No videos yet</p>
-                    <p class="text-gray-400">Click the Refresh button to fetch videos from your configured channels.</p>
+                    <p class="text-gray-400">Click "Get New Videos" to fetch videos from your configured channels.</p>
                 </div>
             {% endif %}
         </div>
@@ -145,7 +148,7 @@
             btn.disabled = true;
             btn.classList.add('loading');
             spinner.classList.remove('hidden');
-            text.textContent = 'Refreshing...';
+            text.textContent = 'Getting Videos...';
             statusMessage.classList.add('hidden');
 
             try {
@@ -154,33 +157,32 @@
 
                 if (data.success) {
                     // Show success message
-                    statusMessage.className = 'mb-6 p-4 rounded-lg bg-green-100 text-green-800';
+                    statusMessage.className = 'mb-6 p-4 rounded-lg flex justify-between items-center bg-green-100 text-green-800';
                     let msg = `Fetched ${data.videos_fetched} videos, generated ${data.summaries_generated} summaries`;
                     if (data.transcripts_pending > 0) {
                         msg += ` (${data.transcripts_pending} transcripts pending in background)`;
                     }
-                    statusMessage.textContent = msg;
+                    document.getElementById('statusText').textContent = msg;
                     statusMessage.classList.remove('hidden');
-
-                    // Reload page to show new content
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1500);
                 } else {
                     throw new Error(data.error || 'Unknown error');
                 }
             } catch (error) {
                 // Show error message
-                statusMessage.className = 'mb-6 p-4 rounded-lg bg-red-100 text-red-800';
-                statusMessage.textContent = `Error: ${error.message}`;
+                statusMessage.className = 'mb-6 p-4 rounded-lg flex justify-between items-center bg-red-100 text-red-800';
+                document.getElementById('statusText').textContent = `Error: ${error.message}`;
                 statusMessage.classList.remove('hidden');
-
-                // Reset button
-                btn.disabled = false;
-                btn.classList.remove('loading');
-                spinner.classList.add('hidden');
-                text.textContent = 'Refresh';
             }
+
+            // Reset button
+            btn.disabled = false;
+            btn.classList.remove('loading');
+            spinner.classList.add('hidden');
+            text.textContent = 'Get New Videos';
+        }
+
+        function closeStatus() {
+            document.getElementById('statusMessage').classList.add('hidden');
         }
     </script>
 </body>

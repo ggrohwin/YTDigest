@@ -13,6 +13,7 @@ class DigestConfig(BaseModel):
     max_age_days: int = 7
     transcript_fetch_interval: int = 180  # seconds between background fetches
     transcript_batch_size: int = 1  # transcripts to fetch per cycle
+    video_refresh_interval: int = 3600  # seconds between video metadata refreshes
 
 
 class AppConfig(BaseModel):
