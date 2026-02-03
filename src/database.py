@@ -32,6 +32,15 @@ async def init_db() -> None:
         except Exception:
             pass  # Column already exists
 
+        # Migration: add transcript_status column if it doesn't exist
+        # Values: 'pending', 'fetched', 'failed', 'unavailable'
+        try:
+            await db.execute(
+                "ALTER TABLE videos ADD COLUMN transcript_status TEXT DEFAULT 'pending'"
+            )
+        except Exception:
+            pass  # Column already exists
+
         await db.execute("""
             CREATE TABLE IF NOT EXISTS transcripts (
                 video_id TEXT PRIMARY KEY,
@@ -195,8 +204,21 @@ async def get_summary(video_id: str) -> Optional[Summary]:
     return None
 
 
+async def update_transcript_status(video_id: str, status: str) -> None:
+    """Update the transcript fetch status for a video.
+
+    Status values: 'pending', 'fetched', 'failed', 'unavailable'
+    """
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "UPDATE videos SET transcript_status = ? WHERE id = ?",
+            (status, video_id),
+        )
+        await db.commit()
+
+
 async def get_videos_without_transcripts(days: int, limit: int = 1) -> list[Video]:
-    """Get videos that don't have transcripts yet."""
+    """Get videos that are pending transcript fetch."""
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
     async with aiosqlite.connect(DATABASE_PATH) as db:
@@ -204,8 +226,8 @@ async def get_videos_without_transcripts(days: int, limit: int = 1) -> list[Vide
         async with db.execute(
             """
             SELECT v.* FROM videos v
-            LEFT JOIN transcripts t ON v.id = t.video_id
-            WHERE v.published_at >= ? AND t.video_id IS NULL
+            WHERE v.published_at >= ?
+            AND (v.transcript_status IS NULL OR v.transcript_status = 'pending')
             ORDER BY v.published_at DESC
             LIMIT ?
             """,

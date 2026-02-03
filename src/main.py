@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import random
 import re
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
@@ -30,6 +31,7 @@ from .database import (
     get_videos_since,
     get_videos_without_transcripts,
     get_videos_with_transcripts_without_summaries,
+    update_transcript_status,
 )
 from .models import AppConfig, VideoWithDetails
 from .youtube import get_channel_uploads
@@ -84,7 +86,11 @@ async def background_transcript_fetcher():
                 await asyncio.sleep(10)
                 continue
 
-            await asyncio.sleep(app_config.digest.transcript_fetch_interval)
+            # Add jitter (-1 to +2 minutes) to appear less bot-like
+            jitter = random.randint(-60, 120)
+            wait_time = app_config.digest.transcript_fetch_interval + jitter
+            logger.debug(f"[Background] Waiting {wait_time}s before next fetch")
+            await asyncio.sleep(wait_time)
 
             # Find videos that need transcripts
             videos = await get_videos_without_transcripts(
@@ -102,6 +108,7 @@ async def background_transcript_fetcher():
 
                 if transcript:
                     await save_transcript(transcript)
+                    await update_transcript_status(video.id, "fetched")
                     logger.info(f"[Background] Transcript saved for: {video.title}")
 
                     # Also generate summary immediately if we got a transcript
@@ -116,7 +123,9 @@ async def background_transcript_fetcher():
                         await save_summary(summary)
                         logger.info(f"[Background] Summary saved for: {video.title}")
                 else:
-                    logger.warning(f"[Background] Could not fetch transcript for: {video.title}")
+                    # Mark as failed so we don't keep retrying the same video
+                    await update_transcript_status(video.id, "failed")
+                    logger.warning(f"[Background] Could not fetch transcript for: {video.title} - marked as failed")
 
         except asyncio.CancelledError:
             logger.info("Background transcript fetcher stopped")
