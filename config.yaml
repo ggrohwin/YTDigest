@@ -1,0 +1,29 @@
+channels:
+#  - id: "UC_x5XG1OV2P6uZZ5FSM9Ttw"
+#    name: "Google Developers"
+#  - id: "UCVHFbqXqoYvEWM1Ddxl0QKg"
+#    name: "Fireship"
+  - id: "UCgLxmJ8xER7Y7sywMN5SfWg"
+    name: "Underfitted"
+  - id: "UCn8ujwUInbJkBhffxqAPBVQ"
+    name: "Dave Ebbelaar"
+  - id: "UC0C-17n9iuUQPylguM1d-lQ"
+    name: "Nate B Jones"
+  - id: "UCAwT-7B6StW_xzXPku6v7MQ"
+    name: "Mo Bitar"
+  - id: "UCZcR2SVWaGWNlMqPxvQS3vw"
+    name: "Hard Fork"
+  - id: "UC_RovKmk0OCbuZjA8f08opw"
+    name: "Futurepedia"
+  - id: "UCoy6cTJ7Tg0dqS-DI-_REsA"
+    name: "Chase AI"
+  - id: "UCJFMlSxcvlZg5yZUYJT0Pug"
+    name: "Corbin"
+  - id: "UCYQvAPEWa3ibT0_FcjqYa8g"
+    name: "Pooja Dutt"
+  - id: "UCcIXc5mJsHVYTZR1maL5l9w"
+    name: "DeepLearningAI"
+
+digest:
+  max_videos_per_channel: 7
+  max_age_days: 14

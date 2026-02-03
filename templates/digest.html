@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YTDigest - Your Daily YouTube Digest</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Header -->
+        <header class="mb-8">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">YTDigest</h1>
+                    <p class="text-gray-600">Your daily YouTube video summaries</p>
+                </div>
+                <button
+                    id="refreshBtn"
+                    onclick="refreshVideos()"
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center"
+                >
+                    <span id="refreshSpinner" class="spinner hidden"></span>
+                    <span id="refreshText">Refresh</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Status message -->
+        <div id="statusMessage" class="hidden mb-6 p-4 rounded-lg"></div>
+
+        <!-- Videos list -->
+        <div id="videosList" class="space-y-6">
+            {% if videos %}
+                {% for item in videos %}
+                <article class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+                    <div class="md:flex">
+                        <!-- Thumbnail -->
+                        <div class="md:w-64 flex-shrink-0">
+                            <a href="{{ item.video.video_url }}" target="_blank" rel="noopener">
+                                <img
+                                    src="{{ item.video.thumbnail_url }}"
+                                    alt="{{ item.video.title }}"
+                                    class="w-full h-48 md:h-full object-cover"
+                                >
+                            </a>
+                        </div>
+
+                        <!-- Content -->
+                        <div class="p-4 flex-1">
+                            <!-- Title -->
+                            <h2 class="text-xl font-semibold mb-2">
+                                <a
+                                    href="{{ item.video.video_url }}"
+                                    target="_blank"
+                                    rel="noopener"
+                                    class="text-gray-800 hover:text-blue-600 transition-colors"
+                                >
+                                    {{ item.video.title }}
+                                </a>
+                            </h2>
+
+                            <!-- Meta -->
+                            <div class="flex items-center text-sm text-gray-500 mb-3">
+                                <span class="font-medium text-gray-700">{{ item.video.channel_name }}</span>
+                                <span class="mx-2">&bull;</span>
+                                <span>{{ item.video.published_at.strftime('%B %d, %Y') }}</span>
+                                {% if item.video.duration %}
+                                <span class="mx-2">&bull;</span>
+                                <span>{{ item.video.duration | format_duration }}</span>
+                                {% endif %}
+                            </div>
+
+                            <!-- Topics -->
+                            {% if item.summary and item.summary.topics %}
+                            <div class="flex flex-wrap gap-2 mb-3">
+                                {% for topic in item.summary.topics %}
+                                <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                                    {{ topic }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+
+                            <!-- Summary -->
+                            {% if item.summary %}
+                            <div class="text-gray-600 text-sm leading-relaxed">
+                                {{ item.summary.summary }}
+                            </div>
+                            {% elif item.transcript %}
+                            <div class="text-gray-500 text-sm italic">
+                                Transcript available, summary pending...
+                            </div>
+                            {% else %}
+                            <div class="text-gray-400 text-sm italic">
+                                No transcript available for this video
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </article>
+                {% endfor %}
+            {% else %}
+                <div class="bg-white rounded-lg shadow-md p-8 text-center">
+                    <p class="text-gray-500 text-lg mb-4">No videos yet</p>
+                    <p class="text-gray-400">Click the Refresh button to fetch videos from your configured channels.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Footer -->
+        <footer class="mt-12 text-center text-gray-500 text-sm">
+            <p>YTDigest &bull; Powered by Claude AI</p>
+        </footer>
+    </div>
+
+    <script>
+        async function refreshVideos() {
+            const btn = document.getElementById('refreshBtn');
+            const spinner = document.getElementById('refreshSpinner');
+            const text = document.getElementById('refreshText');
+            const statusMessage = document.getElementById('statusMessage');
+
+            // Show loading state
+            btn.disabled = true;
+            btn.classList.add('loading');
+            spinner.classList.remove('hidden');
+            text.textContent = 'Refreshing...';
+            statusMessage.classList.add('hidden');
+
+            try {
+                const response = await fetch('/api/refresh');
+                const data = await response.json();
+
+                if (data.success) {
+                    // Show success message
+                    statusMessage.className = 'mb-6 p-4 rounded-lg bg-green-100 text-green-800';
+                    statusMessage.textContent = `Fetched ${data.videos_fetched} videos, ${data.transcripts_fetched} transcripts, generated ${data.summaries_generated} summaries`;
+                    statusMessage.classList.remove('hidden');
+
+                    // Reload page to show new content
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    throw new Error(data.error || 'Unknown error');
+                }
+            } catch (error) {
+                // Show error message
+                statusMessage.className = 'mb-6 p-4 rounded-lg bg-red-100 text-red-800';
+                statusMessage.textContent = `Error: ${error.message}`;
+                statusMessage.classList.remove('hidden');
+
+                // Reset button
+                btn.disabled = false;
+                btn.classList.remove('loading');
+                spinner.classList.add('hidden');
+                text.textContent = 'Refresh';
+            }
+        }
+    </script>
+</body>
+</html>
