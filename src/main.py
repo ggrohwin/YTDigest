@@ -28,6 +28,8 @@ from .database import (
     get_transcript,
     get_summary,
     get_videos_since,
+    get_videos_without_transcripts,
+    get_videos_with_transcripts_without_summaries,
 )
 from .models import AppConfig, VideoWithDetails
 from .youtube import get_channel_uploads
@@ -61,6 +63,7 @@ def format_duration(iso_duration: str | None) -> str:
 templates.env.filters["format_duration"] = format_duration
 
 app_config: AppConfig | None = None
+background_task: asyncio.Task | None = None
 
 
 def load_config() -> AppConfig:
@@ -71,14 +74,78 @@ def load_config() -> AppConfig:
     return AppConfig(**data)
 
 
+async def background_transcript_fetcher():
+    """Background task that gradually fetches transcripts to avoid rate limiting."""
+    logger.info("Background transcript fetcher started")
+
+    while True:
+        try:
+            if not app_config:
+                await asyncio.sleep(10)
+                continue
+
+            await asyncio.sleep(app_config.digest.transcript_fetch_interval)
+
+            # Find videos that need transcripts
+            videos = await get_videos_without_transcripts(
+                days=app_config.digest.max_age_days,
+                limit=app_config.digest.transcript_batch_size
+            )
+
+            if not videos:
+                logger.debug("No videos need transcripts")
+                continue
+
+            for video in videos:
+                logger.info(f"[Background] Fetching transcript for: {video.title}")
+                transcript = fetch_transcript(video.id)
+
+                if transcript:
+                    await save_transcript(transcript)
+                    logger.info(f"[Background] Transcript saved for: {video.title}")
+
+                    # Also generate summary immediately if we got a transcript
+                    logger.info(f"[Background] Generating summary for: {video.title}")
+                    summary = summarize_video(
+                        video_id=video.id,
+                        title=video.title,
+                        channel=video.channel_name,
+                        transcript=transcript.content
+                    )
+                    if summary:
+                        await save_summary(summary)
+                        logger.info(f"[Background] Summary saved for: {video.title}")
+                else:
+                    logger.warning(f"[Background] Could not fetch transcript for: {video.title}")
+
+        except asyncio.CancelledError:
+            logger.info("Background transcript fetcher stopped")
+            raise
+        except Exception as e:
+            logger.error(f"[Background] Error in transcript fetcher: {e}")
+            # Continue running despite errors
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize app on startup."""
-    global app_config
+    global app_config, background_task
     await init_db()
     app_config = load_config()
     logger.info(f"Loaded {len(app_config.channels)} channels from config")
+
+    # Start background transcript fetcher
+    background_task = asyncio.create_task(background_transcript_fetcher())
+
     yield
+
+    # Stop background task on shutdown
+    if background_task:
+        background_task.cancel()
+        try:
+            await background_task
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(title="YTDigest", lifespan=lifespan)
@@ -120,7 +187,12 @@ async def api_videos():
 
 @app.get("/api/refresh")
 async def api_refresh():
-    """Fetch new videos from all configured channels."""
+    """Fetch new videos from all configured channels.
+
+    This only fetches video metadata and generates summaries for videos
+    that already have transcripts. Transcript fetching is handled by
+    the background task to avoid YouTube rate limiting.
+    """
     if not app_config:
         return JSONResponse(
             content={"error": "Config not loaded"},
@@ -130,9 +202,9 @@ async def api_refresh():
     try:
         published_after = datetime.now(timezone.utc) - timedelta(days=app_config.digest.max_age_days)
         total_videos = 0
-        total_transcripts = 0
         total_summaries = 0
 
+        # Step 1: Fetch video metadata from all channels
         for channel in app_config.channels:
             logger.info(f"Fetching videos from {channel.name}...")
 
@@ -147,37 +219,36 @@ async def api_refresh():
                 await save_video(video)
                 total_videos += 1
 
-                existing_transcript = await get_transcript(video.id)
-                if existing_transcript:
-                    transcript = existing_transcript
-                else:
-                    logger.info(f"  Fetching transcript for: {video.title}")
-                    transcript = fetch_transcript(video.id)
-                    if transcript:
-                        await save_transcript(transcript)
-                        total_transcripts += 1
-                    # Rate limit: wait between transcript requests to avoid YouTube blocking
-                    await asyncio.sleep(3)
+        # Step 2: Generate summaries for videos that have transcripts but no summaries
+        videos_needing_summaries = await get_videos_with_transcripts_without_summaries(
+            days=app_config.digest.max_age_days
+        )
 
-                if transcript:
-                    existing_summary = await get_summary(video.id)
-                    if not existing_summary:
-                        logger.info(f"  Generating summary for: {video.title}")
-                        summary = summarize_video(
-                            video_id=video.id,
-                            title=video.title,
-                            channel=video.channel_name,
-                            transcript=transcript.content
-                        )
-                        if summary:
-                            await save_summary(summary)
-                            total_summaries += 1
+        for video in videos_needing_summaries:
+            transcript = await get_transcript(video.id)
+            if transcript:
+                logger.info(f"Generating summary for: {video.title}")
+                summary = summarize_video(
+                    video_id=video.id,
+                    title=video.title,
+                    channel=video.channel_name,
+                    transcript=transcript.content
+                )
+                if summary:
+                    await save_summary(summary)
+                    total_summaries += 1
+
+        # Count pending transcripts for user feedback
+        pending_transcripts = await get_videos_without_transcripts(
+            days=app_config.digest.max_age_days,
+            limit=100
+        )
 
         return JSONResponse(content={
             "success": True,
             "videos_fetched": total_videos,
-            "transcripts_fetched": total_transcripts,
             "summaries_generated": total_summaries,
+            "transcripts_pending": len(pending_transcripts),
         })
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"

@@ -11,6 +11,8 @@ class ChannelConfig(BaseModel):
 class DigestConfig(BaseModel):
     max_videos_per_channel: int = 5
     max_age_days: int = 7
+    transcript_fetch_interval: int = 180  # seconds between background fetches
+    transcript_batch_size: int = 1  # transcripts to fetch per cycle
 
 
 class AppConfig(BaseModel):

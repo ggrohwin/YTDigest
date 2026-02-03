@@ -155,7 +155,11 @@
                 if (data.success) {
                     // Show success message
                     statusMessage.className = 'mb-6 p-4 rounded-lg bg-green-100 text-green-800';
-                    statusMessage.textContent = `Fetched ${data.videos_fetched} videos, ${data.transcripts_fetched} transcripts, generated ${data.summaries_generated} summaries`;
+                    let msg = `Fetched ${data.videos_fetched} videos, generated ${data.summaries_generated} summaries`;
+                    if (data.transcripts_pending > 0) {
+                        msg += ` (${data.transcripts_pending} transcripts pending in background)`;
+                    }
+                    statusMessage.textContent = msg;
                     statusMessage.classList.remove('hidden');
 
                     // Reload page to show new content

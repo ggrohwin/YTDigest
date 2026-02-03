@@ -193,3 +193,67 @@ async def get_summary(video_id: str) -> Optional[Summary]:
                     generated_at=datetime.fromisoformat(row["generated_at"]),
                 )
     return None
+
+
+async def get_videos_without_transcripts(days: int, limit: int = 1) -> list[Video]:
+    """Get videos that don't have transcripts yet."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """
+            SELECT v.* FROM videos v
+            LEFT JOIN transcripts t ON v.id = t.video_id
+            WHERE v.published_at >= ? AND t.video_id IS NULL
+            ORDER BY v.published_at DESC
+            LIMIT ?
+            """,
+            (cutoff.isoformat(), limit),
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [
+                Video(
+                    id=row["id"],
+                    channel_id=row["channel_id"],
+                    channel_name=row["channel_name"],
+                    title=row["title"],
+                    published_at=datetime.fromisoformat(row["published_at"]),
+                    thumbnail_url=row["thumbnail_url"],
+                    video_url=row["video_url"],
+                    duration=row["duration"],
+                )
+                for row in rows
+            ]
+
+
+async def get_videos_with_transcripts_without_summaries(days: int) -> list[Video]:
+    """Get videos that have transcripts but no summaries yet."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """
+            SELECT v.* FROM videos v
+            INNER JOIN transcripts t ON v.id = t.video_id
+            LEFT JOIN summaries s ON v.id = s.video_id
+            WHERE v.published_at >= ? AND s.video_id IS NULL
+            ORDER BY v.published_at DESC
+            """,
+            (cutoff.isoformat(),),
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [
+                Video(
+                    id=row["id"],
+                    channel_id=row["channel_id"],
+                    channel_name=row["channel_name"],
+                    title=row["title"],
+                    published_at=datetime.fromisoformat(row["published_at"]),
+                    thumbnail_url=row["thumbnail_url"],
+                    video_url=row["video_url"],
+                    duration=row["duration"],
+                )
+                for row in rows
+            ]
