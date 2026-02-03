@@ -35,11 +35,14 @@ def _create_api_client() -> YouTubeTranscriptApi:
 _ytt_api = _create_api_client()
 
 
-def fetch_transcript(video_id: str) -> Optional[Transcript]:
+def fetch_transcript(video_id: str) -> tuple[Optional[Transcript], Optional[str]]:
     """
     Fetch the transcript for a YouTube video.
 
-    Returns None if transcript is not available.
+    Returns:
+        (Transcript, None) on success
+        (None, "unavailable") if transcript doesn't exist (permanent)
+        (None, "failed") if temporary error like rate limiting
     """
     try:
         transcript_list = _ytt_api.fetch(video_id)
@@ -54,20 +57,20 @@ def fetch_transcript(video_id: str) -> Optional[Transcript]:
             video_id=video_id,
             content=full_text,
             fetched_at=datetime.now(timezone.utc)
-        )
+        ), None
 
     except NoTranscriptFound:
         logger.warning(f"No transcript found for video {video_id}")
-        return None
+        return None, "unavailable"
     except TranscriptsDisabled:
         logger.warning(f"Transcripts disabled for video {video_id}")
-        return None
+        return None, "unavailable"
     except VideoUnavailable:
         logger.warning(f"Video {video_id} is unavailable")
-        return None
+        return None, "unavailable"
     except Exception as e:
         logger.error(f"Error fetching transcript for {video_id}: {e}")
-        return None
+        return None, "failed"
 
 
 def fetch_transcript_with_timestamps(video_id: str) -> Optional[list]:

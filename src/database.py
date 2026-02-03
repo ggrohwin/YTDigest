@@ -104,6 +104,7 @@ async def get_video(video_id: str) -> Optional[Video]:
                     thumbnail_url=row["thumbnail_url"],
                     video_url=row["video_url"],
                     duration=row["duration"],
+                    transcript_status=row["transcript_status"],
                 )
     return None
 
@@ -129,6 +130,7 @@ async def get_videos_since(days: int) -> list[Video]:
                     thumbnail_url=row["thumbnail_url"],
                     video_url=row["video_url"],
                     duration=row["duration"],
+                    transcript_status=row["transcript_status"],
                 )
                 for row in rows
             ]
@@ -244,6 +246,7 @@ async def get_videos_without_transcripts(days: int, limit: int = 1) -> list[Vide
                     thumbnail_url=row["thumbnail_url"],
                     video_url=row["video_url"],
                     duration=row["duration"],
+                    transcript_status=row["transcript_status"],
                 )
                 for row in rows
             ]
@@ -276,6 +279,7 @@ async def get_videos_with_transcripts_without_summaries(days: int) -> list[Video
                     thumbnail_url=row["thumbnail_url"],
                     video_url=row["video_url"],
                     duration=row["duration"],
+                    transcript_status=row["transcript_status"],
                 )
                 for row in rows
             ]

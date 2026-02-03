@@ -114,9 +114,17 @@
                             <div class="text-gray-500 text-sm italic">
                                 Transcript available, summary pending...
                             </div>
+                            {% elif item.video.transcript_status == 'unavailable' %}
+                            <div class="text-gray-400 text-sm italic">
+                                No transcript available
+                            </div>
+                            {% elif item.video.transcript_status == 'failed' %}
+                            <div class="text-amber-600 text-sm italic">
+                                Transcript fetch failed (will retry)
+                            </div>
                             {% else %}
                             <div class="text-gray-400 text-sm italic">
-                                No transcript available for this video
+                                Transcript pending...
                             </div>
                             {% endif %}
                         </div>

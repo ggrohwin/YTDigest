@@ -104,7 +104,7 @@ async def background_transcript_fetcher():
 
             for video in videos:
                 logger.info(f"[Background] Fetching transcript for: {video.title}")
-                transcript = fetch_transcript(video.id)
+                transcript, failure_reason = fetch_transcript(video.id)
 
                 if transcript:
                     await save_transcript(transcript)
@@ -123,9 +123,10 @@ async def background_transcript_fetcher():
                         await save_summary(summary)
                         logger.info(f"[Background] Summary saved for: {video.title}")
                 else:
-                    # Mark as failed so we don't keep retrying the same video
-                    await update_transcript_status(video.id, "failed")
-                    logger.warning(f"[Background] Could not fetch transcript for: {video.title} - marked as failed")
+                    # Mark with appropriate status based on failure reason
+                    status = failure_reason or "failed"
+                    await update_transcript_status(video.id, status)
+                    logger.warning(f"[Background] Could not fetch transcript for: {video.title} - marked as {status}")
 
         except asyncio.CancelledError:
             logger.info("Background transcript fetcher stopped")
