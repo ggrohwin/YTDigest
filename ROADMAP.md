@@ -23,7 +23,6 @@ _Empty - ready for next task_
 ### Later
 | Item | Description | Effort |
 |------|-------------|--------|
-| Group videos | Group by: date fetched, channel, or tag; user-selectable | Medium |
 | Filter/sort videos | Filter by channel, date, has-summary; sort options | Medium |
 | Mark as read/interested | Track which videos you've watched or want to watch | Medium |
 | Search across transcripts | Keyword search across all saved transcripts | Medium |
@@ -84,6 +83,7 @@ _Empty - ready for next task_
 ## Completed
 | Item | Date | Notes |
 |------|------|-------|
+| Group videos | 2026-02-03 13:43:44 | Group by date, channel, or topic with collapsible sections |
 | Distinguish unavailable vs failed transcripts | 2026-02-03 13:05:52 | Different UI messages based on failure type |
 | Automatic video refresh | 2026-02-03 12:48:34 | Hourly background refresh + dismissable status message |
 | Track transcript status | 2026-02-02 21:13:33 | Skip failed videos, added jitter to intervals |

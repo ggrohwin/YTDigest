@@ -33,6 +33,7 @@ from .database import (
     get_videos_with_transcripts_without_summaries,
     update_transcript_status,
 )
+from collections import defaultdict
 from .models import AppConfig, VideoWithDetails
 from .youtube import get_channel_uploads
 from .transcripts import fetch_transcript
@@ -235,14 +236,16 @@ app = FastAPI(title="YTDigest", lifespan=lifespan)
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
+async def index(request: Request, group_by: str = "date"):
     """Render the main digest page."""
     videos = await get_videos_with_details()
+    grouped = group_videos(videos, group_by)
     return templates.TemplateResponse(
         "digest.html",
         {
             "request": request,
-            "videos": videos,
+            "grouped_videos": grouped,
+            "group_by": group_by,
             "channels": app_config.channels if app_config else [],
         }
     )
@@ -325,3 +328,41 @@ async def get_videos_with_details() -> list[VideoWithDetails]:
         ))
 
     return result
+
+
+def group_videos(
+    videos: list[VideoWithDetails], group_by: str
+) -> list[tuple[str, list[VideoWithDetails]]]:
+    """Group videos by the specified field.
+
+    Returns list of (group_name, videos) tuples, sorted appropriately.
+    """
+    if group_by == "channel":
+        groups = defaultdict(list)
+        for v in videos:
+            groups[v.video.channel_name].append(v)
+        # Sort groups alphabetically by channel name
+        return sorted(groups.items(), key=lambda x: x[0].lower())
+
+    elif group_by == "topic":
+        groups = defaultdict(list)
+        for v in videos:
+            if v.summary and v.summary.topics:
+                for topic in v.summary.topics:
+                    groups[topic].append(v)
+            else:
+                groups["No topics"].append(v)
+        # Sort groups alphabetically, "No topics" last
+        return sorted(groups.items(), key=lambda x: (x[0] == "No topics", x[0].lower()))
+
+    else:  # Default: group by date
+        groups = defaultdict(list)
+        for v in videos:
+            date_str = v.video.published_at.strftime("%B %d, %Y")
+            groups[date_str].append(v)
+        # Sort groups by date (most recent first) using the max date in each group
+        return sorted(
+            groups.items(),
+            key=lambda x: max(v.video.published_at for v in x[1]),
+            reverse=True
+        )
