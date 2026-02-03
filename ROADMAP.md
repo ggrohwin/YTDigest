@@ -23,6 +23,7 @@ _Empty - ready for next task_
 ### Later
 | Item | Description | Effort |
 |------|-------------|--------|
+| Group videos | Group by: date fetched, channel, or tag; user-selectable | Medium |
 | Filter/sort videos | Filter by channel, date, has-summary; sort options | Medium |
 | Mark as read/interested | Track which videos you've watched or want to watch | Medium |
 | Search across transcripts | Keyword search across all saved transcripts | Medium |
