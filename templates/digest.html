@@ -74,23 +74,14 @@
             </div>
         </header>
 
-        <!-- Startup status banner -->
-        {% if startup_status %}
-        <div class="mb-6 p-4 rounded-lg flex justify-between items-center bg-green-100 text-green-800">
-            <span>
-                Fetched {{ startup_status.videos_fetched }} videos, generated {{ startup_status.summaries_generated }} summaries
-                {% if startup_status.transcripts_pending > 0 %}
-                ({{ startup_status.transcripts_pending }} transcripts pending in background)
-                {% endif %}
-            </span>
-            <button onclick="this.parentElement.remove()" class="ml-4 font-bold hover:opacity-70">&times;</button>
-        </div>
-        {% endif %}
-
         <!-- Page summary -->
         {% if page_summary and page_summary.total > 0 %}
         <div class="mb-6 px-4 py-2 rounded-lg bg-gray-200 text-gray-600 text-sm flex items-center gap-4">
             <span>{{ page_summary.total }} videos</span>
+            {% if page_summary.new_since_last_visit > 0 %}
+            <span>&bull;</span>
+            <span class="text-green-700">{{ page_summary.new_since_last_visit }} new since last visit</span>
+            {% endif %}
             <span>&bull;</span>
             <span>{{ page_summary.with_summary }} summarized</span>
             {% if page_summary.pending > 0 %}
@@ -99,13 +90,13 @@
             {% endif %}
             {% if page_summary.failed > 0 %}
             <span>&bull;</span>
-            <span class="text-red-700">{{ page_summary.failed }} failed</span>
+            <span class="text-red-700">{{ page_summary.failed }} transcripts failed</span>
             {% endif %}
         </div>
         {% endif %}
 
-        <!-- Status message -->
-        <div id="statusMessage" class="hidden mb-6 p-4 rounded-lg flex justify-between items-center">
+        <!-- Error message (only shown on refresh failure) -->
+        <div id="statusMessage" class="hidden mb-6 p-4 rounded-lg flex justify-between items-center bg-red-100 text-red-800">
             <span id="statusText"></span>
             <button onclick="closeStatus()" class="ml-4 font-bold hover:opacity-70">&times;</button>
         </div>
@@ -370,25 +361,18 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    // Show success message
-                    statusMessage.className = 'mb-6 p-4 rounded-lg flex justify-between items-center bg-green-100 text-green-800';
-                    let msg = `Fetched ${data.videos_fetched} videos, generated ${data.summaries_generated} summaries`;
-                    if (data.transcripts_pending > 0) {
-                        msg += ` (${data.transcripts_pending} transcripts pending in background)`;
-                    }
-                    document.getElementById('statusText').textContent = msg;
-                    statusMessage.classList.remove('hidden');
+                    // Reload page so the summary bar updates with fresh counts
+                    window.location.reload();
+                    return;
                 } else {
                     throw new Error(data.error || 'Unknown error');
                 }
             } catch (error) {
-                // Show error message
-                statusMessage.className = 'mb-6 p-4 rounded-lg flex justify-between items-center bg-red-100 text-red-800';
                 document.getElementById('statusText').textContent = `Error: ${error.message}`;
                 statusMessage.classList.remove('hidden');
             }
 
-            // Reset button
+            // Reset button (only reached on error)
             btn.disabled = false;
             btn.classList.remove('loading');
             spinner.classList.add('hidden');

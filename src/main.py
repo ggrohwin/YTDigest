@@ -35,6 +35,9 @@ from .database import (
     mark_video_completed,
     get_summaries_without_category,
     update_summary_category,
+    count_new_videos_since,
+    get_setting,
+    set_setting,
 )
 from collections import defaultdict, Counter
 from .models import AppConfig, CATEGORIES, VideoWithDetails
@@ -141,7 +144,6 @@ def build_category_hierarchy(
 
 app_config: AppConfig | None = None
 background_tasks: list[asyncio.Task] = []
-startup_status: dict | None = None  # Shown once on first page load after startup
 
 
 def load_config() -> AppConfig:
@@ -289,7 +291,7 @@ async def background_video_fetcher():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize app on startup."""
-    global app_config, background_tasks, startup_status
+    global app_config, background_tasks
     await init_db()
     app_config = load_config()
     logger.info(f"Loaded {len(app_config.channels)} channels from config")
@@ -298,16 +300,6 @@ async def lifespan(app: FastAPI):
     logger.info("Fetching videos on startup...")
     videos_fetched, summaries_generated = await refresh_video_metadata()
     logger.info(f"Startup: fetched {videos_fetched} new videos, generated {summaries_generated} summaries")
-
-    # Store results for display on first page load
-    pending_transcripts = await get_videos_without_transcripts(
-        days=app_config.digest.max_age_days, limit=100
-    )
-    startup_status = {
-        "videos_fetched": videos_fetched,
-        "summaries_generated": summaries_generated,
-        "transcripts_pending": len(pending_transcripts),
-    }
 
     # Start background tasks
     background_tasks = [
@@ -332,12 +324,6 @@ app = FastAPI(title="YTDigest", lifespan=lifespan)
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request, group_by: str = "date", show_completed: bool = False):
     """Render the main digest page."""
-    global startup_status
-
-    # Capture and clear startup status on first page load
-    status = startup_status
-    startup_status = None
-
     videos = await get_videos_with_details(include_completed=show_completed)
     grouped = group_videos(videos, group_by)
     month_groups = build_month_hierarchy(grouped) if group_by == "date" else None
@@ -348,11 +334,18 @@ async def index(request: Request, group_by: str = "date", show_completed: bool =
     with_summary = sum(1 for v in videos if v.summary)
     pending = sum(1 for v in videos if v.video.transcript_status in (None, "pending", "priority"))
     failed = sum(1 for v in videos if v.video.transcript_status == "failed")
+
+    # Count new videos since last visit, then update the timestamp
+    last_visited = await get_setting("last_visited_at")
+    new_since_last_visit = await count_new_videos_since(last_visited) if last_visited else 0
+    await set_setting("last_visited_at", datetime.now(timezone.utc).isoformat())
+
     page_summary = {
         "total": total,
         "with_summary": with_summary,
         "pending": pending,
         "failed": failed,
+        "new_since_last_visit": new_since_last_visit,
     }
 
     return templates.TemplateResponse(
@@ -362,7 +355,6 @@ async def index(request: Request, group_by: str = "date", show_completed: bool =
             "grouped_videos": grouped,
             "group_by": group_by,
             "show_completed": show_completed,
-            "startup_status": status,
             "page_summary": page_summary,
             "channels": app_config.channels if app_config else [],
             "month_groups": month_groups,

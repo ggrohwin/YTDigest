@@ -84,7 +84,7 @@ _Empty - ready for next task_
 ## Completed
 | Item | Date | Notes |
 |------|------|-------|
-| Persistent page summary bar | 2026-02-04 | Always-visible stats: total videos, summarized, pending, failed |
+| Unified page summary bar | 2026-02-04 | Single status bar with video counts, new-since-last-visit, and transcript status; replaced startup banner |
 | Prioritize transcript fetch | 2026-02-04 | Button to bump a video to the front of the transcript queue |
 | Truncate summaries in cards | 2026-02-04 19:59:04 | Show first ~3 lines with show more/less toggle |
 | Refine AI categories | 2026-02-04 19:29:29 | Category hierarchy for topic sidebar (LLMs, MLOps, etc.) |
