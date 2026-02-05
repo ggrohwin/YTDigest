@@ -437,6 +437,21 @@ async def api_complete_video(video_id: str, sentiment: str):
         )
 
 
+@app.post("/api/videos/{video_id}/prioritize")
+async def api_prioritize_video(video_id: str):
+    """Mark a video as priority so the background fetcher processes it next."""
+    try:
+        await update_transcript_status(video_id, "priority")
+        return JSONResponse(content={"success": True})
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error prioritizing video: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500
+        )
+
+
 @app.post("/api/backfill-categories")
 async def api_backfill_categories():
     """Classify existing summaries that don't have a category assigned."""

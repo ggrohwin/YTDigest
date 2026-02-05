@@ -42,7 +42,7 @@ class Video(BaseModel):
     thumbnail_url: str
     video_url: str
     duration: Optional[str] = None  # ISO 8601 duration (e.g., "PT15M33S")
-    transcript_status: Optional[str] = None  # pending, fetched, failed, unavailable
+    transcript_status: Optional[str] = None  # pending, fetched, failed, unavailable, priority
     is_completed: bool = False
     sentiment: Optional[str] = None  # like, neutral, dislike
     completed_at: Optional[datetime] = None

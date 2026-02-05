@@ -270,13 +270,24 @@
                                     <div class="text-gray-400 text-sm italic">
                                         No transcript available
                                     </div>
+                                    {% elif item.video.transcript_status == 'priority' %}
+                                    <div class="text-blue-600 text-sm italic flex items-center" id="transcript-status-{{ item.video.id }}">
+                                        <span class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px;"></span>
+                                        Transcript prioritized, fetching soon...
+                                    </div>
                                     {% elif item.video.transcript_status == 'failed' %}
-                                    <div class="text-amber-600 text-sm italic">
-                                        Transcript fetch failed (will retry)
+                                    <div class="text-amber-600 text-sm italic flex items-center justify-between" id="transcript-status-{{ item.video.id }}">
+                                        <span>Transcript fetch failed (will retry)</span>
+                                        <button onclick="prioritizeVideo('{{ item.video.id }}')" class="ml-3 px-2 py-0.5 bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs font-medium rounded transition-colors">
+                                            Prioritize
+                                        </button>
                                     </div>
                                     {% else %}
-                                    <div class="text-gray-400 text-sm italic">
-                                        Transcript pending...
+                                    <div class="text-gray-400 text-sm italic flex items-center justify-between" id="transcript-status-{{ item.video.id }}">
+                                        <span>Transcript pending...</span>
+                                        <button onclick="prioritizeVideo('{{ item.video.id }}')" class="ml-3 px-2 py-0.5 bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs font-medium rounded transition-colors">
+                                            Prioritize
+                                        </button>
                                     </div>
                                     {% endif %}
 
@@ -465,6 +476,30 @@
 
         // Initialize scroll spy on page load
         document.addEventListener('DOMContentLoaded', setupScrollSpy);
+
+        async function prioritizeVideo(videoId) {
+            const statusEl = document.getElementById('transcript-status-' + videoId);
+            if (!statusEl) return;
+
+            // Optimistic UI update
+            statusEl.className = 'text-blue-600 text-sm italic flex items-center';
+            statusEl.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px;"></span> Transcript prioritized, fetching soon...';
+
+            try {
+                const response = await fetch(`/api/videos/${videoId}/prioritize`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (!data.success) {
+                    statusEl.innerHTML = '<span>Failed to prioritize</span>';
+                    statusEl.className = 'text-red-600 text-sm italic';
+                }
+            } catch (error) {
+                statusEl.innerHTML = '<span>Failed to prioritize</span>';
+                statusEl.className = 'text-red-600 text-sm italic';
+            }
+        }
 
         async function markComplete(videoId, sentiment) {
             try {

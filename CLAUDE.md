@@ -36,6 +36,10 @@ Open http://localhost:8000 in your browser.
 1. **YouTube Data API v3** - Get from Google Cloud Console
 2. **Anthropic API** - Get from console.anthropic.com
 
+## Workflow
+
+- When committing a new feature, always update `ROADMAP.md` in the same commit: move the item to **Completed** (or remove from **Next**) and add a dated entry to the Completed table.
+
 ## Key Endpoints
 
 - `GET /` - Main digest page

@@ -275,7 +275,7 @@ async def get_summary(video_id: str) -> Optional[Summary]:
 async def update_transcript_status(video_id: str, status: str) -> None:
     """Update the transcript fetch status for a video.
 
-    Status values: 'pending', 'fetched', 'failed', 'unavailable'
+    Status values: 'pending', 'fetched', 'failed', 'unavailable', 'priority'
     """
     async with aiosqlite.connect(DATABASE_PATH) as db:
         await db.execute(
@@ -295,8 +295,9 @@ async def get_videos_without_transcripts(days: int, limit: int = 1) -> list[Vide
             """
             SELECT v.* FROM videos v
             WHERE v.published_at >= ?
-            AND (v.transcript_status IS NULL OR v.transcript_status = 'pending')
-            ORDER BY v.published_at DESC
+            AND (v.transcript_status IS NULL OR v.transcript_status = 'pending' OR v.transcript_status = 'priority')
+            ORDER BY CASE WHEN v.transcript_status = 'priority' THEN 0 ELSE 1 END,
+                     v.published_at DESC
             LIMIT ?
             """,
             (cutoff.isoformat(), limit),

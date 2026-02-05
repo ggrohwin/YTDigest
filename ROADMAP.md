@@ -20,7 +20,6 @@ _Empty - ready for next task_
 | Chat with transcript | Ask questions about a video while watching; send transcript + question to Claude | Medium |
 | Retry failed transcripts | Button or automatic retry for rate-limited videos after cooldown | Quick |
 | Skip completed videos in transcript queue | Exclude `is_completed` videos from background transcript fetching to reduce API calls | Quick |
-| Prioritize transcript fetch | Button to bump a video to the front of the transcript queue so it gets fetched next | Quick |
 
 ### Later
 | Item | Description | Effort |
@@ -85,6 +84,7 @@ _Empty - ready for next task_
 ## Completed
 | Item | Date | Notes |
 |------|------|-------|
+| Prioritize transcript fetch | 2026-02-04 | Button to bump a video to the front of the transcript queue |
 | Truncate summaries in cards | 2026-02-04 19:59:04 | Show first ~3 lines with show more/less toggle |
 | Refine AI categories | 2026-02-04 19:29:29 | Category hierarchy for topic sidebar (LLMs, MLOps, etc.) |
 | Navigation sidebar | 2026-02-04 19:29:29 | Sidebar with links to groupings, scroll spy, collapsible months/categories |
