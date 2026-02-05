@@ -48,6 +48,10 @@
             color: #2563eb;
             font-weight: 600;
         }
+        .summary-expanded {
+            -webkit-line-clamp: unset !important;
+            display: block !important;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -253,7 +257,10 @@
                                     <!-- Summary -->
                                     {% if item.summary %}
                                     <div class="text-gray-600 text-sm leading-relaxed">
-                                        {{ item.summary.summary }}
+                                        <div class="summary-text line-clamp-3">
+                                            {{ item.summary.summary }}
+                                        </div>
+                                        <button onclick="toggleSummary(this)" class="text-blue-600 hover:text-blue-800 text-xs mt-1">show more</button>
                                     </div>
                                     {% elif item.transcript %}
                                     <div class="text-gray-500 text-sm italic">
@@ -448,6 +455,12 @@
             });
 
             groups.forEach(group => observer.observe(group));
+        }
+
+        function toggleSummary(button) {
+            const summaryText = button.previousElementSibling;
+            summaryText.classList.toggle('summary-expanded');
+            button.textContent = summaryText.classList.contains('summary-expanded') ? 'show less' : 'show more';
         }
 
         // Initialize scroll spy on page load
