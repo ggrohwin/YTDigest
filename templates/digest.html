@@ -46,18 +46,38 @@
             </div>
         </header>
 
+        <!-- Startup status banner -->
+        {% if startup_status %}
+        <div class="mb-6 p-4 rounded-lg flex justify-between items-center bg-green-100 text-green-800">
+            <span>
+                Fetched {{ startup_status.videos_fetched }} videos, generated {{ startup_status.summaries_generated }} summaries
+                {% if startup_status.transcripts_pending > 0 %}
+                ({{ startup_status.transcripts_pending }} transcripts pending in background)
+                {% endif %}
+            </span>
+            <button onclick="this.parentElement.remove()" class="ml-4 font-bold hover:opacity-70">&times;</button>
+        </div>
+        {% endif %}
+
         <!-- Status message -->
         <div id="statusMessage" class="hidden mb-6 p-4 rounded-lg flex justify-between items-center">
             <span id="statusText"></span>
             <button onclick="closeStatus()" class="ml-4 font-bold hover:opacity-70">&times;</button>
         </div>
 
-        <!-- Grouping selector -->
-        <div class="mb-6 flex items-center gap-2">
-            <span class="text-gray-600 text-sm">Group by:</span>
-            <a href="?group_by=date" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'date' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Date</a>
-            <a href="?group_by=channel" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'channel' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Channel</a>
-            <a href="?group_by=topic" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'topic' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Topic</a>
+        <!-- Grouping selector and filters -->
+        <div class="mb-6 flex items-center justify-between flex-wrap gap-2">
+            <div class="flex items-center gap-2">
+                <span class="text-gray-600 text-sm">Group by:</span>
+                <a href="?group_by=date{{ '&show_completed=true' if show_completed else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'date' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Date</a>
+                <a href="?group_by=channel{{ '&show_completed=true' if show_completed else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'channel' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Channel</a>
+                <a href="?group_by=topic{{ '&show_completed=true' if show_completed else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'topic' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Topic</a>
+            </div>
+            <div class="flex items-center gap-2">
+                <a href="?group_by={{ group_by }}{{ '&show_completed=true' if not show_completed else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-green-600 text-white' if show_completed else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">
+                    {{ 'Showing Completed' if show_completed else 'Show Completed' }}
+                </a>
+            </div>
         </div>
 
         <!-- Videos list -->
@@ -151,6 +171,27 @@
                                 Transcript pending...
                             </div>
                             {% endif %}
+
+                            <!-- Completion buttons -->
+                            {% if not item.video.is_completed %}
+                            <div class="mt-4 pt-3 border-t border-gray-100 flex items-center gap-1">
+                                <span class="text-gray-400 text-xs mr-2">Mark as done:</span>
+                                <button onclick="markComplete('{{ item.video.id }}', 'like')" class="p-2 hover:bg-green-100 rounded transition-colors" title="Like">
+                                    👍
+                                </button>
+                                <button onclick="markComplete('{{ item.video.id }}', 'neutral')" class="p-2 hover:bg-gray-100 rounded transition-colors" title="Neutral">
+                                    😐
+                                </button>
+                                <button onclick="markComplete('{{ item.video.id }}', 'dislike')" class="p-2 hover:bg-red-100 rounded transition-colors" title="Dislike">
+                                    👎
+                                </button>
+                            </div>
+                            {% else %}
+                            <div class="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2 text-gray-400 text-sm">
+                                <span>Completed</span>
+                                {% if item.video.sentiment == 'like' %}👍{% elif item.video.sentiment == 'neutral' %}😐{% elif item.video.sentiment == 'dislike' %}👎{% endif %}
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                 </article>
@@ -230,6 +271,27 @@
             } else {
                 content.style.display = 'none';
                 arrow.textContent = '►';
+            }
+        }
+
+        async function markComplete(videoId, sentiment) {
+            try {
+                const response = await fetch(`/api/videos/${videoId}/complete?sentiment=${sentiment}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    // Remove the video card from the page
+                    const card = document.querySelector(`button[onclick*="${videoId}"]`).closest('article');
+                    card.style.transition = 'opacity 0.3s';
+                    card.style.opacity = '0';
+                    setTimeout(() => card.remove(), 300);
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
             }
         }
     </script>

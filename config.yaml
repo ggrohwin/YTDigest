@@ -23,10 +23,16 @@ channels:
     name: "Pooja Dutt"
   - id: "UCcIXc5mJsHVYTZR1maL5l9w"
     name: "DeepLearningAI"
+  - id: "UC1EbMMyEyliGYvDNYmdRbRw"
+    name: "Eric Before"
+  - id: "UC1E1SVcVyU3ntWMSQEp38Yw"
+    name: "Pivot with Kara Swisher"
+  - id: "UC8ENHE5xdFSwx71u3fDH5Xw"
+    name: "The PrimeTime"
 
 digest:
   max_videos_per_channel: 5
   max_age_days: 14
-  transcript_fetch_interval: 900  # seconds between background fetches
+  transcript_fetch_interval: 900  # seconds between background transcript fetches
   transcript_batch_size: 1        # transcripts to fetch per cycle
   video_refresh_interval: 3600    # seconds between video metadata refreshes (1 hour)

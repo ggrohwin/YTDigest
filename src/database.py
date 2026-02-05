@@ -41,6 +41,20 @@ async def init_db() -> None:
         except Exception:
             pass  # Column already exists
 
+        # Migration: add completion tracking columns
+        try:
+            await db.execute("ALTER TABLE videos ADD COLUMN is_completed INTEGER DEFAULT 0")
+        except Exception:
+            pass
+        try:
+            await db.execute("ALTER TABLE videos ADD COLUMN sentiment TEXT")  # like, neutral, dislike
+        except Exception:
+            pass
+        try:
+            await db.execute("ALTER TABLE videos ADD COLUMN completed_at TEXT")
+        except Exception:
+            pass
+
         await db.execute("""
             CREATE TABLE IF NOT EXISTS transcripts (
                 video_id TEXT PRIMARY KEY,
@@ -60,30 +74,80 @@ async def init_db() -> None:
             )
         """)
 
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        """)
+
+        # Migration: add first_seen_at column
+        try:
+            await db.execute(
+                "ALTER TABLE videos ADD COLUMN first_seen_at TEXT"
+            )
+        except Exception:
+            pass
+
         await db.commit()
 
 
-async def save_video(video: Video) -> None:
-    """Save a video to the database."""
+async def save_video(video: Video) -> bool:
+    """Save a video to the database. Returns True if the video was new."""
     async with aiosqlite.connect(DATABASE_PATH) as db:
-        await db.execute(
-            """
-            INSERT OR REPLACE INTO videos
-            (id, channel_id, channel_name, title, published_at, thumbnail_url, video_url, duration)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                video.id,
-                video.channel_id,
-                video.channel_name,
-                video.title,
-                video.published_at.isoformat(),
-                video.thumbnail_url,
-                video.video_url,
-                video.duration,
-            ),
-        )
+        # Check if video already exists
+        cursor = await db.execute("SELECT id FROM videos WHERE id = ?", (video.id,))
+        exists = await cursor.fetchone()
+
+        if exists:
+            # Update metadata only, preserve status fields
+            await db.execute(
+                """
+                UPDATE videos SET title = ?, thumbnail_url = ?, duration = ?
+                WHERE id = ?
+                """,
+                (video.title, video.thumbnail_url, video.duration, video.id),
+            )
+        else:
+            await db.execute(
+                """
+                INSERT INTO videos
+                (id, channel_id, channel_name, title, published_at, thumbnail_url, video_url, duration, first_seen_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    video.id,
+                    video.channel_id,
+                    video.channel_name,
+                    video.title,
+                    video.published_at.isoformat(),
+                    video.thumbnail_url,
+                    video.video_url,
+                    video.duration,
+                    datetime.now(timezone.utc).isoformat(),
+                ),
+            )
+
         await db.commit()
+        return not exists
+
+
+def _video_from_row(row) -> Video:
+    """Helper to create a Video from a database row."""
+    return Video(
+        id=row["id"],
+        channel_id=row["channel_id"],
+        channel_name=row["channel_name"],
+        title=row["title"],
+        published_at=datetime.fromisoformat(row["published_at"]),
+        thumbnail_url=row["thumbnail_url"],
+        video_url=row["video_url"],
+        duration=row["duration"],
+        transcript_status=row["transcript_status"],
+        is_completed=bool(row["is_completed"]),
+        sentiment=row["sentiment"],
+        completed_at=datetime.fromisoformat(row["completed_at"]) if row["completed_at"] else None,
+    )
 
 
 async def get_video(video_id: str) -> Optional[Video]:
@@ -95,45 +159,39 @@ async def get_video(video_id: str) -> Optional[Video]:
         ) as cursor:
             row = await cursor.fetchone()
             if row:
-                return Video(
-                    id=row["id"],
-                    channel_id=row["channel_id"],
-                    channel_name=row["channel_name"],
-                    title=row["title"],
-                    published_at=datetime.fromisoformat(row["published_at"]),
-                    thumbnail_url=row["thumbnail_url"],
-                    video_url=row["video_url"],
-                    duration=row["duration"],
-                    transcript_status=row["transcript_status"],
-                )
+                return _video_from_row(row)
     return None
 
 
-async def get_videos_since(days: int) -> list[Video]:
+async def get_videos_since(days: int, include_completed: bool = False) -> list[Video]:
     """Get all videos published within the specified number of days."""
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
     async with aiosqlite.connect(DATABASE_PATH) as db:
         db.row_factory = aiosqlite.Row
-        async with db.execute(
-            "SELECT * FROM videos WHERE published_at >= ? ORDER BY published_at DESC",
-            (cutoff.isoformat(),),
-        ) as cursor:
+        if include_completed:
+            query = "SELECT * FROM videos WHERE published_at >= ? ORDER BY published_at DESC"
+            params = (cutoff.isoformat(),)
+        else:
+            query = "SELECT * FROM videos WHERE published_at >= ? AND (is_completed = 0 OR is_completed IS NULL) ORDER BY published_at DESC"
+            params = (cutoff.isoformat(),)
+        async with db.execute(query, params) as cursor:
             rows = await cursor.fetchall()
-            return [
-                Video(
-                    id=row["id"],
-                    channel_id=row["channel_id"],
-                    channel_name=row["channel_name"],
-                    title=row["title"],
-                    published_at=datetime.fromisoformat(row["published_at"]),
-                    thumbnail_url=row["thumbnail_url"],
-                    video_url=row["video_url"],
-                    duration=row["duration"],
-                    transcript_status=row["transcript_status"],
-                )
-                for row in rows
-            ]
+            return [_video_from_row(row) for row in rows]
+
+
+async def mark_video_completed(video_id: str, sentiment: str) -> None:
+    """Mark a video as completed with the given sentiment (like, neutral, dislike)."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """
+            UPDATE videos
+            SET is_completed = 1, sentiment = ?, completed_at = ?
+            WHERE id = ?
+            """,
+            (sentiment, datetime.now(timezone.utc).isoformat(), video_id),
+        )
+        await db.commit()
 
 
 async def save_transcript(transcript: Transcript) -> None:
@@ -236,20 +294,7 @@ async def get_videos_without_transcripts(days: int, limit: int = 1) -> list[Vide
             (cutoff.isoformat(), limit),
         ) as cursor:
             rows = await cursor.fetchall()
-            return [
-                Video(
-                    id=row["id"],
-                    channel_id=row["channel_id"],
-                    channel_name=row["channel_name"],
-                    title=row["title"],
-                    published_at=datetime.fromisoformat(row["published_at"]),
-                    thumbnail_url=row["thumbnail_url"],
-                    video_url=row["video_url"],
-                    duration=row["duration"],
-                    transcript_status=row["transcript_status"],
-                )
-                for row in rows
-            ]
+            return [_video_from_row(row) for row in rows]
 
 
 async def get_videos_with_transcripts_without_summaries(days: int) -> list[Video]:
@@ -269,17 +314,35 @@ async def get_videos_with_transcripts_without_summaries(days: int) -> list[Video
             (cutoff.isoformat(),),
         ) as cursor:
             rows = await cursor.fetchall()
-            return [
-                Video(
-                    id=row["id"],
-                    channel_id=row["channel_id"],
-                    channel_name=row["channel_name"],
-                    title=row["title"],
-                    published_at=datetime.fromisoformat(row["published_at"]),
-                    thumbnail_url=row["thumbnail_url"],
-                    video_url=row["video_url"],
-                    duration=row["duration"],
-                    transcript_status=row["transcript_status"],
-                )
-                for row in rows
-            ]
+            return [_video_from_row(row) for row in rows]
+
+
+async def get_setting(key: str) -> Optional[str]:
+    """Get a setting value by key."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT value FROM settings WHERE key = ?", (key,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else None
+
+
+async def set_setting(key: str, value: str) -> None:
+    """Set a setting value."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+            (key, value),
+        )
+        await db.commit()
+
+
+async def count_new_videos_since(since: str) -> int:
+    """Count videos first seen after the given ISO timestamp."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT COUNT(*) FROM videos WHERE first_seen_at > ?",
+            (since,),
+        ) as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else 0

@@ -32,6 +32,7 @@ from .database import (
     get_videos_without_transcripts,
     get_videos_with_transcripts_without_summaries,
     update_transcript_status,
+    mark_video_completed,
 )
 from collections import defaultdict
 from .models import AppConfig, VideoWithDetails
@@ -67,6 +68,7 @@ templates.env.filters["format_duration"] = format_duration
 
 app_config: AppConfig | None = None
 background_tasks: list[asyncio.Task] = []
+startup_status: dict | None = None  # Shown once on first page load after startup
 
 
 def load_config() -> AppConfig:
@@ -158,9 +160,13 @@ async def refresh_video_metadata() -> tuple[int, int]:
             max_results=app_config.digest.max_videos_per_channel,
             published_after=published_after
         )
+        new_count = 0
         for video in videos:
-            await save_video(video)
-            total_videos += 1
+            is_new = await save_video(video)
+            if is_new:
+                total_videos += 1
+                new_count += 1
+        logger.info(f"  {channel.name}: {len(videos)} videos from API, {new_count} new")
 
     # Generate summaries for videos that have transcripts but no summaries
     videos_needing_summaries = await get_videos_with_transcripts_without_summaries(
@@ -210,10 +216,25 @@ async def background_video_fetcher():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize app on startup."""
-    global app_config, background_tasks
+    global app_config, background_tasks, startup_status
     await init_db()
     app_config = load_config()
     logger.info(f"Loaded {len(app_config.channels)} channels from config")
+
+    # Fetch latest videos on startup
+    logger.info("Fetching videos on startup...")
+    videos_fetched, summaries_generated = await refresh_video_metadata()
+    logger.info(f"Startup: fetched {videos_fetched} new videos, generated {summaries_generated} summaries")
+
+    # Store results for display on first page load
+    pending_transcripts = await get_videos_without_transcripts(
+        days=app_config.digest.max_age_days, limit=100
+    )
+    startup_status = {
+        "videos_fetched": videos_fetched,
+        "summaries_generated": summaries_generated,
+        "transcripts_pending": len(pending_transcripts),
+    }
 
     # Start background tasks
     background_tasks = [
@@ -236,9 +257,15 @@ app = FastAPI(title="YTDigest", lifespan=lifespan)
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request, group_by: str = "date"):
+async def index(request: Request, group_by: str = "date", show_completed: bool = False):
     """Render the main digest page."""
-    videos = await get_videos_with_details()
+    global startup_status
+
+    # Capture and clear startup status on first page load
+    status = startup_status
+    startup_status = None
+
+    videos = await get_videos_with_details(include_completed=show_completed)
     grouped = group_videos(videos, group_by)
     return templates.TemplateResponse(
         "digest.html",
@@ -246,6 +273,8 @@ async def index(request: Request, group_by: str = "date"):
             "request": request,
             "grouped_videos": grouped,
             "group_by": group_by,
+            "show_completed": show_completed,
+            "startup_status": status,
             "channels": app_config.channels if app_config else [],
         }
     )
@@ -310,12 +339,33 @@ async def api_refresh():
         )
 
 
-async def get_videos_with_details() -> list[VideoWithDetails]:
+@app.post("/api/videos/{video_id}/complete")
+async def api_complete_video(video_id: str, sentiment: str):
+    """Mark a video as completed with the given sentiment (like, neutral, dislike)."""
+    if sentiment not in ("like", "neutral", "dislike"):
+        return JSONResponse(
+            content={"error": "Invalid sentiment. Must be: like, neutral, dislike"},
+            status_code=400
+        )
+
+    try:
+        await mark_video_completed(video_id, sentiment)
+        return JSONResponse(content={"success": True})
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error marking video complete: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500
+        )
+
+
+async def get_videos_with_details(include_completed: bool = False) -> list[VideoWithDetails]:
     """Get all recent videos with their transcripts and summaries."""
     if not app_config:
         return []
 
-    videos = await get_videos_since(app_config.digest.max_age_days)
+    videos = await get_videos_since(app_config.digest.max_age_days, include_completed=include_completed)
 
     result = []
     for video in videos:

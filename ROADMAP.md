@@ -24,7 +24,7 @@ _Empty - ready for next task_
 | Item | Description | Effort |
 |------|-------------|--------|
 | Filter/sort videos | Filter by channel, date, has-summary; sort options | Medium |
-| Mark as read/interested | Track which videos you've watched or want to watch | Medium |
+| ~~Mark as read/interested~~ | ~~Track which videos you've watched or want to watch~~ | ~~Medium~~ |
 | Search across transcripts | Keyword search across all saved transcripts | Medium |
 | Semantic search | Embed transcripts, query by meaning ("what did anyone say about fine-tuning?") | Large |
 
@@ -83,6 +83,8 @@ _Empty - ready for next task_
 ## Completed
 | Item | Date | Notes |
 |------|------|-------|
+| Video completion with sentiment | 2026-02-04 17:42:21 | Mark videos done with like/neutral/dislike; show/hide completed |
+| Startup fetch status banner | 2026-02-04 17:42:21 | Show fetch results on first page load after server start |
 | Group videos | 2026-02-03 13:43:44 | Group by date, channel, or topic with collapsible sections |
 | Distinguish unavailable vs failed transcripts | 2026-02-03 13:05:52 | Different UI messages based on failure type |
 | Automatic video refresh | 2026-02-03 12:48:34 | Hourly background refresh + dismissable status message |
