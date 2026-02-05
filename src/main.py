@@ -342,6 +342,19 @@ async def index(request: Request, group_by: str = "date", show_completed: bool =
     grouped = group_videos(videos, group_by)
     month_groups = build_month_hierarchy(grouped) if group_by == "date" else None
     category_groups = build_category_hierarchy(grouped, videos) if group_by == "topic" else None
+
+    # Compute live summary counts from already-loaded videos
+    total = len(videos)
+    with_summary = sum(1 for v in videos if v.summary)
+    pending = sum(1 for v in videos if v.video.transcript_status in (None, "pending", "priority"))
+    failed = sum(1 for v in videos if v.video.transcript_status == "failed")
+    page_summary = {
+        "total": total,
+        "with_summary": with_summary,
+        "pending": pending,
+        "failed": failed,
+    }
+
     return templates.TemplateResponse(
         "digest.html",
         {
@@ -350,6 +363,7 @@ async def index(request: Request, group_by: str = "date", show_completed: bool =
             "group_by": group_by,
             "show_completed": show_completed,
             "startup_status": status,
+            "page_summary": page_summary,
             "channels": app_config.channels if app_config else [],
             "month_groups": month_groups,
             "category_groups": category_groups,

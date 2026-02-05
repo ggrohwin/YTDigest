@@ -87,6 +87,23 @@
         </div>
         {% endif %}
 
+        <!-- Page summary -->
+        {% if page_summary and page_summary.total > 0 %}
+        <div class="mb-6 px-4 py-2 rounded-lg bg-gray-200 text-gray-600 text-sm flex items-center gap-4">
+            <span>{{ page_summary.total }} videos</span>
+            <span>&bull;</span>
+            <span>{{ page_summary.with_summary }} summarized</span>
+            {% if page_summary.pending > 0 %}
+            <span>&bull;</span>
+            <span class="text-amber-700">{{ page_summary.pending }} transcripts pending</span>
+            {% endif %}
+            {% if page_summary.failed > 0 %}
+            <span>&bull;</span>
+            <span class="text-red-700">{{ page_summary.failed }} failed</span>
+            {% endif %}
+        </div>
+        {% endif %}
+
         <!-- Status message -->
         <div id="statusMessage" class="hidden mb-6 p-4 rounded-lg flex justify-between items-center">
             <span id="statusText"></span>
