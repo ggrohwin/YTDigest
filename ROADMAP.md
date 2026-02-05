@@ -17,8 +17,12 @@ _Empty - ready for next task_
 ### Next
 | Item | Description | Effort |
 |------|-------------|--------|
+| Refine AI categories | Break up "AI & Machine Learning" into more specific subcategories (e.g., LLMs, Computer Vision, MLOps, AI News, etc.) | Quick |
+| Truncate summaries in cards | Show first few lines of summary with "show more" link to expand; keeps card heights consistent | Quick |
+| Navigation sidebar | Sidebar with links to current groupings (dates, channels, topics) for quick navigation | Medium |
 | Chat with transcript | Ask questions about a video while watching; send transcript + question to Claude | Medium |
 | Retry failed transcripts | Button or automatic retry for rate-limited videos after cooldown | Quick |
+| Skip completed videos in transcript queue | Exclude `is_completed` videos from background transcript fetching to reduce API calls | Quick |
 
 ### Later
 | Item | Description | Effort |

@@ -6,7 +6,7 @@ from typing import Optional
 
 import anthropic
 
-from .models import Summary
+from .models import CATEGORIES, Summary
 
 logger = logging.getLogger("ytdigest")
 
@@ -40,6 +40,7 @@ def summarize_video(
 
     client = get_anthropic_client()
 
+    categories_str = json.dumps(CATEGORIES)
     prompt = f"""You are analyzing a YouTube video to help someone decide if it's worth watching.
 
 Video Title: {title}
@@ -51,11 +52,13 @@ Transcript:
 Please provide:
 1. A concise summary (2-3 paragraphs) that captures the key points and main takeaways
 2. A list of 3-5 topic tags that describe what the video covers
+3. A single category from this predefined list that best fits the video: {categories_str}
 
 Format your response as JSON with this structure:
 {{
     "summary": "Your summary here...",
-    "topics": ["topic1", "topic2", "topic3"]
+    "topics": ["topic1", "topic2", "topic3"],
+    "category": "one of the predefined categories"
 }}
 
 Focus on:
@@ -86,10 +89,15 @@ Be concise but informative. Help the reader quickly understand if this video is 
 
         result = json.loads(response_text.strip())
 
+        category = result.get("category")
+        if category not in CATEGORIES:
+            category = "Other"
+
         return Summary(
             video_id=video_id,
             summary=result["summary"],
             topics=result.get("topics", []),
+            category=category,
             generated_at=datetime.now(timezone.utc)
         )
 
@@ -100,6 +108,7 @@ Be concise but informative. Help the reader quickly understand if this video is 
             video_id=video_id,
             summary=response_text,
             topics=[],
+            category=None,
             generated_at=datetime.now(timezone.utc)
         )
     except anthropic.APIError as e:
@@ -108,3 +117,39 @@ Be concise but informative. Help the reader quickly understand if this video is 
     except Exception as e:
         logger.error(f"Error summarizing video {video_id}: {e}")
         return None
+
+
+def classify_existing_summary(
+    summary_text: str, topics: list[str]
+) -> Optional[str]:
+    """Classify an existing summary into a category using a lightweight LLM call.
+
+    Used for backfilling categories on summaries that were generated before
+    the category field was added.
+    """
+    categories_str = json.dumps(CATEGORIES)
+    topics_str = ", ".join(topics) if topics else "none"
+
+    prompt = f"""Given this video summary and topics, pick the single best category from this list: {categories_str}
+
+Summary: {summary_text[:500]}
+Topics: {topics_str}
+
+Reply with ONLY the category name, nothing else."""
+
+    try:
+        client = get_anthropic_client()
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=50,
+            messages=[{"role": "user", "content": prompt}],
+        )
+
+        category = response.content[0].text.strip()
+        if category in CATEGORIES:
+            return category
+        return "Other"
+
+    except Exception as e:
+        logger.error(f"Error classifying summary: {e}")
+        return "Other"

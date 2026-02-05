@@ -6,6 +6,9 @@
     <title>YTDigest - Your Daily YouTube Digest</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        html {
+            scroll-behavior: smooth;
+        }
         .loading {
             opacity: 0.6;
             pointer-events: none;
@@ -24,10 +27,31 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .group-container {
+            scroll-margin-top: 1rem;
+        }
+        #sidebar {
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 transparent;
+        }
+        #sidebar::-webkit-scrollbar {
+            width: 4px;
+        }
+        #sidebar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        #sidebar::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 2px;
+        }
+        #sidebar a.active {
+            color: #2563eb;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
-    <div class="container mx-auto px-4 py-8 max-w-4xl">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
         <!-- Header -->
         <header class="mb-8">
             <div class="flex justify-between items-center">
@@ -80,131 +104,210 @@
             </div>
         </div>
 
-        <!-- Videos list -->
-        <div id="videosList" class="space-y-6">
-            {% if grouped_videos %}
-                {% for group_name, items in grouped_videos %}
-                <div class="group-container">
-                    <!-- Group header (collapsible) -->
-                    <button
-                        onclick="toggleGroup(this)"
-                        class="w-full flex items-center justify-between bg-gray-200 hover:bg-gray-300 px-4 py-3 rounded-lg mb-3 transition-colors"
-                    >
-                        <span class="font-semibold text-gray-700">
-                            <span class="group-arrow">▼</span>
-                            {{ group_name }}
-                            <span class="text-gray-500 font-normal">({{ items|length }} video{{ 's' if items|length != 1 else '' }})</span>
-                        </span>
-                    </button>
-
-                    <!-- Group content -->
-                    <div class="group-content space-y-4 ml-2">
-                {% for item in items %}
-                <article class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-                    <div class="md:flex">
-                        <!-- Thumbnail -->
-                        <div class="md:w-64 flex-shrink-0">
-                            <a href="{{ item.video.video_url }}" target="_blank" rel="noopener">
-                                <img
-                                    src="{{ item.video.thumbnail_url }}"
-                                    alt="{{ item.video.title }}"
-                                    class="w-full h-48 md:h-full object-cover"
+        <!-- Main content with sidebar -->
+        <div class="flex gap-6">
+            <!-- Sidebar -->
+            <nav id="sidebar" class="hidden lg:block w-56 flex-shrink-0 sticky top-4 self-start max-h-[calc(100vh-2rem)] overflow-y-auto">
+                <div class="bg-white rounded-lg shadow-md p-4">
+                    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Navigation</h3>
+                    {% if grouped_videos %}
+                        {% if group_by == 'date' and month_groups %}
+                            {# Date grouping: collapsible month/year hierarchy #}
+                            {% for month_label, dates in month_groups %}
+                            <div class="sidebar-month mb-2">
+                                <button
+                                    onclick="toggleSidebarMonth(this)"
+                                    class="w-full flex items-center justify-between text-left text-sm font-medium text-gray-700 hover:text-blue-600 py-1"
                                 >
-                            </a>
-                        </div>
-
-                        <!-- Content -->
-                        <div class="p-4 flex-1">
-                            <!-- Title -->
-                            <h2 class="text-xl font-semibold mb-2">
-                                <a
-                                    href="{{ item.video.video_url }}"
-                                    target="_blank"
-                                    rel="noopener"
-                                    class="text-gray-800 hover:text-blue-600 transition-colors"
-                                >
-                                    {{ item.video.title }}
-                                </a>
-                            </h2>
-
-                            <!-- Meta -->
-                            <div class="flex items-center text-sm text-gray-500 mb-3">
-                                <span class="font-medium text-gray-700">{{ item.video.channel_name }}</span>
-                                <span class="mx-2">&bull;</span>
-                                <span>{{ item.video.published_at.strftime('%B %d, %Y') }}</span>
-                                {% if item.video.duration %}
-                                <span class="mx-2">&bull;</span>
-                                <span>{{ item.video.duration | format_duration }}</span>
-                                {% endif %}
+                                    <span>{{ month_label }}</span>
+                                    <span class="sidebar-month-arrow text-xs text-gray-400">{{ '▼' if loop.first else '►' }}</span>
+                                </button>
+                                <div class="sidebar-month-content pl-3 mt-1 border-l-2 border-gray-100 space-y-1" {% if not loop.first %}style="display:none"{% endif %}>
+                                    {% for date_label, count in dates %}
+                                    <a
+                                        href="#group-{{ date_label | slugify }}"
+                                        onclick="scrollToGroup('{{ date_label | slugify }}'); return false;"
+                                        class="sidebar-link block text-sm text-gray-600 hover:text-blue-600 py-0.5 truncate"
+                                        data-group="{{ date_label | slugify }}"
+                                    >
+                                        {{ date_label }} <span class="text-gray-400 text-xs">({{ count }})</span>
+                                    </a>
+                                    {% endfor %}
+                                </div>
                             </div>
-
-                            <!-- Topics -->
-                            {% if item.summary and item.summary.topics %}
-                            <div class="flex flex-wrap gap-2 mb-3">
-                                {% for topic in item.summary.topics %}
-                                <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                                    {{ topic }}
-                                </span>
+                            {% endfor %}
+                        {% elif group_by == 'topic' and category_groups %}
+                            {# Topic grouping: collapsible category hierarchy #}
+                            {% for category_label, topics in category_groups %}
+                            <div class="sidebar-month mb-2">
+                                <button
+                                    onclick="toggleSidebarMonth(this)"
+                                    class="w-full flex items-center justify-between text-left text-sm font-medium text-gray-700 hover:text-blue-600 py-1"
+                                >
+                                    <span>{{ category_label }}</span>
+                                    <span class="sidebar-month-arrow text-xs text-gray-400">{{ '▼' if loop.first else '►' }}</span>
+                                </button>
+                                <div class="sidebar-month-content pl-3 mt-1 border-l-2 border-gray-100 space-y-1" {% if not loop.first %}style="display:none"{% endif %}>
+                                    {% for topic_label, count in topics %}
+                                    <a
+                                        href="#group-{{ topic_label | slugify }}"
+                                        onclick="scrollToGroup('{{ topic_label | slugify }}'); return false;"
+                                        class="sidebar-link block text-sm text-gray-600 hover:text-blue-600 py-0.5 truncate"
+                                        data-group="{{ topic_label | slugify }}"
+                                    >
+                                        {{ topic_label }} <span class="text-gray-400 text-xs">({{ count }})</span>
+                                    </a>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            {# Channel grouping or fallback: flat list #}
+                            <div class="space-y-1">
+                                {% for group_name, items in grouped_videos %}
+                                <a
+                                    href="#group-{{ group_name | slugify }}"
+                                    onclick="scrollToGroup('{{ group_name | slugify }}'); return false;"
+                                    class="sidebar-link block text-sm text-gray-600 hover:text-blue-600 py-0.5 truncate"
+                                    data-group="{{ group_name | slugify }}"
+                                >
+                                    {{ group_name }} <span class="text-gray-400 text-xs">({{ items|length }})</span>
+                                </a>
                                 {% endfor %}
                             </div>
-                            {% endif %}
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </nav>
 
-                            <!-- Summary -->
-                            {% if item.summary %}
-                            <div class="text-gray-600 text-sm leading-relaxed">
-                                {{ item.summary.summary }}
-                            </div>
-                            {% elif item.transcript %}
-                            <div class="text-gray-500 text-sm italic">
-                                Transcript available, summary pending...
-                            </div>
-                            {% elif item.video.transcript_status == 'unavailable' %}
-                            <div class="text-gray-400 text-sm italic">
-                                No transcript available
-                            </div>
-                            {% elif item.video.transcript_status == 'failed' %}
-                            <div class="text-amber-600 text-sm italic">
-                                Transcript fetch failed (will retry)
-                            </div>
-                            {% else %}
-                            <div class="text-gray-400 text-sm italic">
-                                Transcript pending...
-                            </div>
-                            {% endif %}
+            <!-- Videos list -->
+            <main class="flex-1 min-w-0">
+                <div id="videosList" class="space-y-6">
+                    {% if grouped_videos %}
+                        {% for group_name, items in grouped_videos %}
+                        <div class="group-container" id="group-{{ group_name | slugify }}">
+                            <!-- Group header (collapsible) -->
+                            <button
+                                onclick="toggleGroup(this)"
+                                class="w-full flex items-center justify-between bg-gray-200 hover:bg-gray-300 px-4 py-3 rounded-lg mb-3 transition-colors"
+                            >
+                                <span class="font-semibold text-gray-700">
+                                    <span class="group-arrow">▼</span>
+                                    {{ group_name }}
+                                    <span class="text-gray-500 font-normal">({{ items|length }} video{{ 's' if items|length != 1 else '' }})</span>
+                                </span>
+                            </button>
 
-                            <!-- Completion buttons -->
-                            {% if not item.video.is_completed %}
-                            <div class="mt-4 pt-3 border-t border-gray-100 flex items-center gap-1">
-                                <span class="text-gray-400 text-xs mr-2">Mark as done:</span>
-                                <button onclick="markComplete('{{ item.video.id }}', 'like')" class="p-2 hover:bg-green-100 rounded transition-colors" title="Like">
-                                    👍
-                                </button>
-                                <button onclick="markComplete('{{ item.video.id }}', 'neutral')" class="p-2 hover:bg-gray-100 rounded transition-colors" title="Neutral">
-                                    😐
-                                </button>
-                                <button onclick="markComplete('{{ item.video.id }}', 'dislike')" class="p-2 hover:bg-red-100 rounded transition-colors" title="Dislike">
-                                    👎
-                                </button>
+                            <!-- Group content -->
+                            <div class="group-content space-y-4 ml-2">
+                        {% for item in items %}
+                        <article class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+                            <div class="md:flex">
+                                <!-- Thumbnail -->
+                                <div class="md:w-64 flex-shrink-0">
+                                    <a href="{{ item.video.video_url }}" target="_blank" rel="noopener">
+                                        <img
+                                            src="{{ item.video.thumbnail_url }}"
+                                            alt="{{ item.video.title }}"
+                                            class="w-full h-48 md:h-full object-cover"
+                                        >
+                                    </a>
+                                </div>
+
+                                <!-- Content -->
+                                <div class="p-4 flex-1">
+                                    <!-- Title -->
+                                    <h2 class="text-xl font-semibold mb-2">
+                                        <a
+                                            href="{{ item.video.video_url }}"
+                                            target="_blank"
+                                            rel="noopener"
+                                            class="text-gray-800 hover:text-blue-600 transition-colors"
+                                        >
+                                            {{ item.video.title }}
+                                        </a>
+                                    </h2>
+
+                                    <!-- Meta -->
+                                    <div class="flex items-center text-sm text-gray-500 mb-3">
+                                        <span class="font-medium text-gray-700">{{ item.video.channel_name }}</span>
+                                        <span class="mx-2">&bull;</span>
+                                        <span>{{ item.video.published_at.strftime('%B %d, %Y') }}</span>
+                                        {% if item.video.duration %}
+                                        <span class="mx-2">&bull;</span>
+                                        <span>{{ item.video.duration | format_duration }}</span>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Topics -->
+                                    {% if item.summary and item.summary.topics %}
+                                    <div class="flex flex-wrap gap-2 mb-3">
+                                        {% for topic in item.summary.topics %}
+                                        <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                                            {{ topic }}
+                                        </span>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+
+                                    <!-- Summary -->
+                                    {% if item.summary %}
+                                    <div class="text-gray-600 text-sm leading-relaxed">
+                                        {{ item.summary.summary }}
+                                    </div>
+                                    {% elif item.transcript %}
+                                    <div class="text-gray-500 text-sm italic">
+                                        Transcript available, summary pending...
+                                    </div>
+                                    {% elif item.video.transcript_status == 'unavailable' %}
+                                    <div class="text-gray-400 text-sm italic">
+                                        No transcript available
+                                    </div>
+                                    {% elif item.video.transcript_status == 'failed' %}
+                                    <div class="text-amber-600 text-sm italic">
+                                        Transcript fetch failed (will retry)
+                                    </div>
+                                    {% else %}
+                                    <div class="text-gray-400 text-sm italic">
+                                        Transcript pending...
+                                    </div>
+                                    {% endif %}
+
+                                    <!-- Completion buttons -->
+                                    {% if not item.video.is_completed %}
+                                    <div class="mt-4 pt-3 border-t border-gray-100 flex items-center gap-1">
+                                        <span class="text-gray-400 text-xs mr-2">Mark as done:</span>
+                                        <button onclick="markComplete('{{ item.video.id }}', 'like')" class="p-2 hover:bg-green-100 rounded transition-colors" title="Like">
+                                            👍
+                                        </button>
+                                        <button onclick="markComplete('{{ item.video.id }}', 'neutral')" class="p-2 hover:bg-gray-100 rounded transition-colors" title="Neutral">
+                                            😐
+                                        </button>
+                                        <button onclick="markComplete('{{ item.video.id }}', 'dislike')" class="p-2 hover:bg-red-100 rounded transition-colors" title="Dislike">
+                                            👎
+                                        </button>
+                                    </div>
+                                    {% else %}
+                                    <div class="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2 text-gray-400 text-sm">
+                                        <span>Completed</span>
+                                        {% if item.video.sentiment == 'like' %}👍{% elif item.video.sentiment == 'neutral' %}😐{% elif item.video.sentiment == 'dislike' %}👎{% endif %}
+                                    </div>
+                                    {% endif %}
+                                </div>
                             </div>
-                            {% else %}
-                            <div class="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2 text-gray-400 text-sm">
-                                <span>Completed</span>
-                                {% if item.video.sentiment == 'like' %}👍{% elif item.video.sentiment == 'neutral' %}😐{% elif item.video.sentiment == 'dislike' %}👎{% endif %}
+                        </article>
+                        {% endfor %}
                             </div>
-                            {% endif %}
                         </div>
-                    </div>
-                </article>
-                {% endfor %}
-                    </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="bg-white rounded-lg shadow-md p-8 text-center">
+                            <p class="text-gray-500 text-lg mb-4">No videos yet</p>
+                            <p class="text-gray-400">Click "Get New Videos" to fetch videos from your configured channels.</p>
+                        </div>
+                    {% endif %}
                 </div>
-                {% endfor %}
-            {% else %}
-                <div class="bg-white rounded-lg shadow-md p-8 text-center">
-                    <p class="text-gray-500 text-lg mb-4">No videos yet</p>
-                    <p class="text-gray-400">Click "Get New Videos" to fetch videos from your configured channels.</p>
-                </div>
-            {% endif %}
+            </main>
         </div>
 
         <!-- Footer -->
@@ -273,6 +376,82 @@
                 arrow.textContent = '►';
             }
         }
+
+        function scrollToGroup(slug) {
+            const el = document.getElementById('group-' + slug);
+            if (!el) return;
+
+            // If the group is collapsed, expand it
+            const content = el.querySelector('.group-content');
+            const arrow = el.querySelector('.group-arrow');
+            if (content && content.style.display === 'none') {
+                content.style.display = 'block';
+                if (arrow) arrow.textContent = '▼';
+            }
+
+            // Also expand the parent sidebar month section if it's collapsed
+            const sidebarLink = document.querySelector(`a.sidebar-link[data-group="${slug}"]`);
+            if (sidebarLink) {
+                const monthContent = sidebarLink.closest('.sidebar-month-content');
+                if (monthContent && monthContent.style.display === 'none') {
+                    monthContent.style.display = 'block';
+                    const monthBtn = monthContent.previousElementSibling;
+                    if (monthBtn) {
+                        const monthArrow = monthBtn.querySelector('.sidebar-month-arrow');
+                        if (monthArrow) monthArrow.textContent = '▼';
+                    }
+                }
+            }
+
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function toggleSidebarMonth(button) {
+            const content = button.nextElementSibling;
+            const arrow = button.querySelector('.sidebar-month-arrow');
+
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                arrow.textContent = '▼';
+            } else {
+                content.style.display = 'none';
+                arrow.textContent = '►';
+            }
+        }
+
+        function setupScrollSpy() {
+            const links = document.querySelectorAll('.sidebar-link');
+            if (links.length === 0) return;
+
+            const groups = document.querySelectorAll('.group-container');
+            if (groups.length === 0) return;
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const id = entry.target.id;
+                        const slug = id.replace('group-', '');
+
+                        // Remove active from all links
+                        links.forEach(link => link.classList.remove('active'));
+
+                        // Add active to matching link
+                        const activeLink = document.querySelector(`a.sidebar-link[data-group="${slug}"]`);
+                        if (activeLink) {
+                            activeLink.classList.add('active');
+                        }
+                    }
+                });
+            }, {
+                rootMargin: '-10% 0px -80% 0px',
+                threshold: 0
+            });
+
+            groups.forEach(group => observer.observe(group));
+        }
+
+        // Initialize scroll spy on page load
+        document.addEventListener('DOMContentLoaded', setupScrollSpy);
 
         async function markComplete(videoId, sentiment) {
             try {

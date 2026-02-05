@@ -33,17 +33,28 @@ from .database import (
     get_videos_with_transcripts_without_summaries,
     update_transcript_status,
     mark_video_completed,
+    get_summaries_without_category,
+    update_summary_category,
 )
-from collections import defaultdict
-from .models import AppConfig, VideoWithDetails
+from collections import defaultdict, Counter
+from .models import AppConfig, CATEGORIES, VideoWithDetails
 from .youtube import get_channel_uploads
 from .transcripts import fetch_transcript
-from .summarizer import summarize_video
+from .summarizer import summarize_video, classify_existing_summary
 
 load_dotenv()
 
 BASE_DIR = Path(__file__).parent.parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
+
+
+def slugify(value: str) -> str:
+    """Convert a string to a valid HTML id (lowercase, hyphens, no special chars)."""
+    value = value.lower().strip()
+    value = re.sub(r"[^\w\s-]", "", value)
+    value = re.sub(r"[\s_]+", "-", value)
+    value = re.sub(r"-+", "-", value)
+    return value.strip("-")
 
 
 def format_duration(iso_duration: str | None) -> str:
@@ -65,6 +76,68 @@ def format_duration(iso_duration: str | None) -> str:
 
 
 templates.env.filters["format_duration"] = format_duration
+templates.env.filters["slugify"] = slugify
+
+def build_month_hierarchy(
+    grouped_videos: list[tuple[str, list]],
+) -> list[tuple[str, list[tuple[str, int]]]]:
+    """Group date entries by month+year for the sidebar hierarchy.
+
+    Takes the output of group_videos when group_by == "date" and returns
+    a list of (month_label, [(date_label, video_count), ...]) tuples.
+    """
+    months: dict[str, list[tuple[str, int]]] = {}
+    for date_label, videos in grouped_videos:
+        # Parse the date label (e.g. "February 04, 2026") to extract month+year
+        try:
+            parsed = datetime.strptime(date_label, "%B %d, %Y")
+            month_label = parsed.strftime("%B %Y")
+        except ValueError:
+            month_label = "Other"
+        if month_label not in months:
+            months[month_label] = []
+        months[month_label].append((date_label, len(videos)))
+    return list(months.items())
+
+
+def build_category_hierarchy(
+    grouped_videos: list[tuple[str, list]],
+    all_videos: list,
+) -> list[tuple[str, list[tuple[str, int]]]]:
+    """Group topic entries by category for the sidebar hierarchy.
+
+    Determines each topic's category by majority vote of the categories
+    assigned to videos in that topic group. Returns a list of
+    (category_label, [(topic_label, video_count), ...]) tuples ordered
+    by the CATEGORIES list, with "Uncategorized" last.
+    """
+    # Build a lookup: video_id -> category
+    cat_lookup: dict[str, str] = {}
+    for v in all_videos:
+        if v.summary and v.summary.category:
+            cat_lookup[v.video.id] = v.summary.category
+
+    categories: dict[str, list[tuple[str, int]]] = {}
+    for topic_label, videos in grouped_videos:
+        # Determine category by majority vote
+        cats = [cat_lookup.get(v.video.id, "Uncategorized") for v in videos]
+        most_common = Counter(cats).most_common(1)
+        category = most_common[0][0] if most_common else "Uncategorized"
+        if category not in categories:
+            categories[category] = []
+        categories[category].append((topic_label, len(videos)))
+
+    # Order by CATEGORIES list, then "Uncategorized" last
+    ordered: list[tuple[str, list[tuple[str, int]]]] = []
+    for cat in CATEGORIES:
+        if cat in categories:
+            ordered.append((cat, categories.pop(cat)))
+    # Any remaining (e.g. "Uncategorized")
+    for cat in sorted(categories.keys()):
+        ordered.append((cat, categories[cat]))
+
+    return ordered
+
 
 app_config: AppConfig | None = None
 background_tasks: list[asyncio.Task] = []
@@ -267,6 +340,8 @@ async def index(request: Request, group_by: str = "date", show_completed: bool =
 
     videos = await get_videos_with_details(include_completed=show_completed)
     grouped = group_videos(videos, group_by)
+    month_groups = build_month_hierarchy(grouped) if group_by == "date" else None
+    category_groups = build_category_hierarchy(grouped, videos) if group_by == "topic" else None
     return templates.TemplateResponse(
         "digest.html",
         {
@@ -276,6 +351,8 @@ async def index(request: Request, group_by: str = "date", show_completed: bool =
             "show_completed": show_completed,
             "startup_status": status,
             "channels": app_config.channels if app_config else [],
+            "month_groups": month_groups,
+            "category_groups": category_groups,
         }
     )
 
@@ -357,6 +434,42 @@ async def api_complete_video(video_id: str, sentiment: str):
         return JSONResponse(
             content={"error": error_msg},
             status_code=500
+        )
+
+
+@app.post("/api/backfill-categories")
+async def api_backfill_categories():
+    """Classify existing summaries that don't have a category assigned."""
+    try:
+        video_ids = await get_summaries_without_category()
+        updated = 0
+        errors = 0
+
+        for video_id in video_ids:
+            summary = await get_summary(video_id)
+            if not summary:
+                errors += 1
+                continue
+
+            category = classify_existing_summary(summary.summary, summary.topics)
+            if category:
+                await update_summary_category(video_id, category)
+                updated += 1
+            else:
+                errors += 1
+
+        return JSONResponse(content={
+            "success": True,
+            "total": len(video_ids),
+            "updated": updated,
+            "errors": errors,
+        })
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error during category backfill: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500,
         )
 
 

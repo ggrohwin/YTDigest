@@ -74,6 +74,12 @@ async def init_db() -> None:
             )
         """)
 
+        # Migration: add category column to summaries
+        try:
+            await db.execute("ALTER TABLE summaries ADD COLUMN category TEXT")
+        except Exception:
+            pass
+
         await db.execute("""
             CREATE TABLE IF NOT EXISTS settings (
                 key TEXT PRIMARY KEY,
@@ -233,13 +239,14 @@ async def save_summary(summary: Summary) -> None:
     async with aiosqlite.connect(DATABASE_PATH) as db:
         await db.execute(
             """
-            INSERT OR REPLACE INTO summaries (video_id, summary, topics, generated_at)
-            VALUES (?, ?, ?, ?)
+            INSERT OR REPLACE INTO summaries (video_id, summary, topics, category, generated_at)
+            VALUES (?, ?, ?, ?, ?)
             """,
             (
                 summary.video_id,
                 summary.summary,
                 ",".join(summary.topics),
+                summary.category,
                 summary.generated_at.isoformat(),
             ),
         )
@@ -259,6 +266,7 @@ async def get_summary(video_id: str) -> Optional[Summary]:
                     video_id=row["video_id"],
                     summary=row["summary"],
                     topics=row["topics"].split(",") if row["topics"] else [],
+                    category=row["category"],
                     generated_at=datetime.fromisoformat(row["generated_at"]),
                 )
     return None
@@ -333,6 +341,26 @@ async def set_setting(key: str, value: str) -> None:
         await db.execute(
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
             (key, value),
+        )
+        await db.commit()
+
+
+async def get_summaries_without_category() -> list[str]:
+    """Get video IDs of summaries that don't have a category assigned."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT video_id FROM summaries WHERE category IS NULL"
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [row[0] for row in rows]
+
+
+async def update_summary_category(video_id: str, category: str) -> None:
+    """Update the category for an existing summary."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "UPDATE summaries SET category = ? WHERE video_id = ?",
+            (category, video_id),
         )
         await db.commit()
 

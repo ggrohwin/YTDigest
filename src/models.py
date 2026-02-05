@@ -2,6 +2,18 @@ from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel
 
+CATEGORIES: list[str] = [
+    "AI & Machine Learning",
+    "Programming & Development",
+    "Cloud & Infrastructure",
+    "Security & Privacy",
+    "Data & Analytics",
+    "News & Industry",
+    "Tools & Productivity",
+    "Career & Education",
+    "Other",
+]
+
 
 class ChannelConfig(BaseModel):
     id: str
@@ -46,6 +58,7 @@ class Summary(BaseModel):
     video_id: str
     summary: str
     topics: list[str]
+    category: Optional[str] = None
     generated_at: datetime
 
 
