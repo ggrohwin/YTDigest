@@ -295,6 +295,7 @@ async def get_videos_without_transcripts(days: int, limit: int = 1) -> list[Vide
             """
             SELECT v.* FROM videos v
             WHERE v.published_at >= ?
+            AND (v.is_completed = 0 OR v.is_completed IS NULL)
             AND (v.transcript_status IS NULL OR v.transcript_status = 'pending' OR v.transcript_status = 'priority')
             ORDER BY CASE WHEN v.transcript_status = 'priority' THEN 0 ELSE 1 END,
                      v.published_at DESC

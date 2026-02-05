@@ -19,7 +19,6 @@ _Empty - ready for next task_
 |------|-------------|--------|
 | Chat with transcript | Ask questions about a video while watching; send transcript + question to Claude | Medium |
 | Retry failed transcripts | Button or automatic retry for rate-limited videos after cooldown | Quick |
-| Skip completed videos in transcript queue | Exclude `is_completed` videos from background transcript fetching to reduce API calls | Quick |
 
 ### Later
 | Item | Description | Effort |
@@ -36,6 +35,7 @@ _Empty - ready for next task_
 | Mobile-friendly UI | Responsive design improvements | Medium |
 | Export summaries | Export to markdown, PDF, or Notion | Quick |
 | Multiple summary styles | Bullet points vs prose, length options | Quick |
+| Live updates via SSE | Server-Sent Events to push transcript/summary completion to the browser in real time | Medium |
 
 ---
 
@@ -84,6 +84,7 @@ _Empty - ready for next task_
 ## Completed
 | Item | Date | Notes |
 |------|------|-------|
+| Skip completed videos in transcript queue | 2026-02-04 | Exclude completed videos from background transcript fetching |
 | Unified page summary bar | 2026-02-04 | Single status bar with video counts, new-since-last-visit, and transcript status; replaced startup banner |
 | Prioritize transcript fetch | 2026-02-04 | Button to bump a video to the front of the transcript queue |
 | Truncate summaries in cards | 2026-02-04 19:59:04 | Show first ~3 lines with show more/less toggle |

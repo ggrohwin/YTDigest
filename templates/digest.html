@@ -307,7 +307,7 @@
                                             👍
                                         </button>
                                         <button onclick="markComplete('{{ item.video.id }}', 'neutral')" class="p-2 hover:bg-gray-100 rounded transition-colors" title="Neutral">
-                                            😐
+                                            ✔️
                                         </button>
                                         <button onclick="markComplete('{{ item.video.id }}', 'dislike')" class="p-2 hover:bg-red-100 rounded transition-colors" title="Dislike">
                                             👎
@@ -316,7 +316,7 @@
                                     {% else %}
                                     <div class="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2 text-gray-400 text-sm">
                                         <span>Completed</span>
-                                        {% if item.video.sentiment == 'like' %}👍{% elif item.video.sentiment == 'neutral' %}😐{% elif item.video.sentiment == 'dislike' %}👎{% endif %}
+                                        {% if item.video.sentiment == 'like' %}👍{% elif item.video.sentiment == 'neutral' %}✔️{% elif item.video.sentiment == 'dislike' %}👎{% endif %}
                                     </div>
                                     {% endif %}
                                 </div>
