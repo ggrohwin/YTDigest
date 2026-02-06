@@ -228,7 +228,7 @@ async def refresh_video_metadata() -> tuple[int, int]:
 
     # Fetch video metadata from all channels
     for channel in app_config.channels:
-        logger.info(f"Fetching videos from {channel.name}...")
+        logger.info(f"Querying videos from {channel.name}...")
         videos = get_channel_uploads(
             channel_id=channel.id,
             channel_name=channel.name,
@@ -241,7 +241,8 @@ async def refresh_video_metadata() -> tuple[int, int]:
             if is_new:
                 total_videos += 1
                 new_count += 1
-        logger.info(f"  {channel.name}: {len(videos)} videos from API, {new_count} new")
+                logger.info(f"    + {video.title}")
+        logger.info(f"  {channel.name}: {new_count} new videos found and added to database")
 
     # Generate summaries for videos that have transcripts but no summaries
     videos_needing_summaries = await get_videos_with_transcripts_without_summaries(

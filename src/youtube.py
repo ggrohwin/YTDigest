@@ -16,7 +16,7 @@ def get_youtube_client():
     api_key = os.getenv("YOUTUBE_API_KEY")
     if not api_key:
         raise ValueError("YOUTUBE_API_KEY environment variable not set")
-    return build("youtube", "v3", developerKey=api_key)
+    return build("youtube", "v3", developerKey=api_key, cache_discovery=False)
 
 
 def get_channel_uploads_playlist_id(youtube, channel_id: str) -> Optional[str]:
