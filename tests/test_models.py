@@ -5,8 +5,11 @@ from datetime import datetime, timezone
 from pydantic import ValidationError
 
 from src.models import (
+    Article,
+    ArticleSummary,
     ChannelConfig,
     DigestConfig,
+    DigestItem,
     AppConfig,
     Video,
     Transcript,
@@ -159,3 +162,188 @@ class TestVideoWithDetails:
         )
         assert details.transcript is not None
         assert details.summary is not None
+
+
+class TestArticle:
+    """Tests for Article model."""
+
+    def test_valid_article(self):
+        now = datetime.now(timezone.utc)
+        article = Article(
+            id="abc123def456",
+            url="https://example.com/post",
+            domain="example.com",
+            title="Test Article",
+            author="John Doe",
+            published_at=now,
+            added_at=now,
+            content="This is the article content.",
+            word_count=5,
+            extract_status="extracted",
+        )
+        assert article.id == "abc123def456"
+        assert article.url == "https://example.com/post"
+        assert article.domain == "example.com"
+        assert article.title == "Test Article"
+        assert article.author == "John Doe"
+        assert article.word_count == 5
+        assert article.extract_status == "extracted"
+
+    def test_article_defaults(self):
+        now = datetime.now(timezone.utc)
+        article = Article(
+            id="abc123def456",
+            url="https://example.com/post",
+            domain="example.com",
+            title="Test Article",
+            added_at=now,
+            content="Some content here.",
+            word_count=3,
+        )
+        assert article.author is None
+        assert article.published_at is None
+        assert article.extract_status == "pending"
+        assert article.is_completed is False
+        assert article.sentiment is None
+        assert article.completed_at is None
+
+    def test_article_required_fields(self):
+        with pytest.raises(ValidationError):
+            Article(
+                id="abc123def456",
+                url="https://example.com/post",
+                # missing domain, title, added_at, content, word_count
+            )
+
+    def test_article_invalid_extract_status(self):
+        now = datetime.now(timezone.utc)
+        with pytest.raises(ValidationError):
+            Article(
+                id="abc123def456",
+                url="https://example.com/post",
+                domain="example.com",
+                title="Test",
+                added_at=now,
+                content="Content",
+                word_count=1,
+                extract_status="invalid_status",
+            )
+
+
+class TestArticleSummary:
+    """Tests for ArticleSummary model."""
+
+    def test_valid_summary(self):
+        now = datetime.now(timezone.utc)
+        summary = ArticleSummary(
+            article_id="abc123def456",
+            summary="This is a summary of the article.",
+            topics=["python", "web", "testing"],
+            category="Programming & Development",
+            generated_at=now,
+        )
+        assert summary.article_id == "abc123def456"
+        assert summary.summary == "This is a summary of the article."
+        assert len(summary.topics) == 3
+        assert summary.category == "Programming & Development"
+
+    def test_empty_topics(self):
+        now = datetime.now(timezone.utc)
+        summary = ArticleSummary(
+            article_id="abc123def456",
+            summary="A summary with no topics.",
+            topics=[],
+            generated_at=now,
+        )
+        assert summary.topics == []
+
+    def test_category_defaults_to_none(self):
+        now = datetime.now(timezone.utc)
+        summary = ArticleSummary(
+            article_id="abc123def456",
+            summary="A summary.",
+            topics=["topic1"],
+            generated_at=now,
+        )
+        assert summary.category is None
+
+
+class TestDigestItem:
+    """Tests for DigestItem model."""
+
+    def test_video_type(self):
+        now = datetime.now(timezone.utc)
+        item = DigestItem(
+            item_type="video",
+            id="vid123",
+            title="Test Video",
+            url="https://youtube.com/watch?v=vid123",
+            source_name="Test Channel",
+            published_at=now,
+            thumbnail_url="https://example.com/thumb.jpg",
+            duration="PT10M30S",
+            transcript_status="fetched",
+        )
+        assert item.item_type == "video"
+        assert item.thumbnail_url == "https://example.com/thumb.jpg"
+        assert item.duration == "PT10M30S"
+        assert item.domain is None
+        assert item.word_count is None
+
+    def test_article_type(self):
+        now = datetime.now(timezone.utc)
+        item = DigestItem(
+            item_type="article",
+            id="art123",
+            title="Test Article",
+            url="https://example.com/post",
+            source_name="example.com",
+            published_at=now,
+            author="Jane Doe",
+            domain="example.com",
+            word_count=500,
+        )
+        assert item.item_type == "article"
+        assert item.author == "Jane Doe"
+        assert item.domain == "example.com"
+        assert item.word_count == 500
+        assert item.thumbnail_url is None
+        assert item.duration is None
+
+    def test_required_fields(self):
+        with pytest.raises(ValidationError):
+            DigestItem(
+                item_type="video",
+                id="vid123",
+                # missing title, url, source_name, published_at
+            )
+
+    def test_invalid_item_type(self):
+        now = datetime.now(timezone.utc)
+        with pytest.raises(ValidationError):
+            DigestItem(
+                item_type="podcast",
+                id="pod123",
+                title="Test Podcast",
+                url="https://example.com/podcast",
+                source_name="Test Source",
+                published_at=now,
+            )
+
+    def test_defaults(self):
+        now = datetime.now(timezone.utc)
+        item = DigestItem(
+            item_type="video",
+            id="vid123",
+            title="Test Video",
+            url="https://youtube.com/watch?v=vid123",
+            source_name="Test Channel",
+            published_at=now,
+        )
+        assert item.added_at is None
+        assert item.is_completed is False
+        assert item.sentiment is None
+        assert item.completed_at is None
+        assert item.summary is None
+        assert item.topics == []
+        assert item.category is None

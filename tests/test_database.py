@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 import aiosqlite
 
-from src.models import Video, Transcript, Summary
+from src.models import Article, ArticleSummary, Video, Transcript, Summary
 from src import database
 
 
@@ -181,3 +181,167 @@ class TestSummaryOperations:
         assert isinstance(retrieved.topics, list)
         assert len(retrieved.topics) == 3
         assert "python" in retrieved.topics
+
+
+class TestArticleOperations:
+    """Tests for article CRUD operations."""
+
+    @pytest.fixture
+    def sample_article(self):
+        return Article(
+            id="abc123def456",
+            url="https://example.com/test-post",
+            domain="example.com",
+            title="Test Article Title",
+            author="Jane Doe",
+            published_at=datetime.now(timezone.utc),
+            added_at=datetime.now(timezone.utc),
+            content="This is the full article content for the test article.",
+            word_count=10,
+            extract_status="extracted",
+        )
+
+    async def test_save_and_get_article(self, test_db, sample_article):
+        """Test saving and retrieving an article."""
+        await database.save_article(sample_article)
+        retrieved = await database.get_article("abc123def456")
+
+        assert retrieved is not None
+        assert retrieved.id == sample_article.id
+        assert retrieved.title == sample_article.title
+        assert retrieved.domain == sample_article.domain
+        assert retrieved.author == sample_article.author
+        assert retrieved.word_count == sample_article.word_count
+        assert retrieved.extract_status == "extracted"
+
+    async def test_get_nonexistent_article(self, test_db):
+        """Test retrieving an article that doesn't exist."""
+        retrieved = await database.get_article("nonexistent")
+        assert retrieved is None
+
+    async def test_get_article_by_url(self, test_db, sample_article):
+        """Test retrieving an article by its URL."""
+        await database.save_article(sample_article)
+        retrieved = await database.get_article_by_url("https://example.com/test-post")
+
+        assert retrieved is not None
+        assert retrieved.id == sample_article.id
+        assert retrieved.url == sample_article.url
+
+    async def test_get_article_by_url_nonexistent(self, test_db):
+        """Test retrieving an article by a URL that doesn't exist."""
+        retrieved = await database.get_article_by_url("https://example.com/nope")
+        assert retrieved is None
+
+    async def test_get_articles_since(self, test_db):
+        """Test retrieving articles within a date range."""
+        now = datetime.now(timezone.utc)
+
+        old_article = Article(
+            id="old_article_id",
+            url="https://example.com/old",
+            domain="example.com",
+            title="Old Article",
+            added_at=now - timedelta(days=30),
+            content="Old content.",
+            word_count=2,
+            extract_status="extracted",
+        )
+        recent_article = Article(
+            id="recent_art_id",
+            url="https://example.com/recent",
+            domain="example.com",
+            title="Recent Article",
+            added_at=now - timedelta(days=2),
+            content="Recent content.",
+            word_count=2,
+            extract_status="extracted",
+        )
+
+        await database.save_article(old_article)
+        await database.save_article(recent_article)
+
+        # Get articles from last 7 days
+        articles = await database.get_articles_since(7)
+
+        assert len(articles) == 1
+        assert articles[0].id == "recent_art_id"
+
+    async def test_save_article_updates_existing(self, test_db, sample_article):
+        """Test that saving an article with same ID updates it."""
+        await database.save_article(sample_article)
+
+        updated_article = Article(
+            id="abc123def456",
+            url="https://example.com/test-post",
+            domain="example.com",
+            title="Updated Title",
+            added_at=sample_article.added_at,
+            content="Updated content.",
+            word_count=2,
+            extract_status="extracted",
+        )
+        await database.save_article(updated_article)
+
+        retrieved = await database.get_article("abc123def456")
+        assert retrieved.title == "Updated Title"
+        assert retrieved.content == "Updated content."
+
+
+class TestArticleSummaryOperations:
+    """Tests for article summary CRUD operations."""
+
+    @pytest.fixture
+    def sample_article(self):
+        return Article(
+            id="abc123def456",
+            url="https://example.com/test-post",
+            domain="example.com",
+            title="Test Article",
+            added_at=datetime.now(timezone.utc),
+            content="Content here.",
+            word_count=2,
+            extract_status="extracted",
+        )
+
+    @pytest.fixture
+    def sample_article_summary(self):
+        return ArticleSummary(
+            article_id="abc123def456",
+            summary="This is a test summary of the article content.",
+            topics=["python", "web", "databases"],
+            category="Programming & Development",
+            generated_at=datetime.now(timezone.utc),
+        )
+
+    async def test_save_and_get_article_summary(
+        self, test_db, sample_article, sample_article_summary
+    ):
+        """Test saving and retrieving an article summary."""
+        await database.save_article(sample_article)
+        await database.save_article_summary(sample_article_summary)
+        retrieved = await database.get_article_summary("abc123def456")
+
+        assert retrieved is not None
+        assert retrieved.article_id == sample_article_summary.article_id
+        assert retrieved.summary == sample_article_summary.summary
+        assert retrieved.category == "Programming & Development"
+
+    async def test_get_nonexistent_article_summary(self, test_db):
+        """Test retrieving an article summary that doesn't exist."""
+        retrieved = await database.get_article_summary("nonexistent")
+        assert retrieved is None
+
+    async def test_topics_stored_correctly(
+        self, test_db, sample_article, sample_article_summary
+    ):
+        """Test that topics list is stored and retrieved correctly."""
+        await database.save_article(sample_article)
+        await database.save_article_summary(sample_article_summary)
+        retrieved = await database.get_article_summary("abc123def456")
+
+        assert isinstance(retrieved.topics, list)
+        assert len(retrieved.topics) == 3
+        assert "python" in retrieved.topics
+        assert "web" in retrieved.topics
+        assert "databases" in retrieved.topics

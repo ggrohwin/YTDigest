@@ -54,16 +54,16 @@ def fetch_article(url: str) -> tuple[Optional[Article], Optional[str]]:
             include_tables=True,
         )
 
-        if not result or not result.get("text"):
+        if not result or not getattr(result, "text", None):
             return None, "Could not extract article content"
 
-        content = result["text"]
-        title = result.get("title") or "Untitled"
-        author = result.get("author")
+        content = result.text
+        title = getattr(result, "title", None) or "Untitled"
+        author = getattr(result, "author", None)
         pub_date = None
-        if result.get("date"):
+        if getattr(result, "date", None):
             try:
-                pub_date = datetime.fromisoformat(result["date"])
+                pub_date = datetime.fromisoformat(result.date)
                 if pub_date.tzinfo is None:
                     pub_date = pub_date.replace(tzinfo=timezone.utc)
             except (ValueError, TypeError):
