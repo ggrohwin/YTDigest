@@ -560,3 +560,61 @@ class TestGetSummaryTextForEmbedding:
         """Returns None when no summary exists for the item."""
         text = await database.get_summary_text_for_embedding("nope", "video")
         assert text is None
+
+
+class TestGetDigestItem:
+    """Tests for get_digest_item() — loads a video or article as a DigestItem."""
+
+    async def test_load_video_as_digest_item(self, test_db):
+        """A video with a summary should load as a complete DigestItem."""
+        video = Video(
+            id="vid1", channel_id="UC1", channel_name="Test Channel",
+            title="Test Video", published_at=datetime.now(timezone.utc),
+            thumbnail_url="https://x.com/t.jpg",
+            video_url="https://youtube.com/watch?v=vid1",
+            duration="PT10M",
+        )
+        await database.save_video(video)
+        await database.save_summary(Summary(
+            video_id="vid1", summary="A great summary", topics=["ai", "ml"],
+            category="AI & Machine Learning",
+            generated_at=datetime.now(timezone.utc),
+        ))
+
+        item = await database.get_digest_item("vid1", "video")
+        assert item is not None
+        assert item.item_type == "video"
+        assert item.id == "vid1"
+        assert item.title == "Test Video"
+        assert item.source_name == "Test Channel"
+        assert item.summary == "A great summary"
+        assert item.topics == ["ai", "ml"]
+        assert item.category == "AI & Machine Learning"
+        assert item.duration == "PT10M"
+
+    async def test_load_article_as_digest_item(self, test_db):
+        """An article with a summary should load as a complete DigestItem."""
+        article = Article(
+            id="art1", url="https://example.com/post", domain="example.com",
+            title="Test Article", author="Jane",
+            added_at=datetime.now(timezone.utc),
+            content="Content.", word_count=1, extract_status="extracted",
+        )
+        await database.save_article(article)
+        await database.save_article_summary(ArticleSummary(
+            article_id="art1", summary="Article summary", topics=["web"],
+            generated_at=datetime.now(timezone.utc),
+        ))
+
+        item = await database.get_digest_item("art1", "article")
+        assert item is not None
+        assert item.item_type == "article"
+        assert item.id == "art1"
+        assert item.domain == "example.com"
+        assert item.author == "Jane"
+        assert item.summary == "Article summary"
+
+    async def test_nonexistent_item_returns_none(self, test_db):
+        """Requesting a non-existent item returns None."""
+        assert await database.get_digest_item("nope", "video") is None
+        assert await database.get_digest_item("nope", "article") is None

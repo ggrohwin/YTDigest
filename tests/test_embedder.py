@@ -12,7 +12,9 @@ from src.embedder import (
     embedding_to_bytes,
     bytes_to_embedding,
     cosine_similarity,
+    search,
 )
+from src.models import Embedding
 from src import database
 
 
@@ -182,3 +184,85 @@ class TestEmbedItem:
         # Nothing stored
         stored = await database.get_embedding("vid1", "video_summary")
         assert stored is None
+
+
+class TestSearch:
+    """Tests for the search() function with known vectors."""
+
+    @pytest.fixture
+    async def test_db(self, tmp_path, monkeypatch):
+        """Create a temporary database for testing."""
+        db_path = tmp_path / "test.db"
+        monkeypatch.setattr(database, "DATABASE_PATH", db_path)
+        await database.init_db()
+        yield db_path
+
+    async def _store_embedding(self, item_id, item_type, content_type, vector):
+        """Helper to store an embedding directly in the database."""
+        emb = Embedding(
+            item_id=item_id, item_type=item_type,
+            content_type=content_type, vector=vector,
+        )
+        await database.save_embedding(emb, embedding_to_bytes(vector))
+
+    @patch("src.embedder.generate_embeddings")
+    async def test_search_returns_ranked_results(self, mock_gen, test_db):
+        """Search should return items ranked by similarity to the query."""
+        # Store two embeddings: one close to the query, one far
+        await self._store_embedding(
+            "vid1", "video", "video_summary", [1.0, 0.0, 0.0]
+        )
+        await self._store_embedding(
+            "vid2", "video", "video_summary", [0.0, 1.0, 0.0]
+        )
+
+        # Mock the query embedding to be close to vid1
+        mock_gen.return_value = [[0.9, 0.1, 0.0]]
+
+        results = await search("machine learning", limit=10)
+
+        assert len(results) == 2
+        # vid1 should rank first (closer to query)
+        assert results[0][0] == "vid1"
+        assert results[0][2] > results[1][2]  # higher score
+        # Verify generate_embeddings was called with query input_type
+        mock_gen.assert_called_once_with(["machine learning"], input_type="query")
+
+    @patch("src.embedder.generate_embeddings")
+    async def test_search_respects_limit(self, mock_gen, test_db):
+        """Search should return at most 'limit' results."""
+        for i in range(5):
+            await self._store_embedding(
+                f"vid{i}", "video", "video_summary", [float(i), 1.0, 0.0]
+            )
+
+        mock_gen.return_value = [[3.0, 1.0, 0.0]]
+        results = await search("test", limit=2)
+
+        assert len(results) == 2
+
+    @patch("src.embedder.generate_embeddings")
+    async def test_search_empty_database(self, mock_gen, test_db):
+        """Search with no stored embeddings should return empty list."""
+        mock_gen.return_value = [[1.0, 0.0, 0.0]]
+        results = await search("anything")
+        assert results == []
+
+    @patch("src.embedder.generate_embeddings")
+    async def test_search_deduplicates_by_item(self, mock_gen, test_db):
+        """Multiple embeddings for the same item should be deduplicated."""
+        # Same item, two embeddings (summary and chunk)
+        await self._store_embedding(
+            "vid1", "video", "video_summary", [1.0, 0.0, 0.0]
+        )
+        await self._store_embedding(
+            "vid1", "video", "video_chunk", [0.9, 0.1, 0.0]
+        )
+
+        mock_gen.return_value = [[1.0, 0.0, 0.0]]
+        results = await search("test")
+
+        # Should appear only once, with the best score
+        assert len(results) == 1
+        assert results[0][0] == "vid1"
+        assert results[0][2] == pytest.approx(1.0)  # the exact match

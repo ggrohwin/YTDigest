@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
-from .models import Article, ArticleSummary, Embedding, Video, Transcript, Summary
+from .models import Article, ArticleSummary, DigestItem, Embedding, Video, Transcript, Summary
 
 DATABASE_PATH = Path(__file__).parent.parent / "data" / "ytdigest.db"
 
@@ -596,6 +596,57 @@ async def get_articles_without_summaries() -> list[Article]:
         ) as cursor:
             rows = await cursor.fetchall()
             return [_article_from_row(row) for row in rows]
+
+
+async def get_digest_item(item_id: str, item_type: str) -> Optional[DigestItem]:
+    """Load a single video or article as a DigestItem (with summary data)."""
+    if item_type == "video":
+        video = await get_video(item_id)
+        if not video:
+            return None
+        summary = await get_summary(item_id)
+        return DigestItem(
+            item_type="video",
+            id=video.id,
+            title=video.title,
+            url=video.video_url,
+            source_name=video.channel_name,
+            published_at=video.published_at,
+            is_completed=video.is_completed,
+            sentiment=video.sentiment,
+            completed_at=video.completed_at,
+            summary=summary.summary if summary else None,
+            topics=summary.topics if summary else [],
+            category=summary.category if summary else None,
+            thumbnail_url=video.thumbnail_url,
+            duration=video.duration,
+            transcript_status=video.transcript_status,
+        )
+    else:
+        article = await get_article(item_id)
+        if not article:
+            return None
+        summary = await get_article_summary(item_id)
+        return DigestItem(
+            item_type="article",
+            id=article.id,
+            title=article.title,
+            url=article.url,
+            source_name=article.domain,
+            published_at=article.added_at,
+            added_at=article.added_at,
+            is_completed=article.is_completed,
+            sentiment=article.sentiment,
+            completed_at=article.completed_at,
+            summary=summary.summary if summary else None,
+            topics=summary.topics if summary else [],
+            category=summary.category if summary else None,
+            thumbnail_url=article.thumbnail_url,
+            author=article.author,
+            domain=article.domain,
+            word_count=article.word_count,
+            original_published_at=article.published_at,
+        )
 
 
 # --- Embedding operations ---

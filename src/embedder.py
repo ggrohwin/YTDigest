@@ -94,3 +94,42 @@ async def embed_item(item_id: str, item_type: str, text: str) -> bool:
     except Exception as e:
         logger.error(f"Failed to embed {item_type} {item_id}: {e}")
         return False
+
+
+async def search(query: str, limit: int = 10) -> list[tuple[str, str, float]]:
+    """Search for items by semantic similarity to the query.
+
+    Embeds the query, compares against all stored embeddings, and returns
+    the top matches sorted by similarity score.
+
+    Returns list of (item_id, item_type, score) tuples, deduplicated by
+    item — if multiple embeddings for the same item match (e.g. summary
+    and chunks), only the highest-scoring one is kept.
+    """
+    from .database import get_all_embeddings
+
+    # Embed the query using "query" input_type for better search quality
+    query_vectors = generate_embeddings([query], input_type="query")
+    query_vec = np.array(query_vectors[0], dtype=np.float32)
+
+    # Load all stored embeddings and compute similarity
+    all_embeddings = await get_all_embeddings()
+    if not all_embeddings:
+        return []
+
+    # Score each embedding, keeping only the best score per item
+    best_scores: dict[tuple[str, str], float] = {}  # (item_id, item_type) -> score
+    for emb, raw_bytes in all_embeddings:
+        stored_vec = bytes_to_embedding(raw_bytes)
+        score = cosine_similarity(query_vec, stored_vec)
+
+        key = (emb.item_id, emb.item_type)
+        if key not in best_scores or score > best_scores[key]:
+            best_scores[key] = score
+
+    # Sort by score descending, take top N
+    ranked = sorted(best_scores.items(), key=lambda x: x[1], reverse=True)
+    return [
+        (item_id, item_type, score)
+        for (item_id, item_type), score in ranked[:limit]
+    ]

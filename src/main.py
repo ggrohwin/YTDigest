@@ -47,6 +47,7 @@ from .database import (
     mark_article_completed,
     get_items_without_embeddings,
     get_summary_text_for_embedding,
+    get_digest_item,
 )
 from collections import defaultdict, Counter
 from .models import AppConfig, CATEGORIES, DigestItem, VideoWithDetails
@@ -551,6 +552,47 @@ async def api_embed_all():
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
         logger.error(f"Error during embedding backfill: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500,
+        )
+
+
+@app.get("/api/search")
+async def api_search(q: str = "", limit: int = 10):
+    """Search for items by semantic similarity to the query."""
+    if not q.strip():
+        return JSONResponse(
+            content={"error": "Query parameter 'q' is required"},
+            status_code=400,
+        )
+
+    if not embedder.is_available():
+        return JSONResponse(
+            content={"error": "VOYAGE_API_KEY is not set"},
+            status_code=400,
+        )
+
+    try:
+        results = await embedder.search(q.strip(), limit=limit)
+
+        # Load full DigestItem for each result
+        search_results = []
+        for item_id, item_type, score in results:
+            item = await get_digest_item(item_id, item_type)
+            if item:
+                search_results.append({
+                    "score": round(score, 4),
+                    "item": item.model_dump(mode="json"),
+                })
+
+        return JSONResponse(content={
+            "query": q.strip(),
+            "results": search_results,
+        })
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error during search: {error_msg}")
         return JSONResponse(
             content={"error": error_msg},
             status_code=500,
