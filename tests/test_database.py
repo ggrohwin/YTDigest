@@ -6,7 +6,9 @@ from pathlib import Path
 import tempfile
 import aiosqlite
 
-from src.models import Article, ArticleSummary, Video, Transcript, Summary
+import numpy as np
+
+from src.models import Article, ArticleSummary, Embedding, Video, Transcript, Summary
 from src import database
 
 
@@ -345,3 +347,112 @@ class TestArticleSummaryOperations:
         assert "python" in retrieved.topics
         assert "web" in retrieved.topics
         assert "databases" in retrieved.topics
+
+
+class TestEmbeddingOperations:
+    """Tests for embedding CRUD operations."""
+
+    @pytest.fixture
+    def sample_embedding(self):
+        return Embedding(
+            item_id="vid123",
+            item_type="video",
+            content_type="video_summary",
+            vector=[0.1, -0.2, 0.3, 0.4],
+        )
+
+    def _to_bytes(self, vector: list[float]) -> bytes:
+        """Helper to convert a vector to bytes the same way embedder.py does."""
+        return np.array(vector, dtype=np.float32).tobytes()
+
+    async def test_save_and_get_embedding(self, test_db, sample_embedding):
+        """Test saving and retrieving an embedding."""
+        vector_bytes = self._to_bytes(sample_embedding.vector)
+        await database.save_embedding(sample_embedding, vector_bytes)
+
+        result = await database.get_embedding("vid123", "video_summary")
+        assert result is not None
+        emb, raw_bytes = result
+        assert emb.item_id == "vid123"
+        assert emb.item_type == "video"
+        assert emb.content_type == "video_summary"
+        assert emb.chunk_index is None
+
+        # Verify the bytes round-trip correctly
+        recovered = np.frombuffer(raw_bytes, dtype=np.float32)
+        np.testing.assert_array_almost_equal(
+            recovered, [0.1, -0.2, 0.3, 0.4]
+        )
+
+    async def test_get_nonexistent_embedding(self, test_db):
+        """Test retrieving an embedding that doesn't exist."""
+        result = await database.get_embedding("nonexistent", "video_summary")
+        assert result is None
+
+    async def test_get_all_embeddings(self, test_db):
+        """Test retrieving all embeddings."""
+        emb1 = Embedding(
+            item_id="vid1", item_type="video",
+            content_type="video_summary", vector=[0.1, 0.2],
+        )
+        emb2 = Embedding(
+            item_id="art1", item_type="article",
+            content_type="article_summary", vector=[0.3, 0.4],
+        )
+
+        await database.save_embedding(emb1, self._to_bytes(emb1.vector))
+        await database.save_embedding(emb2, self._to_bytes(emb2.vector))
+
+        all_embs = await database.get_all_embeddings()
+        assert len(all_embs) == 2
+        item_ids = {e.item_id for e, _ in all_embs}
+        assert item_ids == {"vid1", "art1"}
+
+    async def test_upsert_replaces_existing(self, test_db, sample_embedding):
+        """Test that saving the same item_id + content_type replaces the vector."""
+        await database.save_embedding(
+            sample_embedding, self._to_bytes([0.1, 0.2, 0.3, 0.4])
+        )
+
+        # Save again with different vector
+        updated = Embedding(
+            item_id="vid123", item_type="video",
+            content_type="video_summary", vector=[0.9, 0.8, 0.7, 0.6],
+        )
+        await database.save_embedding(
+            updated, self._to_bytes([0.9, 0.8, 0.7, 0.6])
+        )
+
+        all_embs = await database.get_all_embeddings()
+        assert len(all_embs) == 1
+        _, raw_bytes = all_embs[0]
+        recovered = np.frombuffer(raw_bytes, dtype=np.float32)
+        np.testing.assert_array_almost_equal(recovered, [0.9, 0.8, 0.7, 0.6])
+
+    async def test_has_embeddings_empty(self, test_db):
+        """Test has_embeddings returns False when no embeddings exist."""
+        assert await database.has_embeddings() is False
+
+    async def test_has_embeddings_with_data(self, test_db, sample_embedding):
+        """Test has_embeddings returns True when embeddings exist."""
+        await database.save_embedding(
+            sample_embedding, self._to_bytes(sample_embedding.vector)
+        )
+        assert await database.has_embeddings() is True
+
+    async def test_count_embeddings(self, test_db, sample_embedding):
+        """Test counting embeddings."""
+        assert await database.count_embeddings() == 0
+        await database.save_embedding(
+            sample_embedding, self._to_bytes(sample_embedding.vector)
+        )
+        assert await database.count_embeddings() == 1
+
+    async def test_embeddings_table_created(self, test_db):
+        """Verify embeddings table is created during init_db."""
+        async with aiosqlite.connect(test_db) as db:
+            cursor = await db.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )
+            tables = {row[0] for row in await cursor.fetchall()}
+        assert "embeddings" in tables

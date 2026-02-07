@@ -10,6 +10,8 @@ from src.models import (
     ChannelConfig,
     DigestConfig,
     DigestItem,
+    Embedding,
+    SearchResult,
     AppConfig,
     Video,
     Transcript,
@@ -347,3 +349,66 @@ class TestDigestItem:
         assert item.summary is None
         assert item.topics == []
         assert item.category is None
+
+
+class TestEmbedding:
+    """Tests for Embedding model."""
+
+    def test_valid_summary_embedding(self):
+        emb = Embedding(
+            item_id="vid123",
+            item_type="video",
+            content_type="video_summary",
+            vector=[0.1, 0.2, 0.3],
+        )
+        assert emb.item_id == "vid123"
+        assert emb.item_type == "video"
+        assert emb.content_type == "video_summary"
+        assert emb.chunk_index is None
+
+    def test_valid_chunk_embedding(self):
+        emb = Embedding(
+            item_id="art456",
+            item_type="article",
+            content_type="article_chunk",
+            vector=[0.1, 0.2],
+            chunk_index=3,
+        )
+        assert emb.content_type == "article_chunk"
+        assert emb.chunk_index == 3
+
+    def test_invalid_item_type(self):
+        with pytest.raises(ValidationError):
+            Embedding(
+                item_id="x",
+                item_type="podcast",
+                content_type="video_summary",
+                vector=[0.1],
+            )
+
+    def test_invalid_content_type(self):
+        with pytest.raises(ValidationError):
+            Embedding(
+                item_id="x",
+                item_type="video",
+                content_type="unknown_type",
+                vector=[0.1],
+            )
+
+
+class TestSearchResult:
+    """Tests for SearchResult model."""
+
+    def test_valid_search_result(self):
+        now = datetime.now(timezone.utc)
+        item = DigestItem(
+            item_type="video",
+            id="vid123",
+            title="Test Video",
+            url="https://youtube.com/watch?v=vid123",
+            source_name="Test Channel",
+            published_at=now,
+        )
+        result = SearchResult(item=item, score=0.87)
+        assert result.score == 0.87
+        assert result.item.id == "vid123"

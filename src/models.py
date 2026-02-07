@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Literal, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 CATEGORIES: list[str] = [
     "AI & Machine Learning",
@@ -117,3 +117,27 @@ class DigestItem(BaseModel):
     domain: Optional[str] = None
     word_count: Optional[int] = None
     original_published_at: Optional[datetime] = None
+
+
+class Embedding(BaseModel):
+    """A vector embedding for semantic search.
+
+    Each embedding links a vector (list of floats) to a source item.
+    content_type distinguishes summary-level vs chunk-level embeddings.
+    """
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    item_id: str  # video ID or article ID
+    item_type: Literal["video", "article"]
+    content_type: Literal[
+        "video_summary", "article_summary",
+        "video_chunk", "article_chunk",
+    ]
+    vector: list[float]
+    chunk_index: Optional[int] = None  # which chunk (None for summaries)
+
+
+class SearchResult(BaseModel):
+    """A digest item with a relevance score from semantic search."""
+    item: DigestItem
+    score: float  # cosine similarity, 0.0 to 1.0

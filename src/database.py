@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
-from .models import Article, ArticleSummary, Video, Transcript, Summary
+from .models import Article, ArticleSummary, Embedding, Video, Transcript, Summary
 
 DATABASE_PATH = Path(__file__).parent.parent / "data" / "ytdigest.db"
 
@@ -129,6 +129,17 @@ async def init_db() -> None:
             )
         except Exception:
             pass
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS embeddings (
+                item_id TEXT NOT NULL,
+                item_type TEXT NOT NULL,
+                content_type TEXT NOT NULL,
+                vector BLOB NOT NULL,
+                chunk_index INTEGER,
+                UNIQUE(item_id, content_type, chunk_index)
+            )
+        """)
 
         await db.commit()
 
@@ -585,3 +596,111 @@ async def get_articles_without_summaries() -> list[Article]:
         ) as cursor:
             rows = await cursor.fetchall()
             return [_article_from_row(row) for row in rows]
+
+
+# --- Embedding operations ---
+
+
+async def save_embedding(embedding: Embedding, vector_bytes: bytes) -> None:
+    """Save an embedding to the database.
+
+    vector_bytes is the pre-serialized numpy array (via embedding_to_bytes).
+    We take bytes rather than doing the conversion here so that database.py
+    stays free of numpy dependency.
+    """
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        # SQLite treats NULL != NULL for UNIQUE constraints, so
+        # INSERT OR REPLACE won't match rows with chunk_index IS NULL.
+        # Delete first, then insert to handle both cases.
+        if embedding.chunk_index is not None:
+            await db.execute(
+                "DELETE FROM embeddings WHERE item_id = ? AND content_type = ? AND chunk_index = ?",
+                (embedding.item_id, embedding.content_type, embedding.chunk_index),
+            )
+        else:
+            await db.execute(
+                "DELETE FROM embeddings WHERE item_id = ? AND content_type = ? AND chunk_index IS NULL",
+                (embedding.item_id, embedding.content_type),
+            )
+        await db.execute(
+            """
+            INSERT INTO embeddings
+            (item_id, item_type, content_type, vector, chunk_index)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                embedding.item_id,
+                embedding.item_type,
+                embedding.content_type,
+                vector_bytes,
+                embedding.chunk_index,
+            ),
+        )
+        await db.commit()
+
+
+async def get_embedding(
+    item_id: str, content_type: str, chunk_index: Optional[int] = None
+) -> Optional[tuple[Embedding, bytes]]:
+    """Get an embedding by item ID and content type.
+
+    Returns (Embedding, raw_vector_bytes) or None.
+    """
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        if chunk_index is not None:
+            query = "SELECT * FROM embeddings WHERE item_id = ? AND content_type = ? AND chunk_index = ?"
+            params = (item_id, content_type, chunk_index)
+        else:
+            query = "SELECT * FROM embeddings WHERE item_id = ? AND content_type = ? AND chunk_index IS NULL"
+            params = (item_id, content_type)
+        async with db.execute(query, params) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                emb = Embedding(
+                    item_id=row["item_id"],
+                    item_type=row["item_type"],
+                    content_type=row["content_type"],
+                    vector=[],  # caller will deserialize from bytes
+                    chunk_index=row["chunk_index"],
+                )
+                return emb, bytes(row["vector"])
+    return None
+
+
+async def get_all_embeddings() -> list[tuple[Embedding, bytes]]:
+    """Get all embeddings from the database.
+
+    Returns list of (Embedding, raw_vector_bytes) tuples.
+    """
+    results = []
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM embeddings") as cursor:
+            rows = await cursor.fetchall()
+            for row in rows:
+                emb = Embedding(
+                    item_id=row["item_id"],
+                    item_type=row["item_type"],
+                    content_type=row["content_type"],
+                    vector=[],
+                    chunk_index=row["chunk_index"],
+                )
+                results.append((emb, bytes(row["vector"])))
+    return results
+
+
+async def has_embeddings() -> bool:
+    """Check whether any embeddings exist in the database."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute("SELECT COUNT(*) FROM embeddings") as cursor:
+            row = await cursor.fetchone()
+            return row[0] > 0
+
+
+async def count_embeddings() -> int:
+    """Count total embeddings in the database."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute("SELECT COUNT(*) FROM embeddings") as cursor:
+            row = await cursor.fetchone()
+            return row[0]
