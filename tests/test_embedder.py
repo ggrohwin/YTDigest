@@ -9,6 +9,8 @@ from src.embedder import (
     is_available,
     generate_embeddings,
     embed_item,
+    embed_item_chunks,
+    chunk_text,
     embedding_to_bytes,
     bytes_to_embedding,
     cosine_similarity,
@@ -266,3 +268,117 @@ class TestSearch:
         assert len(results) == 1
         assert results[0][0] == "vid1"
         assert results[0][2] == pytest.approx(1.0)  # the exact match
+
+
+class TestChunkText:
+    """Tests for chunk_text() — splitting text into overlapping word chunks."""
+
+    def test_short_text_returns_single_chunk(self):
+        """Text shorter than chunk_size should return as one chunk."""
+        text = "This is a short piece of text."
+        chunks = chunk_text(text, chunk_size=500, overlap=100)
+        assert len(chunks) == 1
+        assert chunks[0] == text
+
+    def test_empty_text_returns_empty(self):
+        """Empty text should return no chunks."""
+        assert chunk_text("") == []
+        assert chunk_text("   ") == []
+
+    def test_exact_chunk_size(self):
+        """Text with exactly chunk_size words should return one chunk."""
+        words = ["word"] * 500
+        text = " ".join(words)
+        chunks = chunk_text(text, chunk_size=500, overlap=100)
+        assert len(chunks) == 1
+
+    def test_overlap_between_chunks(self):
+        """Adjacent chunks should share 'overlap' words."""
+        # Create text with 1000 unique words so we can verify overlap
+        words = [f"w{i}" for i in range(1000)]
+        text = " ".join(words)
+
+        chunks = chunk_text(text, chunk_size=500, overlap=100)
+        assert len(chunks) >= 2
+
+        # Check that chunks overlap: last 100 words of chunk 0 == first 100 of chunk 1
+        chunk0_words = chunks[0].split()
+        chunk1_words = chunks[1].split()
+        assert chunk0_words[-100:] == chunk1_words[:100]
+
+    def test_chunk_count(self):
+        """Verify approximate number of chunks for known input size."""
+        # 1000 words, chunk_size=500, overlap=100, step=400
+        # chunks: 0-500, 400-900, 800-1000 = 3 chunks
+        words = [f"w{i}" for i in range(1000)]
+        text = " ".join(words)
+        chunks = chunk_text(text, chunk_size=500, overlap=100)
+        assert len(chunks) == 3
+
+    def test_all_words_covered(self):
+        """Every word in the original text should appear in at least one chunk."""
+        words = [f"w{i}" for i in range(1234)]
+        text = " ".join(words)
+        chunks = chunk_text(text, chunk_size=500, overlap=100)
+
+        all_chunk_words = set()
+        for chunk in chunks:
+            all_chunk_words.update(chunk.split())
+        assert all_chunk_words == set(words)
+
+
+class TestEmbedItemChunks:
+    """Tests for embed_item_chunks() — chunking and embedding full text."""
+
+    @pytest.fixture
+    async def test_db(self, tmp_path, monkeypatch):
+        db_path = tmp_path / "test.db"
+        monkeypatch.setattr(database, "DATABASE_PATH", db_path)
+        await database.init_db()
+        yield db_path
+
+    @patch("src.embedder.generate_embeddings")
+    async def test_embed_chunks_success(self, mock_gen, test_db):
+        """embed_item_chunks should store one embedding per chunk."""
+        # Short text = 1 chunk
+        mock_gen.return_value = [[0.1, 0.2, 0.3]]
+
+        count = await embed_item_chunks("vid1", "video", "A short transcript.")
+        assert count == 1
+
+        # Verify stored as a chunk embedding
+        stored = await database.get_embedding("vid1", "video_chunk", chunk_index=0)
+        assert stored is not None
+
+    @patch("src.embedder.generate_embeddings")
+    async def test_embed_multiple_chunks(self, mock_gen, test_db):
+        """Longer text should produce multiple chunk embeddings."""
+        # Create text that will produce 3 chunks
+        words = [f"word{i}" for i in range(1000)]
+        text = " ".join(words)
+
+        # Mock: return a vector for each chunk (3 chunks expected)
+        mock_gen.return_value = [[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]]
+
+        count = await embed_item_chunks("vid1", "video", text)
+        assert count == 3
+
+        # Verify each chunk is stored
+        for i in range(3):
+            stored = await database.get_embedding("vid1", "video_chunk", chunk_index=i)
+            assert stored is not None
+
+    @patch("src.embedder.generate_embeddings")
+    async def test_embed_chunks_api_failure(self, mock_gen, test_db):
+        """API failure should return 0 and not store anything."""
+        mock_gen.side_effect = RuntimeError("API error")
+
+        count = await embed_item_chunks("vid1", "video", "Some text")
+        assert count == 0
+
+    @patch("src.embedder.generate_embeddings")
+    async def test_empty_text_returns_zero(self, mock_gen, test_db):
+        """Empty text should return 0 without calling the API."""
+        count = await embed_item_chunks("vid1", "video", "")
+        assert count == 0
+        mock_gen.assert_not_called()

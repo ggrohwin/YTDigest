@@ -823,3 +823,95 @@ async def get_summary_text_for_embedding(
         if topics:
             summary += f"\n\nTopics: {topics}"
         return summary
+
+
+async def save_embeddings_batch(
+    embeddings: list[tuple[Embedding, bytes]],
+) -> None:
+    """Save multiple embeddings in a single transaction.
+
+    Used for chunk embeddings where one item produces many vectors.
+    Replaces any existing chunks for the same item and content_type.
+    """
+    if not embeddings:
+        return
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        # Delete old chunks for this item+content_type first
+        first_emb = embeddings[0][0]
+        await db.execute(
+            "DELETE FROM embeddings WHERE item_id = ? AND content_type = ?",
+            (first_emb.item_id, first_emb.content_type),
+        )
+
+        for emb, vector_bytes in embeddings:
+            await db.execute(
+                """
+                INSERT INTO embeddings
+                (item_id, item_type, content_type, vector, chunk_index)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    emb.item_id,
+                    emb.item_type,
+                    emb.content_type,
+                    vector_bytes,
+                    emb.chunk_index,
+                ),
+            )
+        await db.commit()
+
+
+async def get_items_without_chunk_embeddings() -> list[tuple[str, str]]:
+    """Get (item_id, item_type) pairs for items that have full text but no chunk embeddings.
+
+    Videos must have a transcript; articles must have content.
+    """
+    results = []
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        # Videos with transcripts but no chunk embeddings
+        async with db.execute(
+            """
+            SELECT t.video_id FROM transcripts t
+            LEFT JOIN embeddings e
+                ON t.video_id = e.item_id AND e.content_type = 'video_chunk'
+            WHERE e.item_id IS NULL
+            """
+        ) as cursor:
+            for row in await cursor.fetchall():
+                results.append((row[0], "video"))
+
+        # Articles with content but no chunk embeddings
+        async with db.execute(
+            """
+            SELECT a.id FROM articles a
+            LEFT JOIN embeddings e
+                ON a.id = e.item_id AND e.content_type = 'article_chunk'
+            WHERE e.item_id IS NULL AND a.extract_status = 'extracted'
+            """
+        ) as cursor:
+            for row in await cursor.fetchall():
+                results.append((row[0], "article"))
+
+    return results
+
+
+async def get_full_text_for_embedding(
+    item_id: str, item_type: str
+) -> Optional[str]:
+    """Get the full text (transcript or article content) for chunk embedding."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        if item_type == "video":
+            async with db.execute(
+                "SELECT content FROM transcripts WHERE video_id = ?",
+                (item_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+                return row[0] if row else None
+        else:
+            async with db.execute(
+                "SELECT content FROM articles WHERE id = ?",
+                (item_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+                return row[0] if row else None

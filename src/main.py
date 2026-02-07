@@ -46,7 +46,9 @@ from .database import (
     get_article_summary,
     mark_article_completed,
     get_items_without_embeddings,
+    get_items_without_chunk_embeddings,
     get_summary_text_for_embedding,
+    get_full_text_for_embedding,
     get_digest_item,
     has_embeddings,
 )
@@ -221,7 +223,8 @@ async def background_transcript_fetcher():
                                 if summary.topics:
                                     text += f"\n\nTopics: {','.join(summary.topics)}"
                                 await embedder.embed_item(video.id, "video", text)
-                                logger.info(f"[Background] Embedding saved for: {video.title}")
+                                await embedder.embed_item_chunks(video.id, "video", transcript.content)
+                                logger.info(f"[Background] Embeddings saved for: {video.title}")
                             except Exception as e:
                                 logger.warning(f"[Background] Embedding failed for {video.title}: {e}")
                 else:
@@ -293,6 +296,7 @@ async def refresh_video_metadata() -> tuple[int, int]:
                         if summary.topics:
                             text += f"\n\nTopics: {','.join(summary.topics)}"
                         await embedder.embed_item(video.id, "video", text)
+                        await embedder.embed_item_chunks(video.id, "video", transcript.content)
                     except Exception:
                         pass  # non-critical
 
@@ -544,7 +548,7 @@ async def api_backfill_categories():
 
 @app.post("/api/embed-all")
 async def api_embed_all():
-    """Generate embeddings for all items that have summaries but no embeddings."""
+    """Generate embeddings for all items that need them (summaries + chunks)."""
     if not embedder.is_available():
         return JSONResponse(
             content={"error": "VOYAGE_API_KEY is not set"},
@@ -552,28 +556,46 @@ async def api_embed_all():
         )
 
     try:
-        items = await get_items_without_embeddings()
-        embedded = 0
-        errors = 0
+        # Phase 1: Summary embeddings
+        summary_items = await get_items_without_embeddings()
+        summary_embedded = 0
+        summary_errors = 0
 
-        for item_id, item_type in items:
+        for item_id, item_type in summary_items:
             text = await get_summary_text_for_embedding(item_id, item_type)
             if not text:
-                errors += 1
+                summary_errors += 1
                 continue
 
             success = await embedder.embed_item(item_id, item_type, text)
             if success:
-                embedded += 1
-                logger.info(f"Embedded {item_type} {item_id}")
+                summary_embedded += 1
+                logger.info(f"Embedded summary for {item_type} {item_id}")
             else:
-                errors += 1
+                summary_errors += 1
+
+        # Phase 2: Chunk embeddings
+        chunk_items = await get_items_without_chunk_embeddings()
+        chunks_embedded = 0
+        chunk_errors = 0
+
+        for item_id, item_type in chunk_items:
+            text = await get_full_text_for_embedding(item_id, item_type)
+            if not text:
+                chunk_errors += 1
+                continue
+
+            count = await embedder.embed_item_chunks(item_id, item_type, text)
+            if count > 0:
+                chunks_embedded += count
+                logger.info(f"Embedded {count} chunks for {item_type} {item_id}")
+            else:
+                chunk_errors += 1
 
         return JSONResponse(content={
             "success": True,
-            "total": len(items),
-            "embedded": embedded,
-            "errors": errors,
+            "summaries": {"total": len(summary_items), "embedded": summary_embedded, "errors": summary_errors},
+            "chunks": {"total": len(chunk_items), "embedded": chunks_embedded, "errors": chunk_errors},
         })
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
@@ -678,6 +700,7 @@ async def api_add_article(request: Request):
                     if summary.topics:
                         text += f"\n\nTopics: {','.join(summary.topics)}"
                     await embedder.embed_item(article.id, "article", text)
+                    await embedder.embed_item_chunks(article.id, "article", article.content)
                 except Exception:
                     pass  # non-critical
 

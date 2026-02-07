@@ -71,6 +71,41 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.dot(a, b) / (norm_a * norm_b))
 
 
+def chunk_text(text: str, chunk_size: int = 500, overlap: int = 100) -> list[str]:
+    """Split text into overlapping word-based chunks.
+
+    A 10,000-word transcript embedded as one vector produces a blurry
+    representation where all topics are averaged together. Chunking
+    creates focused vectors so specific details (tool names, techniques)
+    can be found by search.
+
+    Args:
+        text: The full text to split.
+        chunk_size: Target number of words per chunk.
+        overlap: Number of words shared between adjacent chunks.
+
+    Returns:
+        List of text chunks. Returns [text] if text is shorter than chunk_size.
+    """
+    words = text.split()
+    if len(words) <= chunk_size:
+        return [text] if words else []
+
+    chunks = []
+    start = 0
+    step = chunk_size - overlap
+
+    while start < len(words):
+        end = start + chunk_size
+        chunk = " ".join(words[start:end])
+        chunks.append(chunk)
+        if end >= len(words):
+            break
+        start += step
+
+    return chunks
+
+
 async def embed_item(item_id: str, item_type: str, text: str) -> bool:
     """Generate and store a summary embedding for one item.
 
@@ -94,6 +129,43 @@ async def embed_item(item_id: str, item_type: str, text: str) -> bool:
     except Exception as e:
         logger.error(f"Failed to embed {item_type} {item_id}: {e}")
         return False
+
+
+async def embed_item_chunks(item_id: str, item_type: str, text: str) -> int:
+    """Split text into chunks, embed each, and store them.
+
+    Returns the number of chunks successfully embedded.
+    """
+    from .database import save_embeddings_batch
+
+    chunks = chunk_text(text)
+    if not chunks:
+        return 0
+
+    try:
+        vectors = generate_embeddings(chunks, input_type="document")
+    except Exception as e:
+        logger.error(f"Failed to embed chunks for {item_type} {item_id}: {e}")
+        return 0
+
+    content_type = f"{item_type}_chunk"
+    embeddings = []
+    for i, (chunk_text_str, vector) in enumerate(zip(chunks, vectors)):
+        emb = Embedding(
+            item_id=item_id,
+            item_type=item_type,
+            content_type=content_type,
+            vector=vector,
+            chunk_index=i,
+        )
+        embeddings.append((emb, embedding_to_bytes(vector)))
+
+    try:
+        await save_embeddings_batch(embeddings)
+        return len(embeddings)
+    except Exception as e:
+        logger.error(f"Failed to save chunk embeddings for {item_type} {item_id}: {e}")
+        return 0
 
 
 async def search(query: str, limit: int = 10) -> list[tuple[str, str, float]]:

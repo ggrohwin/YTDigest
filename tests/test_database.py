@@ -618,3 +618,119 @@ class TestGetDigestItem:
         """Requesting a non-existent item returns None."""
         assert await database.get_digest_item("nope", "video") is None
         assert await database.get_digest_item("nope", "article") is None
+
+
+class TestSaveEmbeddingsBatch:
+    """Tests for save_embeddings_batch() — storing multiple chunk embeddings."""
+
+    def _to_bytes(self, vector: list[float]) -> bytes:
+        return np.array(vector, dtype=np.float32).tobytes()
+
+    async def test_saves_multiple_chunks(self, test_db):
+        """Multiple chunk embeddings for one item should all be stored."""
+        embs = []
+        for i in range(3):
+            emb = Embedding(
+                item_id="vid1", item_type="video",
+                content_type="video_chunk", vector=[float(i)],
+                chunk_index=i,
+            )
+            embs.append((emb, self._to_bytes([float(i)])))
+
+        await database.save_embeddings_batch(embs)
+
+        # All 3 should be stored
+        all_embs = await database.get_all_embeddings()
+        assert len(all_embs) == 3
+
+    async def test_replaces_old_chunks(self, test_db):
+        """Re-embedding chunks should replace old ones."""
+        # First batch: 2 chunks
+        embs1 = []
+        for i in range(2):
+            emb = Embedding(
+                item_id="vid1", item_type="video",
+                content_type="video_chunk", vector=[float(i)],
+                chunk_index=i,
+            )
+            embs1.append((emb, self._to_bytes([float(i)])))
+        await database.save_embeddings_batch(embs1)
+
+        # Second batch: 3 chunks (should replace the 2)
+        embs2 = []
+        for i in range(3):
+            emb = Embedding(
+                item_id="vid1", item_type="video",
+                content_type="video_chunk", vector=[float(i + 10)],
+                chunk_index=i,
+            )
+            embs2.append((emb, self._to_bytes([float(i + 10)])))
+        await database.save_embeddings_batch(embs2)
+
+        all_embs = await database.get_all_embeddings()
+        assert len(all_embs) == 3  # replaced, not 5
+
+    async def test_empty_batch_is_noop(self, test_db):
+        """Saving an empty batch should not error."""
+        await database.save_embeddings_batch([])
+        assert await database.count_embeddings() == 0
+
+
+class TestGetItemsWithoutChunkEmbeddings:
+    """Tests for get_items_without_chunk_embeddings()."""
+
+    async def test_video_with_transcript_but_no_chunks(self, test_db):
+        """A video with a transcript but no chunk embeddings should be returned."""
+        video = Video(
+            id="vid1", channel_id="UC1", channel_name="Chan",
+            title="Vid", published_at=datetime.now(timezone.utc),
+            thumbnail_url="https://x.com/t.jpg",
+            video_url="https://youtube.com/watch?v=vid1",
+        )
+        await database.save_video(video)
+        await database.save_transcript(Transcript(
+            video_id="vid1", content="A long transcript...",
+            fetched_at=datetime.now(timezone.utc),
+        ))
+
+        items = await database.get_items_without_chunk_embeddings()
+        assert ("vid1", "video") in items
+
+    async def test_article_with_content_but_no_chunks(self, test_db):
+        """An article with content but no chunk embeddings should be returned."""
+        article = Article(
+            id="art1", url="https://example.com/a", domain="example.com",
+            title="Art", added_at=datetime.now(timezone.utc),
+            content="Full article content here.", word_count=5,
+            extract_status="extracted",
+        )
+        await database.save_article(article)
+
+        items = await database.get_items_without_chunk_embeddings()
+        assert ("art1", "article") in items
+
+    async def test_excludes_items_with_chunk_embeddings(self, test_db):
+        """Items that already have chunk embeddings should not be returned."""
+        video = Video(
+            id="vid2", channel_id="UC1", channel_name="Chan",
+            title="Vid2", published_at=datetime.now(timezone.utc),
+            thumbnail_url="https://x.com/t.jpg",
+            video_url="https://youtube.com/watch?v=vid2",
+        )
+        await database.save_video(video)
+        await database.save_transcript(Transcript(
+            video_id="vid2", content="Transcript content.",
+            fetched_at=datetime.now(timezone.utc),
+        ))
+        # Save a chunk embedding
+        emb = Embedding(
+            item_id="vid2", item_type="video",
+            content_type="video_chunk", vector=[0.1],
+            chunk_index=0,
+        )
+        await database.save_embedding(
+            emb, np.array([0.1], dtype=np.float32).tobytes()
+        )
+
+        items = await database.get_items_without_chunk_embeddings()
+        assert ("vid2", "video") not in items
