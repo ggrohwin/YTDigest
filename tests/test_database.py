@@ -456,3 +456,107 @@ class TestEmbeddingOperations:
             )
             tables = {row[0] for row in await cursor.fetchall()}
         assert "embeddings" in tables
+
+
+class TestGetItemsWithoutEmbeddings:
+    """Tests for get_items_without_embeddings()."""
+
+    async def test_returns_video_with_summary_but_no_embedding(self, test_db):
+        """A video that has a summary but no embedding should be returned."""
+        video = Video(
+            id="vid1", channel_id="UC1", channel_name="Chan",
+            title="Vid", published_at=datetime.now(timezone.utc),
+            thumbnail_url="https://x.com/t.jpg",
+            video_url="https://youtube.com/watch?v=vid1",
+        )
+        await database.save_video(video)
+        await database.save_summary(Summary(
+            video_id="vid1", summary="A summary", topics=["ai"],
+            generated_at=datetime.now(timezone.utc),
+        ))
+
+        items = await database.get_items_without_embeddings()
+        assert len(items) == 1
+        assert items[0] == ("vid1", "video")
+
+    async def test_returns_article_with_summary_but_no_embedding(self, test_db):
+        """An article that has a summary but no embedding should be returned."""
+        article = Article(
+            id="art1", url="https://example.com/a", domain="example.com",
+            title="Art", added_at=datetime.now(timezone.utc),
+            content="Content.", word_count=1, extract_status="extracted",
+        )
+        await database.save_article(article)
+        await database.save_article_summary(ArticleSummary(
+            article_id="art1", summary="A summary", topics=["web"],
+            generated_at=datetime.now(timezone.utc),
+        ))
+
+        items = await database.get_items_without_embeddings()
+        assert len(items) == 1
+        assert items[0] == ("art1", "article")
+
+    async def test_excludes_items_that_already_have_embeddings(self, test_db):
+        """Items with existing embeddings should not be returned."""
+        video = Video(
+            id="vid2", channel_id="UC1", channel_name="Chan",
+            title="Vid2", published_at=datetime.now(timezone.utc),
+            thumbnail_url="https://x.com/t.jpg",
+            video_url="https://youtube.com/watch?v=vid2",
+        )
+        await database.save_video(video)
+        await database.save_summary(Summary(
+            video_id="vid2", summary="Summary", topics=["ai"],
+            generated_at=datetime.now(timezone.utc),
+        ))
+        # Also save an embedding for this item
+        emb = Embedding(
+            item_id="vid2", item_type="video",
+            content_type="video_summary", vector=[0.1, 0.2],
+        )
+        vector_bytes = np.array([0.1, 0.2], dtype=np.float32).tobytes()
+        await database.save_embedding(emb, vector_bytes)
+
+        items = await database.get_items_without_embeddings()
+        assert len(items) == 0
+
+    async def test_empty_when_no_summaries(self, test_db):
+        """No summaries means nothing to embed."""
+        items = await database.get_items_without_embeddings()
+        assert items == []
+
+
+class TestGetSummaryTextForEmbedding:
+    """Tests for get_summary_text_for_embedding()."""
+
+    async def test_video_summary_with_topics(self, test_db):
+        """Video summary text should include topics."""
+        await database.save_summary(Summary(
+            video_id="vid1", summary="Great video about testing.",
+            topics=["testing", "python"],
+            generated_at=datetime.now(timezone.utc),
+        ))
+        text = await database.get_summary_text_for_embedding("vid1", "video")
+        assert "Great video about testing." in text
+        assert "Topics:" in text
+        assert "testing" in text
+
+    async def test_article_summary(self, test_db):
+        """Article summary text should work similarly."""
+        article = Article(
+            id="art1", url="https://example.com/a", domain="example.com",
+            title="Art", added_at=datetime.now(timezone.utc),
+            content="Content.", word_count=1, extract_status="extracted",
+        )
+        await database.save_article(article)
+        await database.save_article_summary(ArticleSummary(
+            article_id="art1", summary="Article about web dev.",
+            topics=["web"], generated_at=datetime.now(timezone.utc),
+        ))
+        text = await database.get_summary_text_for_embedding("art1", "article")
+        assert "Article about web dev." in text
+
+    async def test_returns_none_for_missing_summary(self, test_db):
+        """Returns None when no summary exists for the item."""
+        text = await database.get_summary_text_for_embedding("nope", "video")
+        assert text is None

@@ -8,10 +8,12 @@ from types import SimpleNamespace
 from src.embedder import (
     is_available,
     generate_embeddings,
+    embed_item,
     embedding_to_bytes,
     bytes_to_embedding,
     cosine_similarity,
 )
+from src import database
 
 
 class TestIsAvailable:
@@ -142,3 +144,41 @@ class TestCosineSimilarity:
         a = np.array([1.0, 2.0, 3.0])
         b = np.array([2.0, 4.0, 6.0])  # same direction, 2x magnitude
         assert cosine_similarity(a, b) == pytest.approx(1.0)
+
+
+class TestEmbedItem:
+    """Tests for embed_item() — generates and stores an embedding for one item."""
+
+    @pytest.fixture
+    async def test_db(self, tmp_path, monkeypatch):
+        """Create a temporary database for testing."""
+        db_path = tmp_path / "test.db"
+        monkeypatch.setattr(database, "DATABASE_PATH", db_path)
+        await database.init_db()
+        yield db_path
+
+    @patch("src.embedder.generate_embeddings")
+    async def test_embed_item_success(self, mock_gen, test_db):
+        """embed_item should generate a vector and store it in the database."""
+        mock_gen.return_value = [[0.1, 0.2, 0.3]]
+
+        result = await embed_item("vid1", "video", "Some summary text")
+
+        assert result is True
+        mock_gen.assert_called_once_with(["Some summary text"], input_type="document")
+
+        # Verify it was stored in the database
+        stored = await database.get_embedding("vid1", "video_summary")
+        assert stored is not None
+
+    @patch("src.embedder.generate_embeddings")
+    async def test_embed_item_failure(self, mock_gen, test_db):
+        """embed_item should return False if embedding generation fails."""
+        mock_gen.side_effect = RuntimeError("API error")
+
+        result = await embed_item("vid1", "video", "Some text")
+
+        assert result is False
+        # Nothing stored
+        stored = await database.get_embedding("vid1", "video_summary")
+        assert stored is None

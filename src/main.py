@@ -45,6 +45,8 @@ from .database import (
     save_article_summary,
     get_article_summary,
     mark_article_completed,
+    get_items_without_embeddings,
+    get_summary_text_for_embedding,
 )
 from collections import defaultdict, Counter
 from .models import AppConfig, CATEGORIES, DigestItem, VideoWithDetails
@@ -52,6 +54,7 @@ from .youtube import get_channel_uploads
 from .transcripts import fetch_transcript
 from .summarizer import summarize_video, summarize_article, classify_existing_summary
 from .articles import fetch_article
+from . import embedder
 
 load_dotenv()
 
@@ -506,6 +509,48 @@ async def api_backfill_categories():
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
         logger.error(f"Error during category backfill: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500,
+        )
+
+
+@app.post("/api/embed-all")
+async def api_embed_all():
+    """Generate embeddings for all items that have summaries but no embeddings."""
+    if not embedder.is_available():
+        return JSONResponse(
+            content={"error": "VOYAGE_API_KEY is not set"},
+            status_code=400,
+        )
+
+    try:
+        items = await get_items_without_embeddings()
+        embedded = 0
+        errors = 0
+
+        for item_id, item_type in items:
+            text = await get_summary_text_for_embedding(item_id, item_type)
+            if not text:
+                errors += 1
+                continue
+
+            success = await embedder.embed_item(item_id, item_type, text)
+            if success:
+                embedded += 1
+                logger.info(f"Embedded {item_type} {item_id}")
+            else:
+                errors += 1
+
+        return JSONResponse(content={
+            "success": True,
+            "total": len(items),
+            "embedded": embedded,
+            "errors": errors,
+        })
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error during embedding backfill: {error_msg}")
         return JSONResponse(
             content={"error": error_msg},
             status_code=500,

@@ -704,3 +704,71 @@ async def count_embeddings() -> int:
         async with db.execute("SELECT COUNT(*) FROM embeddings") as cursor:
             row = await cursor.fetchone()
             return row[0]
+
+
+async def get_items_without_embeddings() -> list[tuple[str, str]]:
+    """Get (item_id, item_type) pairs for items that have summaries but no summary embeddings.
+
+    This finds videos with summaries and articles with article_summaries
+    that don't yet have a corresponding row in the embeddings table.
+    """
+    results = []
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        # Videos with summaries but no summary embedding
+        async with db.execute(
+            """
+            SELECT s.video_id FROM summaries s
+            LEFT JOIN embeddings e
+                ON s.video_id = e.item_id AND e.content_type = 'video_summary'
+            WHERE e.item_id IS NULL
+            """
+        ) as cursor:
+            for row in await cursor.fetchall():
+                results.append((row[0], "video"))
+
+        # Articles with summaries but no summary embedding
+        async with db.execute(
+            """
+            SELECT s.article_id FROM article_summaries s
+            LEFT JOIN embeddings e
+                ON s.article_id = e.item_id AND e.content_type = 'article_summary'
+            WHERE e.item_id IS NULL
+            """
+        ) as cursor:
+            for row in await cursor.fetchall():
+                results.append((row[0], "article"))
+
+    return results
+
+
+async def get_summary_text_for_embedding(
+    item_id: str, item_type: str
+) -> Optional[str]:
+    """Get the summary text to embed for a given item.
+
+    Combines the summary text with topics to create a richer embedding.
+    Returns None if no summary exists.
+    """
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        if item_type == "video":
+            async with db.execute(
+                "SELECT summary, topics FROM summaries WHERE video_id = ?",
+                (item_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+        else:
+            async with db.execute(
+                "SELECT summary, topics FROM article_summaries WHERE article_id = ?",
+                (item_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+
+        if not row:
+            return None
+
+        summary = row["summary"]
+        topics = row["topics"]
+        if topics:
+            summary += f"\n\nTopics: {topics}"
+        return summary

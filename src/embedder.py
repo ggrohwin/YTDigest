@@ -69,3 +69,28 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     if norm_a == 0 or norm_b == 0:
         return 0.0
     return float(np.dot(a, b) / (norm_a * norm_b))
+
+
+async def embed_item(item_id: str, item_type: str, text: str) -> bool:
+    """Generate and store a summary embedding for one item.
+
+    Returns True if successful, False otherwise.
+    """
+    from .database import save_embedding
+
+    try:
+        content_type = f"{item_type}_summary"
+        vectors = generate_embeddings([text], input_type="document")
+        vector = vectors[0]
+
+        emb = Embedding(
+            item_id=item_id,
+            item_type=item_type,
+            content_type=content_type,
+            vector=vector,
+        )
+        await save_embedding(emb, embedding_to_bytes(vector))
+        return True
+    except Exception as e:
+        logger.error(f"Failed to embed {item_type} {item_id}: {e}")
+        return False
