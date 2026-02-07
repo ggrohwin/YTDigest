@@ -51,6 +51,7 @@ from .database import (
     get_full_text_for_embedding,
     get_digest_item,
     has_embeddings,
+    count_embeddings,
 )
 from collections import defaultdict, Counter
 from .models import AppConfig, CATEGORIES, DigestItem, VideoWithDetails
@@ -387,12 +388,15 @@ async def index(request: Request, group_by: str = "date", show_completed: bool =
     new_since_last_visit = await count_new_videos_since(last_visited) if last_visited else 0
     await set_setting("last_visited_at", datetime.now(timezone.utc).isoformat())
 
+    embedding_count = await count_embeddings() if embedder.is_available() else 0
+
     page_summary = {
         "total": total,
         "with_summary": with_summary,
         "pending": pending,
         "failed": failed,
         "new_since_last_visit": new_since_last_visit,
+        "embedding_count": embedding_count,
     }
 
     # Search bar only appears when there are embeddings to search

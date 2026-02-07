@@ -210,12 +210,12 @@ class TestSearch:
     @patch("src.embedder.generate_embeddings")
     async def test_search_returns_ranked_results(self, mock_gen, test_db):
         """Search should return items ranked by similarity to the query."""
-        # Store two embeddings: one close to the query, one far
+        # Store two embeddings: both with decent similarity to the query
         await self._store_embedding(
             "vid1", "video", "video_summary", [1.0, 0.0, 0.0]
         )
         await self._store_embedding(
-            "vid2", "video", "video_summary", [0.0, 1.0, 0.0]
+            "vid2", "video", "video_summary", [0.8, 0.6, 0.0]
         )
 
         # Mock the query embedding to be close to vid1
@@ -229,6 +229,26 @@ class TestSearch:
         assert results[0][2] > results[1][2]  # higher score
         # Verify generate_embeddings was called with query input_type
         mock_gen.assert_called_once_with(["machine learning"], input_type="query")
+
+    @patch("src.embedder.generate_embeddings")
+    async def test_search_filters_low_similarity(self, mock_gen, test_db):
+        """Search should exclude results below the MIN_SIMILARITY threshold."""
+        # vid1 is close to query, vid2 is orthogonal (low similarity)
+        await self._store_embedding(
+            "vid1", "video", "video_summary", [1.0, 0.0, 0.0]
+        )
+        await self._store_embedding(
+            "vid2", "video", "video_summary", [0.0, 1.0, 0.0]
+        )
+
+        # Query is close to vid1, orthogonal to vid2 (similarity ~0.11)
+        mock_gen.return_value = [[0.9, 0.1, 0.0]]
+
+        results = await search("test", limit=10)
+
+        # vid2 should be filtered out (cosine sim ~0.11 < 0.3)
+        assert len(results) == 1
+        assert results[0][0] == "vid1"
 
     @patch("src.embedder.generate_embeddings")
     async def test_search_respects_limit(self, mock_gen, test_db):

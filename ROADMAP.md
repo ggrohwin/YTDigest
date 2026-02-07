@@ -26,7 +26,6 @@ _Empty - ready for next task_
 | Filter/sort videos | Filter by channel, date, has-summary; sort options | Medium |
 | ~~Mark as read/interested~~ | ~~Track which videos you've watched or want to watch~~ | ~~Medium~~ |
 | Search across transcripts | Keyword search across all saved transcripts | Medium |
-| Semantic search | Embed transcripts, query by meaning ("what did anyone say about fine-tuning?") | Large |
 
 ### Maybe
 | Item | Description | Effort |
@@ -83,6 +82,7 @@ _Empty - ready for next task_
 ## Completed
 | Item | Date | Notes |
 |------|------|-------|
+| Semantic search | 2026-02-07 | Voyage AI embeddings for summaries + transcript/article chunks; cosine similarity search with deduplication, threshold filtering, auto-embed on save, search UI with score badges |
 | Article thumbnails | 2026-02-07 | Extract OG image from trafilatura, store in DB, display in article cards matching video card layout |
 | Article bookmarklet and paste-URL | 2026-02-06 | Draggable bookmarklet and sidebar URL input for saving articles to digest |
 | Article title and date fixes | 2026-02-06 | Enable trafilatura metadata extraction; group articles by added_at, show original pub date |

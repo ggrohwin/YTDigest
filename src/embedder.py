@@ -18,6 +18,7 @@ logger = logging.getLogger("ytdigest")
 # Voyage AI configuration
 VOYAGE_MODEL = "voyage-3-lite"
 VOYAGE_DIMENSIONS = 512
+MIN_SIMILARITY = 0.3  # Filter out results below this threshold
 
 
 def is_available() -> bool:
@@ -199,9 +200,10 @@ async def search(query: str, limit: int = 10) -> list[tuple[str, str, float]]:
         if key not in best_scores or score > best_scores[key]:
             best_scores[key] = score
 
-    # Sort by score descending, take top N
+    # Sort by score descending, filter by threshold, take top N
     ranked = sorted(best_scores.items(), key=lambda x: x[1], reverse=True)
     return [
         (item_id, item_type, score)
         for (item_id, item_type), score in ranked[:limit]
+        if score >= MIN_SIMILARITY
     ]

@@ -127,6 +127,10 @@
             <span>&bull;</span>
             <span class="text-red-700">{{ page_summary.failed }} transcripts failed</span>
             {% endif %}
+            {% if page_summary.embedding_count > 0 %}
+            <span>&bull;</span>
+            <span class="text-purple-700">{{ page_summary.embedding_count }} embeddings</span>
+            {% endif %}
         </div>
         {% endif %}
 
