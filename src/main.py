@@ -213,6 +213,17 @@ async def background_transcript_fetcher():
                     if summary:
                         await save_summary(summary)
                         logger.info(f"[Background] Summary saved for: {video.title}")
+
+                        # Auto-embed for semantic search
+                        if embedder.is_available():
+                            try:
+                                text = summary.summary
+                                if summary.topics:
+                                    text += f"\n\nTopics: {','.join(summary.topics)}"
+                                await embedder.embed_item(video.id, "video", text)
+                                logger.info(f"[Background] Embedding saved for: {video.title}")
+                            except Exception as e:
+                                logger.warning(f"[Background] Embedding failed for {video.title}: {e}")
                 else:
                     # Mark with appropriate status based on failure reason
                     status = failure_reason or "failed"
@@ -274,6 +285,16 @@ async def refresh_video_metadata() -> tuple[int, int]:
             if summary:
                 await save_summary(summary)
                 total_summaries += 1
+
+                # Auto-embed for semantic search
+                if embedder.is_available():
+                    try:
+                        text = summary.summary
+                        if summary.topics:
+                            text += f"\n\nTopics: {','.join(summary.topics)}"
+                        await embedder.embed_item(video.id, "video", text)
+                    except Exception:
+                        pass  # non-critical
 
     return total_videos, total_summaries
 
@@ -649,6 +670,16 @@ async def api_add_article(request: Request):
         )
         if summary:
             await save_article_summary(summary)
+
+            # Auto-embed for semantic search
+            if embedder.is_available():
+                try:
+                    text = summary.summary
+                    if summary.topics:
+                        text += f"\n\nTopics: {','.join(summary.topics)}"
+                    await embedder.embed_item(article.id, "article", text)
+                except Exception:
+                    pass  # non-critical
 
         return JSONResponse(content={
             "success": True,
