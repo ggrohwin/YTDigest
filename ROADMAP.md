@@ -82,6 +82,7 @@ _Empty - ready for next task_
 ## Completed
 | Item | Date | Notes |
 |------|------|-------|
+| Add video by URL | 2026-02-07 | Paste any YouTube URL in sidebar or use bookmarklet; fetches metadata, transcript, and summary synchronously |
 | Semantic search | 2026-02-07 | Voyage AI embeddings for summaries + transcript/article chunks; cosine similarity search with deduplication, threshold filtering, auto-embed on save, search UI with score badges |
 | Article thumbnails | 2026-02-07 | Extract OG image from trafilatura, store in DB, display in article cards matching video card layout |
 | Article bookmarklet and paste-URL | 2026-02-06 | Draggable bookmarklet and sidebar URL input for saving articles to digest |

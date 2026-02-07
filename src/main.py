@@ -52,10 +52,11 @@ from .database import (
     get_digest_item,
     has_embeddings,
     count_embeddings,
+    get_video,
 )
 from collections import defaultdict, Counter
 from .models import AppConfig, CATEGORIES, DigestItem, VideoWithDetails
-from .youtube import get_channel_uploads
+from .youtube import get_channel_uploads, parse_video_id, is_youtube_url, get_video_by_id
 from .transcripts import fetch_transcript
 from .summarizer import summarize_video, summarize_article, classify_existing_summary
 from .articles import fetch_article
@@ -437,6 +438,98 @@ async def api_videos():
         }
         for v in videos
     ])
+
+
+@app.post("/api/videos")
+async def api_add_video(request: Request):
+    """Add a YouTube video by URL. Fetches metadata, transcript, and generates summary."""
+    try:
+        body = await request.json()
+        url = body.get("url")
+        if not url:
+            return JSONResponse(
+                content={"error": "URL is required"},
+                status_code=400,
+            )
+
+        video_id = parse_video_id(url)
+        if not video_id:
+            return JSONResponse(
+                content={"error": "Not a recognized YouTube URL"},
+                status_code=400,
+            )
+
+        # Check for duplicates
+        existing = await get_video(video_id)
+        if existing:
+            summary = await get_summary(video_id)
+            return JSONResponse(content={
+                "success": True,
+                "duplicate": True,
+                "video_id": existing.id,
+                "title": existing.title,
+                "summary": summary.summary if summary else None,
+            })
+
+        # Fetch video metadata from YouTube API
+        video = get_video_by_id(video_id)
+        if not video:
+            return JSONResponse(
+                content={"error": "Video not found on YouTube"},
+                status_code=404,
+            )
+
+        # Save video
+        await save_video(video)
+
+        # Fetch transcript immediately
+        transcript, failure_reason = fetch_transcript(video_id)
+        if transcript:
+            await save_transcript(transcript)
+            await update_transcript_status(video_id, "fetched")
+
+            # Generate summary
+            summary = summarize_video(
+                video_id=video_id,
+                title=video.title,
+                channel=video.channel_name,
+                transcript=transcript.content,
+            )
+            if summary:
+                await save_summary(summary)
+
+                # Auto-embed for semantic search
+                if embedder.is_available():
+                    try:
+                        text = summary.summary
+                        if summary.topics:
+                            text += f"\n\nTopics: {','.join(summary.topics)}"
+                        await embedder.embed_item(video_id, "video", text)
+                        await embedder.embed_item_chunks(video_id, "video", transcript.content)
+                    except Exception:
+                        pass  # non-critical
+        else:
+            status = failure_reason or "failed"
+            await update_transcript_status(video_id, status)
+
+        summary_obj = await get_summary(video_id)
+        return JSONResponse(content={
+            "success": True,
+            "duplicate": False,
+            "video_id": video.id,
+            "title": video.title,
+            "channel": video.channel_name,
+            "has_transcript": transcript is not None,
+            "summary": summary_obj.summary if summary_obj else None,
+        })
+
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error adding video: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500,
+        )
 
 
 @app.get("/api/refresh")
