@@ -115,3 +115,4 @@ class DigestItem(BaseModel):
     author: Optional[str] = None
     domain: Optional[str] = None
     word_count: Optional[int] = None
+    original_published_at: Optional[datetime] = None

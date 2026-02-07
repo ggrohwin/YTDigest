@@ -52,6 +52,7 @@ def fetch_article(url: str) -> tuple[Optional[Article], Optional[str]]:
             downloaded,
             include_comments=False,
             include_tables=True,
+            with_metadata=True,
         )
 
         if not result or not getattr(result, "text", None):

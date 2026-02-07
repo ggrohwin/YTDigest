@@ -376,6 +376,7 @@ async def index(request: Request, group_by: str = "date", show_completed: bool =
             "channels": app_config.channels if app_config else [],
             "month_groups": month_groups,
             "category_groups": category_groups,
+            "bookmarklet_origin": f"{request.url.scheme}://{request.url.netloc}",
         }
     )
 
@@ -681,7 +682,7 @@ async def get_digest_items(include_completed: bool = False) -> list[DigestItem]:
             title=article.title,
             url=article.url,
             source_name=article.domain,
-            published_at=article.published_at or article.added_at,
+            published_at=article.added_at,
             added_at=article.added_at,
             is_completed=article.is_completed,
             sentiment=article.sentiment,
@@ -692,6 +693,7 @@ async def get_digest_items(include_completed: bool = False) -> list[DigestItem]:
             author=article.author,
             domain=article.domain,
             word_count=article.word_count,
+            original_published_at=article.published_at,
         ))
 
     # Sort by date, most recent first
