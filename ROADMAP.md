@@ -75,8 +75,7 @@ _Empty - ready for next task_
 ### Next
 | Item | Description | Effort |
 |------|-------------|--------|
-| Integration tests | Test API endpoints with FastAPI TestClient | Medium |
-| Mocking external APIs | Mock YouTube and Claude calls in tests | Medium |
+| API endpoint tests | Test HTTP endpoints with FastAPI TestClient | Medium |
 | Coverage reporting | Add pytest-cov, track coverage | Quick |
 
 ---
@@ -84,6 +83,9 @@ _Empty - ready for next task_
 ## Completed
 | Item | Date | Notes |
 |------|------|-------|
+| Web articles feature | 2026-02-06 | Extract, summarize, and display web articles alongside videos in unified digest |
+| Integration tests | 2026-02-06 | End-to-end tests for article fetch-summarize pipeline with pytest integration marker |
+| Mocking external APIs | 2026-02-06 | Mock trafilatura in unit tests; fixed for trafilatura 2.0 Document return type |
 | Skip completed videos in transcript queue | 2026-02-04 | Exclude completed videos from background transcript fetching |
 | Unified page summary bar | 2026-02-04 | Single status bar with video counts, new-since-last-visit, and transcript status; replaced startup banner |
 | Prioritize transcript fetch | 2026-02-04 | Button to bump a video to the front of the transcript queue |
