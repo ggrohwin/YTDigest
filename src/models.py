@@ -78,6 +78,7 @@ class Article(BaseModel):
     added_at: datetime
     content: str
     word_count: int
+    thumbnail_url: Optional[str] = None
     extract_status: Literal["pending", "extracted", "failed"] = "pending"
     is_completed: bool = False
     sentiment: Optional[str] = None

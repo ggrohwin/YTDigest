@@ -690,6 +690,7 @@ async def get_digest_items(include_completed: bool = False) -> list[DigestItem]:
             summary=summary.summary if summary else None,
             topics=summary.topics if summary else [],
             category=summary.category if summary else None,
+            thumbnail_url=article.thumbnail_url,
             author=article.author,
             domain=article.domain,
             word_count=article.word_count,

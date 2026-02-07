@@ -98,6 +98,12 @@ async def init_db() -> None:
             )
         """)
 
+        # Migration: add thumbnail_url column to articles
+        try:
+            await db.execute("ALTER TABLE articles ADD COLUMN thumbnail_url TEXT")
+        except Exception:
+            pass  # Column already exists
+
         await db.execute("""
             CREATE TABLE IF NOT EXISTS article_summaries (
                 article_id TEXT PRIMARY KEY,
@@ -422,6 +428,7 @@ def _article_from_row(row) -> Article:
         added_at=datetime.fromisoformat(row["added_at"]),
         content=row["content"],
         word_count=row["word_count"],
+        thumbnail_url=row["thumbnail_url"],
         extract_status=row["extract_status"],
         is_completed=bool(row["is_completed"]),
         sentiment=row["sentiment"],
@@ -438,17 +445,17 @@ async def save_article(article: Article) -> bool:
         if exists:
             await db.execute(
                 """
-                UPDATE articles SET title = ?, content = ?, word_count = ?, extract_status = ?
+                UPDATE articles SET title = ?, content = ?, word_count = ?, extract_status = ?, thumbnail_url = ?
                 WHERE id = ?
                 """,
-                (article.title, article.content, article.word_count, article.extract_status, article.id),
+                (article.title, article.content, article.word_count, article.extract_status, article.thumbnail_url, article.id),
             )
         else:
             await db.execute(
                 """
                 INSERT INTO articles
-                (id, url, domain, title, author, published_at, added_at, content, word_count, extract_status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (id, url, domain, title, author, published_at, added_at, content, word_count, thumbnail_url, extract_status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     article.id,
@@ -460,6 +467,7 @@ async def save_article(article: Article) -> bool:
                     article.added_at.isoformat(),
                     article.content,
                     article.word_count,
+                    article.thumbnail_url,
                     article.extract_status,
                 ),
             )

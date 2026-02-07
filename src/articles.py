@@ -70,6 +70,8 @@ def fetch_article(url: str) -> tuple[Optional[Article], Optional[str]]:
             except (ValueError, TypeError):
                 pass
 
+        image = getattr(result, "image", None)
+
         article = Article(
             id=generate_article_id(url),
             url=url,
@@ -80,6 +82,7 @@ def fetch_article(url: str) -> tuple[Optional[Article], Optional[str]]:
             added_at=datetime.now(timezone.utc),
             content=content,
             word_count=len(content.split()),
+            thumbnail_url=image,
             extract_status="extracted",
         )
 

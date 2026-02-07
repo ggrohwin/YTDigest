@@ -19,7 +19,6 @@ _Empty - ready for next task_
 |------|-------------|--------|
 | Chat with transcript | Ask questions about a video while watching; send transcript + question to Claude | Medium |
 | Retry failed transcripts | Button or automatic retry for rate-limited videos after cooldown | Quick |
-| Article thumbnail | Show article thumbnail/OG image in card where available | Quick |
 
 ### Later
 | Item | Description | Effort |
@@ -84,6 +83,7 @@ _Empty - ready for next task_
 ## Completed
 | Item | Date | Notes |
 |------|------|-------|
+| Article thumbnails | 2026-02-07 | Extract OG image from trafilatura, store in DB, display in article cards matching video card layout |
 | Article bookmarklet and paste-URL | 2026-02-06 | Draggable bookmarklet and sidebar URL input for saving articles to digest |
 | Article title and date fixes | 2026-02-06 | Enable trafilatura metadata extraction; group articles by added_at, show original pub date |
 | Web articles feature | 2026-02-06 | Extract, summarize, and display web articles alongside videos in unified digest |

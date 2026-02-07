@@ -248,7 +248,21 @@
                         {% if item.item_type == 'article' %}
                         {# --- Article card --- #}
                         <article class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow border-l-4 border-emerald-500">
-                            <div class="p-4">
+                            <div class="{% if item.thumbnail_url %}md:flex{% endif %}">
+                                {% if item.thumbnail_url %}
+                                <!-- Thumbnail -->
+                                <div class="md:w-64 flex-shrink-0">
+                                    <a href="{{ item.url }}" target="_blank" rel="noopener">
+                                        <img
+                                            src="{{ item.thumbnail_url }}"
+                                            alt="{{ item.title }}"
+                                            class="w-full h-48 md:h-full object-cover"
+                                        >
+                                    </a>
+                                </div>
+                                {% endif %}
+
+                            <div class="p-4 flex-1">
                                 <!-- Type badge + Title -->
                                 <div class="flex items-start gap-2 mb-2">
                                     <span class="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2 py-0.5 rounded flex-shrink-0 mt-1">Article</span>
@@ -326,6 +340,7 @@
                                     {% if item.sentiment == 'like' %}👍{% elif item.sentiment == 'neutral' %}✔️{% elif item.sentiment == 'dislike' %}👎{% endif %}
                                 </div>
                                 {% endif %}
+                            </div>
                             </div>
                         </article>
                         {% else %}
