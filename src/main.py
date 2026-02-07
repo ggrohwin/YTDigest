@@ -48,6 +48,7 @@ from .database import (
     get_items_without_embeddings,
     get_summary_text_for_embedding,
     get_digest_item,
+    has_embeddings,
 )
 from collections import defaultdict, Counter
 from .models import AppConfig, CATEGORIES, DigestItem, VideoWithDetails
@@ -369,6 +370,9 @@ async def index(request: Request, group_by: str = "date", show_completed: bool =
         "new_since_last_visit": new_since_last_visit,
     }
 
+    # Search bar only appears when there are embeddings to search
+    search_enabled = embedder.is_available() and await has_embeddings()
+
     return templates.TemplateResponse(
         "digest.html",
         {
@@ -381,6 +385,7 @@ async def index(request: Request, group_by: str = "date", show_completed: bool =
             "month_groups": month_groups,
             "category_groups": category_groups,
             "bookmarklet_origin": f"{request.url.scheme}://{request.url.netloc}",
+            "search_enabled": search_enabled,
         }
     )
 

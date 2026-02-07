@@ -72,6 +72,41 @@
                     <span id="refreshText">Get New Videos</span>
                 </button>
             </div>
+
+            {% if search_enabled %}
+            <!-- Search bar -->
+            <div class="mt-4">
+                <form onsubmit="performSearch(event)" class="flex gap-2">
+                    <div class="relative flex-1">
+                        <input
+                            id="searchInput"
+                            type="text"
+                            placeholder="Search by meaning... (e.g. &quot;what did anyone say about fine-tuning?&quot;)"
+                            class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        >
+                        <svg class="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+                    <button
+                        type="submit"
+                        id="searchBtn"
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center"
+                    >
+                        <span id="searchSpinner" class="spinner hidden"></span>
+                        Search
+                    </button>
+                    <button
+                        type="button"
+                        id="clearSearchBtn"
+                        onclick="clearSearch()"
+                        class="hidden bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg transition-colors"
+                    >
+                        Back to digest
+                    </button>
+                </form>
+            </div>
+            {% endif %}
         </header>
 
         <!-- Page summary -->
@@ -116,8 +151,19 @@
             </div>
         </div>
 
+        <!-- Search results (hidden until a search is performed) -->
+        <div id="searchResults" class="hidden mb-6">
+            <div id="searchResultsHeader" class="mb-4 flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-gray-700">
+                    Search results for "<span id="searchQuery"></span>"
+                </h2>
+                <span id="searchResultsCount" class="text-sm text-gray-500"></span>
+            </div>
+            <div id="searchResultsList" class="space-y-4"></div>
+        </div>
+
         <!-- Main content with sidebar -->
-        <div class="flex gap-6">
+        <div id="digestContent" class="flex gap-6">
             <!-- Sidebar -->
             <nav id="sidebar" class="hidden lg:block w-56 flex-shrink-0 sticky top-4 self-start max-h-[calc(100vh-2rem)] overflow-y-auto">
                 <div class="bg-white rounded-lg shadow-md p-4">
@@ -673,6 +719,164 @@
 
             btn.disabled = false;
             btn.textContent = 'Add';
+        }
+
+        // --- Search functions ---
+
+        async function performSearch(event) {
+            event.preventDefault();
+            const input = document.getElementById('searchInput');
+            const query = input.value.trim();
+            if (!query) return;
+
+            const btn = document.getElementById('searchBtn');
+            const spinner = document.getElementById('searchSpinner');
+
+            // Show loading state
+            btn.disabled = true;
+            spinner.classList.remove('hidden');
+
+            try {
+                const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&limit=20`);
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                renderSearchResults(data.query, data.results);
+            } catch (error) {
+                document.getElementById('statusText').textContent = `Search error: ${error.message}`;
+                document.getElementById('statusMessage').classList.remove('hidden');
+            }
+
+            btn.disabled = false;
+            spinner.classList.add('hidden');
+        }
+
+        function renderSearchResults(query, results) {
+            // Hide digest, show search results
+            document.getElementById('digestContent').classList.add('hidden');
+            document.getElementById('searchResults').classList.remove('hidden');
+            document.getElementById('clearSearchBtn').classList.remove('hidden');
+
+            // Hide grouping selector and page summary during search
+            const groupingSelector = document.querySelector('.mb-6.flex.items-center.justify-between');
+            if (groupingSelector) groupingSelector.classList.add('hidden');
+
+            document.getElementById('searchQuery').textContent = query;
+            document.getElementById('searchResultsCount').textContent =
+                results.length === 0 ? 'No results found' : `${results.length} result${results.length !== 1 ? 's' : ''}`;
+
+            const list = document.getElementById('searchResultsList');
+            list.innerHTML = '';
+
+            if (results.length === 0) {
+                list.innerHTML = `
+                    <div class="bg-white rounded-lg shadow-md p-8 text-center">
+                        <p class="text-gray-500 text-lg mb-2">No results found</p>
+                        <p class="text-gray-400 text-sm">Try different keywords or a broader query.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            for (const result of results) {
+                list.appendChild(renderSearchResult(result));
+            }
+        }
+
+        function renderSearchResult(result) {
+            const item = result.item;
+            const score = result.score;
+            const pct = Math.round(score * 100);
+
+            // Score color
+            let scoreColor = 'text-gray-500 bg-gray-100';
+            if (pct >= 70) scoreColor = 'text-green-700 bg-green-100';
+            else if (pct >= 50) scoreColor = 'text-amber-700 bg-amber-100';
+
+            const isArticle = item.item_type === 'article';
+            const borderColor = isArticle ? 'border-emerald-500' : 'border-blue-500';
+            const badgeColor = isArticle ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800';
+            const typeBadge = isArticle ? 'Article' : 'Video';
+            const linkColor = isArticle ? 'hover:text-emerald-600' : 'hover:text-blue-600';
+            const topicColor = isArticle ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800';
+
+            const card = document.createElement('article');
+            card.className = `bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow border-l-4 ${borderColor}`;
+
+            let thumbnailHtml = '';
+            if (item.thumbnail_url) {
+                thumbnailHtml = `
+                    <div class="md:w-48 flex-shrink-0">
+                        <a href="${item.url}" target="_blank" rel="noopener">
+                            <img src="${item.thumbnail_url}" alt="${item.title}" class="w-full h-36 md:h-full object-cover">
+                        </a>
+                    </div>
+                `;
+            }
+
+            let meta = `<span class="font-medium text-gray-700">${item.source_name}</span>`;
+            if (item.published_at) {
+                const date = new Date(item.published_at);
+                meta += `<span class="mx-2">&bull;</span><span>${date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>`;
+            }
+            if (item.duration) {
+                meta += `<span class="mx-2">&bull;</span><span>${formatDuration(item.duration)}</span>`;
+            }
+            if (item.word_count) {
+                meta += `<span class="mx-2">&bull;</span><span>${item.word_count} words</span>`;
+            }
+
+            const topics = (item.topics || []).map(t =>
+                `<span class="${topicColor} text-xs font-medium px-2.5 py-0.5 rounded">${t}</span>`
+            ).join('');
+
+            card.innerHTML = `
+                <div class="${item.thumbnail_url ? 'md:flex' : ''}">
+                    ${thumbnailHtml}
+                    <div class="p-4 flex-1">
+                        <div class="flex items-start gap-2 mb-2">
+                            <span class="${badgeColor} text-xs font-semibold px-2 py-0.5 rounded flex-shrink-0 mt-1">${typeBadge}</span>
+                            <span class="${scoreColor} text-xs font-semibold px-2 py-0.5 rounded flex-shrink-0 mt-1">${pct}% match</span>
+                            <h2 class="text-xl font-semibold">
+                                <a href="${item.url}" target="_blank" rel="noopener" class="text-gray-800 ${linkColor} transition-colors">
+                                    ${item.title}
+                                </a>
+                            </h2>
+                        </div>
+                        <div class="flex items-center text-sm text-gray-500 mb-3">${meta}</div>
+                        ${topics ? `<div class="flex flex-wrap gap-2 mb-3">${topics}</div>` : ''}
+                        ${item.summary ? `<div class="text-gray-600 text-sm leading-relaxed">${item.summary}</div>` : ''}
+                    </div>
+                </div>
+            `;
+
+            return card;
+        }
+
+        function formatDuration(iso) {
+            if (!iso) return '';
+            const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+            if (!match) return '';
+            const h = parseInt(match[1] || 0);
+            const m = parseInt(match[2] || 0);
+            const s = parseInt(match[3] || 0);
+            if (h) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            return `${m}:${String(s).padStart(2, '0')}`;
+        }
+
+        function clearSearch() {
+            // Show digest, hide search results
+            document.getElementById('digestContent').classList.remove('hidden');
+            document.getElementById('searchResults').classList.add('hidden');
+            document.getElementById('clearSearchBtn').classList.add('hidden');
+            document.getElementById('searchInput').value = '';
+
+            // Restore grouping selector
+            const groupingSelector = document.querySelector('.mb-6.flex.items-center.justify-between.hidden');
+            if (groupingSelector) groupingSelector.classList.remove('hidden');
         }
 
         async function markComplete(itemId, sentiment, itemType) {
