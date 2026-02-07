@@ -10,6 +10,7 @@ from pathlib import Path
 import yaml
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
@@ -38,12 +39,19 @@ from .database import (
     count_new_videos_since,
     get_setting,
     set_setting,
+    save_article,
+    get_article_by_url,
+    get_articles_since,
+    save_article_summary,
+    get_article_summary,
+    mark_article_completed,
 )
 from collections import defaultdict, Counter
-from .models import AppConfig, CATEGORIES, VideoWithDetails
+from .models import AppConfig, CATEGORIES, DigestItem, VideoWithDetails
 from .youtube import get_channel_uploads
 from .transcripts import fetch_transcript
-from .summarizer import summarize_video, classify_existing_summary
+from .summarizer import summarize_video, summarize_article, classify_existing_summary
+from .articles import fetch_article
 
 load_dotenv()
 
@@ -104,31 +112,31 @@ def build_month_hierarchy(
 
 
 def build_category_hierarchy(
-    grouped_videos: list[tuple[str, list]],
-    all_videos: list,
+    grouped_items: list[tuple[str, list]],
+    all_items: list[DigestItem],
 ) -> list[tuple[str, list[tuple[str, int]]]]:
     """Group topic entries by category for the sidebar hierarchy.
 
     Determines each topic's category by majority vote of the categories
-    assigned to videos in that topic group. Returns a list of
-    (category_label, [(topic_label, video_count), ...]) tuples ordered
+    assigned to items in that topic group. Returns a list of
+    (category_label, [(topic_label, item_count), ...]) tuples ordered
     by the CATEGORIES list, with "Uncategorized" last.
     """
-    # Build a lookup: video_id -> category
+    # Build a lookup: item_id -> category
     cat_lookup: dict[str, str] = {}
-    for v in all_videos:
-        if v.summary and v.summary.category:
-            cat_lookup[v.video.id] = v.summary.category
+    for item in all_items:
+        if item.category:
+            cat_lookup[item.id] = item.category
 
     categories: dict[str, list[tuple[str, int]]] = {}
-    for topic_label, videos in grouped_videos:
+    for topic_label, items in grouped_items:
         # Determine category by majority vote
-        cats = [cat_lookup.get(v.video.id, "Uncategorized") for v in videos]
+        cats = [cat_lookup.get(item.id, "Uncategorized") for item in items]
         most_common = Counter(cats).most_common(1)
         category = most_common[0][0] if most_common else "Uncategorized"
         if category not in categories:
             categories[category] = []
-        categories[category].append((topic_label, len(videos)))
+        categories[category].append((topic_label, len(items)))
 
     # Order by CATEGORIES list, then "Uncategorized" last
     ordered: list[tuple[str, list[tuple[str, int]]]] = []
@@ -321,20 +329,28 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="YTDigest", lifespan=lifespan)
 
+# CORS middleware — needed for the bookmarklet which POSTs from arbitrary domains
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request, group_by: str = "date", show_completed: bool = False):
     """Render the main digest page."""
-    videos = await get_videos_with_details(include_completed=show_completed)
-    grouped = group_videos(videos, group_by)
+    items = await get_digest_items(include_completed=show_completed)
+    grouped = group_items(items, group_by)
     month_groups = build_month_hierarchy(grouped) if group_by == "date" else None
-    category_groups = build_category_hierarchy(grouped, videos) if group_by == "topic" else None
+    category_groups = build_category_hierarchy(grouped, items) if group_by == "topic" else None
 
-    # Compute live summary counts from already-loaded videos
-    total = len(videos)
-    with_summary = sum(1 for v in videos if v.summary)
-    pending = sum(1 for v in videos if v.video.transcript_status in (None, "pending", "priority"))
-    failed = sum(1 for v in videos if v.video.transcript_status == "failed")
+    # Compute live summary counts from already-loaded items
+    total = len(items)
+    with_summary = sum(1 for item in items if item.summary)
+    pending = sum(1 for item in items if item.item_type == "video" and item.transcript_status in (None, "pending", "priority"))
+    failed = sum(1 for item in items if item.item_type == "video" and item.transcript_status == "failed")
 
     # Count new videos since last visit, then update the timestamp
     last_visited = await get_setting("last_visited_at")
@@ -353,7 +369,7 @@ async def index(request: Request, group_by: str = "date", show_completed: bool =
         "digest.html",
         {
             "request": request,
-            "grouped_videos": grouped,
+            "grouped_items": grouped,
             "group_by": group_by,
             "show_completed": show_completed,
             "page_summary": page_summary,
@@ -495,6 +511,116 @@ async def api_backfill_categories():
         )
 
 
+@app.post("/api/articles")
+async def api_add_article(request: Request):
+    """Add a web article by URL. Extracts content, saves, and generates summary."""
+    try:
+        body = await request.json()
+        url = body.get("url")
+        if not url:
+            return JSONResponse(
+                content={"error": "URL is required"},
+                status_code=400,
+            )
+
+        # Check for duplicates
+        existing = await get_article_by_url(url)
+        if existing:
+            summary = await get_article_summary(existing.id)
+            return JSONResponse(content={
+                "success": True,
+                "duplicate": True,
+                "article_id": existing.id,
+                "title": existing.title,
+                "summary": summary.summary if summary else None,
+            })
+
+        # Extract article content
+        article, error = fetch_article(url)
+        if not article:
+            return JSONResponse(
+                content={"error": f"Failed to extract article: {error}"},
+                status_code=400,
+            )
+
+        # Save article
+        await save_article(article)
+
+        # Generate summary
+        summary = summarize_article(
+            article_id=article.id,
+            title=article.title,
+            domain=article.domain,
+            content=article.content,
+            author=article.author,
+        )
+        if summary:
+            await save_article_summary(summary)
+
+        return JSONResponse(content={
+            "success": True,
+            "duplicate": False,
+            "article_id": article.id,
+            "title": article.title,
+            "domain": article.domain,
+            "word_count": article.word_count,
+            "summary": summary.summary if summary else None,
+        })
+
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error adding article: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500,
+        )
+
+
+@app.post("/api/articles/{article_id}/complete")
+async def api_complete_article(article_id: str, sentiment: str):
+    """Mark an article as completed with the given sentiment."""
+    if sentiment not in ("like", "neutral", "dislike"):
+        return JSONResponse(
+            content={"error": "Invalid sentiment. Must be: like, neutral, dislike"},
+            status_code=400,
+        )
+
+    try:
+        await mark_article_completed(article_id, sentiment)
+        return JSONResponse(content={"success": True})
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error marking article complete: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500,
+        )
+
+
+@app.get("/api/articles")
+async def api_articles():
+    """Get all articles with their summaries as JSON."""
+    if not app_config:
+        return JSONResponse(content=[])
+
+    articles = await get_articles_since(app_config.digest.max_age_days, include_completed=True)
+    result = []
+    for article in articles:
+        summary = await get_article_summary(article.id)
+        result.append({
+            "id": article.id,
+            "title": article.title,
+            "url": article.url,
+            "domain": article.domain,
+            "author": article.author,
+            "word_count": article.word_count,
+            "added_at": article.added_at.isoformat(),
+            "summary": summary.summary if summary else None,
+            "topics": summary.topics if summary else [],
+        })
+    return JSONResponse(content=result)
+
+
 async def get_videos_with_details(include_completed: bool = False) -> list[VideoWithDetails]:
     """Get all recent videos with their transcripts and summaries."""
     if not app_config:
@@ -515,39 +641,97 @@ async def get_videos_with_details(include_completed: bool = False) -> list[Video
     return result
 
 
-def group_videos(
-    videos: list[VideoWithDetails], group_by: str
-) -> list[tuple[str, list[VideoWithDetails]]]:
-    """Group videos by the specified field.
+async def get_digest_items(include_completed: bool = False) -> list[DigestItem]:
+    """Get all recent videos and articles as a unified list of DigestItems."""
+    if not app_config:
+        return []
 
-    Returns list of (group_name, videos) tuples, sorted appropriately.
+    items: list[DigestItem] = []
+
+    # Load videos
+    videos = await get_videos_since(app_config.digest.max_age_days, include_completed=include_completed)
+    for video in videos:
+        transcript = await get_transcript(video.id)
+        summary = await get_summary(video.id)
+        items.append(DigestItem(
+            item_type="video",
+            id=video.id,
+            title=video.title,
+            url=video.video_url,
+            source_name=video.channel_name,
+            published_at=video.published_at,
+            is_completed=video.is_completed,
+            sentiment=video.sentiment,
+            completed_at=video.completed_at,
+            summary=summary.summary if summary else None,
+            topics=summary.topics if summary else [],
+            category=summary.category if summary else None,
+            thumbnail_url=video.thumbnail_url,
+            duration=video.duration,
+            transcript_status=video.transcript_status,
+        ))
+
+    # Load articles
+    articles = await get_articles_since(app_config.digest.max_age_days, include_completed=include_completed)
+    for article in articles:
+        summary = await get_article_summary(article.id)
+        items.append(DigestItem(
+            item_type="article",
+            id=article.id,
+            title=article.title,
+            url=article.url,
+            source_name=article.domain,
+            published_at=article.published_at or article.added_at,
+            added_at=article.added_at,
+            is_completed=article.is_completed,
+            sentiment=article.sentiment,
+            completed_at=article.completed_at,
+            summary=summary.summary if summary else None,
+            topics=summary.topics if summary else [],
+            category=summary.category if summary else None,
+            author=article.author,
+            domain=article.domain,
+            word_count=article.word_count,
+        ))
+
+    # Sort by date, most recent first
+    items.sort(key=lambda x: x.published_at, reverse=True)
+    return items
+
+
+def group_items(
+    items: list[DigestItem], group_by: str
+) -> list[tuple[str, list[DigestItem]]]:
+    """Group digest items by the specified field.
+
+    Returns list of (group_name, items) tuples, sorted appropriately.
     """
     if group_by == "channel":
         groups = defaultdict(list)
-        for v in videos:
-            groups[v.video.channel_name].append(v)
-        # Sort groups alphabetically by channel name
+        for item in items:
+            groups[item.source_name].append(item)
+        # Sort groups alphabetically by source name
         return sorted(groups.items(), key=lambda x: x[0].lower())
 
     elif group_by == "topic":
         groups = defaultdict(list)
-        for v in videos:
-            if v.summary and v.summary.topics:
-                for topic in v.summary.topics:
-                    groups[topic].append(v)
+        for item in items:
+            if item.topics:
+                for topic in item.topics:
+                    groups[topic].append(item)
             else:
-                groups["No topics"].append(v)
+                groups["No topics"].append(item)
         # Sort groups alphabetically, "No topics" last
         return sorted(groups.items(), key=lambda x: (x[0] == "No topics", x[0].lower()))
 
     else:  # Default: group by date
         groups = defaultdict(list)
-        for v in videos:
-            date_str = v.video.published_at.strftime("%B %d, %Y")
-            groups[date_str].append(v)
+        for item in items:
+            date_str = item.published_at.strftime("%B %d, %Y")
+            groups[date_str].append(item)
         # Sort groups by date (most recent first) using the max date in each group
         return sorted(
             groups.items(),
-            key=lambda x: max(v.video.published_at for v in x[1]),
+            key=lambda x: max(item.published_at for item in x[1]),
             reverse=True
         )

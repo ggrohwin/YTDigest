@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import BaseModel
 
 CATEGORIES: list[str] = [
@@ -66,3 +66,52 @@ class VideoWithDetails(BaseModel):
     video: Video
     transcript: Optional[Transcript] = None
     summary: Optional[Summary] = None
+
+
+class Article(BaseModel):
+    id: str  # SHA-256 hash of URL, 12 chars
+    url: str
+    domain: str
+    title: str
+    author: Optional[str] = None
+    published_at: Optional[datetime] = None
+    added_at: datetime
+    content: str
+    word_count: int
+    extract_status: Literal["pending", "extracted", "failed"] = "pending"
+    is_completed: bool = False
+    sentiment: Optional[str] = None
+    completed_at: Optional[datetime] = None
+
+
+class ArticleSummary(BaseModel):
+    article_id: str
+    summary: str
+    topics: list[str]
+    category: Optional[str] = None
+    generated_at: datetime
+
+
+class DigestItem(BaseModel):
+    item_type: Literal["video", "article"]
+    id: str
+    title: str
+    url: str
+    source_name: str  # channel_name for videos, domain for articles
+    published_at: datetime
+    added_at: Optional[datetime] = None
+    is_completed: bool = False
+    sentiment: Optional[str] = None
+    completed_at: Optional[datetime] = None
+    # Summary fields (shared)
+    summary: Optional[str] = None
+    topics: list[str] = []
+    category: Optional[str] = None
+    # Video-specific
+    thumbnail_url: Optional[str] = None
+    duration: Optional[str] = None
+    transcript_status: Optional[str] = None
+    # Article-specific
+    author: Optional[str] = None
+    domain: Optional[str] = None
+    word_count: Optional[int] = None

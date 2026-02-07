@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
-from .models import Video, Transcript, Summary
+from .models import Article, ArticleSummary, Video, Transcript, Summary
 
 DATABASE_PATH = Path(__file__).parent.parent / "data" / "ytdigest.db"
 
@@ -79,6 +79,35 @@ async def init_db() -> None:
             await db.execute("ALTER TABLE summaries ADD COLUMN category TEXT")
         except Exception:
             pass
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS articles (
+                id TEXT PRIMARY KEY,
+                url TEXT NOT NULL UNIQUE,
+                domain TEXT NOT NULL,
+                title TEXT NOT NULL,
+                author TEXT,
+                published_at TEXT,
+                added_at TEXT NOT NULL,
+                content TEXT NOT NULL,
+                word_count INTEGER NOT NULL,
+                extract_status TEXT DEFAULT 'pending',
+                is_completed INTEGER DEFAULT 0,
+                sentiment TEXT,
+                completed_at TEXT
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS article_summaries (
+                article_id TEXT PRIMARY KEY,
+                summary TEXT NOT NULL,
+                topics TEXT NOT NULL,
+                category TEXT,
+                generated_at TEXT NOT NULL,
+                FOREIGN KEY (article_id) REFERENCES articles(id)
+            )
+        """)
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS settings (
@@ -376,3 +405,175 @@ async def count_new_videos_since(since: str) -> int:
         ) as cursor:
             row = await cursor.fetchone()
             return row[0] if row else 0
+
+
+# --- Article operations ---
+
+
+def _article_from_row(row) -> Article:
+    """Helper to create an Article from a database row."""
+    return Article(
+        id=row["id"],
+        url=row["url"],
+        domain=row["domain"],
+        title=row["title"],
+        author=row["author"],
+        published_at=datetime.fromisoformat(row["published_at"]) if row["published_at"] else None,
+        added_at=datetime.fromisoformat(row["added_at"]),
+        content=row["content"],
+        word_count=row["word_count"],
+        extract_status=row["extract_status"],
+        is_completed=bool(row["is_completed"]),
+        sentiment=row["sentiment"],
+        completed_at=datetime.fromisoformat(row["completed_at"]) if row["completed_at"] else None,
+    )
+
+
+async def save_article(article: Article) -> bool:
+    """Save an article to the database. Returns True if it was new."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        cursor = await db.execute("SELECT id FROM articles WHERE id = ?", (article.id,))
+        exists = await cursor.fetchone()
+
+        if exists:
+            await db.execute(
+                """
+                UPDATE articles SET title = ?, content = ?, word_count = ?, extract_status = ?
+                WHERE id = ?
+                """,
+                (article.title, article.content, article.word_count, article.extract_status, article.id),
+            )
+        else:
+            await db.execute(
+                """
+                INSERT INTO articles
+                (id, url, domain, title, author, published_at, added_at, content, word_count, extract_status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    article.id,
+                    article.url,
+                    article.domain,
+                    article.title,
+                    article.author,
+                    article.published_at.isoformat() if article.published_at else None,
+                    article.added_at.isoformat(),
+                    article.content,
+                    article.word_count,
+                    article.extract_status,
+                ),
+            )
+
+        await db.commit()
+        return not exists
+
+
+async def get_article(article_id: str) -> Optional[Article]:
+    """Get an article by ID."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM articles WHERE id = ?", (article_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return _article_from_row(row)
+    return None
+
+
+async def get_article_by_url(url: str) -> Optional[Article]:
+    """Get an article by its URL."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM articles WHERE url = ?", (url,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return _article_from_row(row)
+    return None
+
+
+async def get_articles_since(days: int, include_completed: bool = False) -> list[Article]:
+    """Get all articles added within the specified number of days."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        if include_completed:
+            query = "SELECT * FROM articles WHERE added_at >= ? ORDER BY added_at DESC"
+            params = (cutoff.isoformat(),)
+        else:
+            query = "SELECT * FROM articles WHERE added_at >= ? AND (is_completed = 0 OR is_completed IS NULL) ORDER BY added_at DESC"
+            params = (cutoff.isoformat(),)
+        async with db.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
+            return [_article_from_row(row) for row in rows]
+
+
+async def save_article_summary(summary: ArticleSummary) -> None:
+    """Save an article summary to the database."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """
+            INSERT OR REPLACE INTO article_summaries (article_id, summary, topics, category, generated_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                summary.article_id,
+                summary.summary,
+                ",".join(summary.topics),
+                summary.category,
+                summary.generated_at.isoformat(),
+            ),
+        )
+        await db.commit()
+
+
+async def get_article_summary(article_id: str) -> Optional[ArticleSummary]:
+    """Get an article summary by article ID."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM article_summaries WHERE article_id = ?", (article_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return ArticleSummary(
+                    article_id=row["article_id"],
+                    summary=row["summary"],
+                    topics=row["topics"].split(",") if row["topics"] else [],
+                    category=row["category"],
+                    generated_at=datetime.fromisoformat(row["generated_at"]),
+                )
+    return None
+
+
+async def mark_article_completed(article_id: str, sentiment: str) -> None:
+    """Mark an article as completed with the given sentiment."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """
+            UPDATE articles
+            SET is_completed = 1, sentiment = ?, completed_at = ?
+            WHERE id = ?
+            """,
+            (sentiment, datetime.now(timezone.utc).isoformat(), article_id),
+        )
+        await db.commit()
+
+
+async def get_articles_without_summaries() -> list[Article]:
+    """Get articles that have content but no summaries yet."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """
+            SELECT a.* FROM articles a
+            LEFT JOIN article_summaries s ON a.id = s.article_id
+            WHERE s.article_id IS NULL AND a.extract_status = 'extracted'
+            ORDER BY a.added_at DESC
+            """
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [_article_from_row(row) for row in rows]

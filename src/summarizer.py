@@ -6,11 +6,12 @@ from typing import Optional
 
 import anthropic
 
-from .models import CATEGORIES, Summary
+from .models import CATEGORIES, ArticleSummary, Summary
 
 logger = logging.getLogger("ytdigest")
 
 MAX_TRANSCRIPT_LENGTH = 100000
+MAX_ARTICLE_LENGTH = 100000
 
 
 def get_anthropic_client() -> anthropic.Anthropic:
@@ -116,6 +117,105 @@ Be concise but informative. Help the reader quickly understand if this video is 
         return None
     except Exception as e:
         logger.error(f"Error summarizing video {video_id}: {e}")
+        return None
+
+
+def summarize_article(
+    article_id: str,
+    title: str,
+    domain: str,
+    content: str,
+    author: Optional[str] = None,
+) -> Optional[ArticleSummary]:
+    """Generate a summary of a web article using Claude.
+
+    Returns an ArticleSummary object with the summary text and extracted topics.
+    """
+    if not content:
+        return None
+
+    if len(content) > MAX_ARTICLE_LENGTH:
+        content = content[:MAX_ARTICLE_LENGTH] + "... [content truncated]"
+
+    client = get_anthropic_client()
+
+    author_line = f"\nAuthor: {author}" if author else ""
+    categories_str = json.dumps(CATEGORIES)
+    prompt = f"""You are analyzing a web article to help someone decide if it's worth reading.
+
+Article Title: {title}
+Source: {domain}{author_line}
+
+Article Content:
+{content}
+
+Please provide:
+1. A concise summary (2-3 paragraphs) that captures the key points and main takeaways
+2. A list of 3-5 topic tags that describe what the article covers
+3. A single category from this predefined list that best fits the article: {categories_str}
+
+Format your response as JSON with this structure:
+{{
+    "summary": "Your summary here...",
+    "topics": ["topic1", "topic2", "topic3"],
+    "category": "one of the predefined categories"
+}}
+
+Focus on:
+- What the main topic/thesis is
+- Key insights or information shared
+- Who would benefit from reading this article
+- Any notable conclusions or recommendations
+
+Be concise but informative. Help the reader quickly understand if this article is relevant to their interests."""
+
+    try:
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=1024,
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
+        )
+
+        response_text = response.content[0].text.strip()
+
+        if response_text.startswith("```json"):
+            response_text = response_text[7:]
+        if response_text.startswith("```"):
+            response_text = response_text[3:]
+        if response_text.endswith("```"):
+            response_text = response_text[:-3]
+
+        result = json.loads(response_text.strip())
+
+        category = result.get("category")
+        if category not in CATEGORIES:
+            category = "Other"
+
+        return ArticleSummary(
+            article_id=article_id,
+            summary=result["summary"],
+            topics=result.get("topics", []),
+            category=category,
+            generated_at=datetime.now(timezone.utc)
+        )
+
+    except json.JSONDecodeError as e:
+        logger.warning(f"Error parsing Claude response for article {article_id}: {e}")
+        logger.debug(f"Response was: {response_text[:500]}")
+        return ArticleSummary(
+            article_id=article_id,
+            summary=response_text,
+            topics=[],
+            category=None,
+            generated_at=datetime.now(timezone.utc)
+        )
+    except anthropic.APIError as e:
+        logger.error(f"Anthropic API error for article {article_id}: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Error summarizing article {article_id}: {e}")
         return None
 
 
