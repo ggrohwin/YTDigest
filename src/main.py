@@ -10,6 +10,7 @@ from pathlib import Path
 import yaml
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
@@ -28,7 +29,7 @@ from .database import (
     save_summary,
     get_transcript,
     get_summary,
-    get_videos_since,
+    get_all_videos,
     get_videos_without_transcripts,
     get_videos_with_transcripts_without_summaries,
     update_transcript_status,
@@ -38,12 +39,28 @@ from .database import (
     count_new_videos_since,
     get_setting,
     set_setting,
+    save_article,
+    get_article_by_url,
+    get_all_articles,
+    save_article_summary,
+    get_article_summary,
+    mark_article_completed,
+    get_items_without_embeddings,
+    get_items_without_chunk_embeddings,
+    get_summary_text_for_embedding,
+    get_full_text_for_embedding,
+    get_digest_item,
+    has_embeddings,
+    count_embeddings,
+    get_video,
 )
 from collections import defaultdict, Counter
-from .models import AppConfig, CATEGORIES, VideoWithDetails
-from .youtube import get_channel_uploads
+from .models import AppConfig, CATEGORIES, DigestItem, VideoWithDetails
+from .youtube import get_channel_uploads, parse_video_id, is_youtube_url, get_video_by_id
 from .transcripts import fetch_transcript
-from .summarizer import summarize_video, classify_existing_summary
+from .summarizer import summarize_video, summarize_article, classify_existing_summary
+from .articles import fetch_article
+from . import embedder
 
 load_dotenv()
 
@@ -104,31 +121,31 @@ def build_month_hierarchy(
 
 
 def build_category_hierarchy(
-    grouped_videos: list[tuple[str, list]],
-    all_videos: list,
+    grouped_items: list[tuple[str, list]],
+    all_items: list[DigestItem],
 ) -> list[tuple[str, list[tuple[str, int]]]]:
     """Group topic entries by category for the sidebar hierarchy.
 
     Determines each topic's category by majority vote of the categories
-    assigned to videos in that topic group. Returns a list of
-    (category_label, [(topic_label, video_count), ...]) tuples ordered
+    assigned to items in that topic group. Returns a list of
+    (category_label, [(topic_label, item_count), ...]) tuples ordered
     by the CATEGORIES list, with "Uncategorized" last.
     """
-    # Build a lookup: video_id -> category
+    # Build a lookup: item_id -> category
     cat_lookup: dict[str, str] = {}
-    for v in all_videos:
-        if v.summary and v.summary.category:
-            cat_lookup[v.video.id] = v.summary.category
+    for item in all_items:
+        if item.category:
+            cat_lookup[item.id] = item.category
 
     categories: dict[str, list[tuple[str, int]]] = {}
-    for topic_label, videos in grouped_videos:
+    for topic_label, items in grouped_items:
         # Determine category by majority vote
-        cats = [cat_lookup.get(v.video.id, "Uncategorized") for v in videos]
+        cats = [cat_lookup.get(item.id, "Uncategorized") for item in items]
         most_common = Counter(cats).most_common(1)
         category = most_common[0][0] if most_common else "Uncategorized"
         if category not in categories:
             categories[category] = []
-        categories[category].append((topic_label, len(videos)))
+        categories[category].append((topic_label, len(items)))
 
     # Order by CATEGORIES list, then "Uncategorized" last
     ordered: list[tuple[str, list[tuple[str, int]]]] = []
@@ -200,6 +217,18 @@ async def background_transcript_fetcher():
                     if summary:
                         await save_summary(summary)
                         logger.info(f"[Background] Summary saved for: {video.title}")
+
+                        # Auto-embed for semantic search
+                        if embedder.is_available():
+                            try:
+                                text = summary.summary
+                                if summary.topics:
+                                    text += f"\n\nTopics: {','.join(summary.topics)}"
+                                await embedder.embed_item(video.id, "video", text)
+                                await embedder.embed_item_chunks(video.id, "video", transcript.content)
+                                logger.info(f"[Background] Embeddings saved for: {video.title}")
+                            except Exception as e:
+                                logger.warning(f"[Background] Embedding failed for {video.title}: {e}")
                 else:
                     # Mark with appropriate status based on failure reason
                     status = failure_reason or "failed"
@@ -262,6 +291,17 @@ async def refresh_video_metadata() -> tuple[int, int]:
                 await save_summary(summary)
                 total_summaries += 1
 
+                # Auto-embed for semantic search
+                if embedder.is_available():
+                    try:
+                        text = summary.summary
+                        if summary.topics:
+                            text += f"\n\nTopics: {','.join(summary.topics)}"
+                        await embedder.embed_item(video.id, "video", text)
+                        await embedder.embed_item_chunks(video.id, "video", transcript.content)
+                    except Exception:
+                        pass  # non-critical
+
     return total_videos, total_summaries
 
 
@@ -321,25 +361,35 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="YTDigest", lifespan=lifespan)
 
+# CORS middleware — needed for the bookmarklet which POSTs from arbitrary domains
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request, group_by: str = "date", show_completed: bool = False):
     """Render the main digest page."""
-    videos = await get_videos_with_details(include_completed=show_completed)
-    grouped = group_videos(videos, group_by)
+    items = await get_digest_items(include_completed=show_completed)
+    grouped = group_items(items, group_by)
     month_groups = build_month_hierarchy(grouped) if group_by == "date" else None
-    category_groups = build_category_hierarchy(grouped, videos) if group_by == "topic" else None
+    category_groups = build_category_hierarchy(grouped, items) if group_by == "topic" else None
 
-    # Compute live summary counts from already-loaded videos
-    total = len(videos)
-    with_summary = sum(1 for v in videos if v.summary)
-    pending = sum(1 for v in videos if v.video.transcript_status in (None, "pending", "priority"))
-    failed = sum(1 for v in videos if v.video.transcript_status == "failed")
+    # Compute live summary counts from already-loaded items
+    total = len(items)
+    with_summary = sum(1 for item in items if item.summary)
+    pending = sum(1 for item in items if item.item_type == "video" and item.transcript_status in (None, "pending", "priority"))
+    failed = sum(1 for item in items if item.item_type == "video" and item.transcript_status == "failed")
 
     # Count new videos since last visit, then update the timestamp
     last_visited = await get_setting("last_visited_at")
     new_since_last_visit = await count_new_videos_since(last_visited) if last_visited else 0
     await set_setting("last_visited_at", datetime.now(timezone.utc).isoformat())
+
+    embedding_count = await count_embeddings() if embedder.is_available() else 0
 
     page_summary = {
         "total": total,
@@ -347,19 +397,25 @@ async def index(request: Request, group_by: str = "date", show_completed: bool =
         "pending": pending,
         "failed": failed,
         "new_since_last_visit": new_since_last_visit,
+        "embedding_count": embedding_count,
     }
+
+    # Search bar only appears when there are embeddings to search
+    search_enabled = embedder.is_available() and await has_embeddings()
 
     return templates.TemplateResponse(
         "digest.html",
         {
             "request": request,
-            "grouped_videos": grouped,
+            "grouped_items": grouped,
             "group_by": group_by,
             "show_completed": show_completed,
             "page_summary": page_summary,
             "channels": app_config.channels if app_config else [],
             "month_groups": month_groups,
             "category_groups": category_groups,
+            "bookmarklet_origin": f"{request.url.scheme}://{request.url.netloc}",
+            "search_enabled": search_enabled,
         }
     )
 
@@ -382,6 +438,98 @@ async def api_videos():
         }
         for v in videos
     ])
+
+
+@app.post("/api/videos")
+async def api_add_video(request: Request):
+    """Add a YouTube video by URL. Fetches metadata, transcript, and generates summary."""
+    try:
+        body = await request.json()
+        url = body.get("url")
+        if not url:
+            return JSONResponse(
+                content={"error": "URL is required"},
+                status_code=400,
+            )
+
+        video_id = parse_video_id(url)
+        if not video_id:
+            return JSONResponse(
+                content={"error": "Not a recognized YouTube URL"},
+                status_code=400,
+            )
+
+        # Check for duplicates
+        existing = await get_video(video_id)
+        if existing:
+            summary = await get_summary(video_id)
+            return JSONResponse(content={
+                "success": True,
+                "duplicate": True,
+                "video_id": existing.id,
+                "title": existing.title,
+                "summary": summary.summary if summary else None,
+            })
+
+        # Fetch video metadata from YouTube API
+        video = get_video_by_id(video_id)
+        if not video:
+            return JSONResponse(
+                content={"error": "Video not found on YouTube"},
+                status_code=404,
+            )
+
+        # Save video
+        await save_video(video)
+
+        # Fetch transcript immediately
+        transcript, failure_reason = fetch_transcript(video_id)
+        if transcript:
+            await save_transcript(transcript)
+            await update_transcript_status(video_id, "fetched")
+
+            # Generate summary
+            summary = summarize_video(
+                video_id=video_id,
+                title=video.title,
+                channel=video.channel_name,
+                transcript=transcript.content,
+            )
+            if summary:
+                await save_summary(summary)
+
+                # Auto-embed for semantic search
+                if embedder.is_available():
+                    try:
+                        text = summary.summary
+                        if summary.topics:
+                            text += f"\n\nTopics: {','.join(summary.topics)}"
+                        await embedder.embed_item(video_id, "video", text)
+                        await embedder.embed_item_chunks(video_id, "video", transcript.content)
+                    except Exception:
+                        pass  # non-critical
+        else:
+            status = failure_reason or "failed"
+            await update_transcript_status(video_id, status)
+
+        summary_obj = await get_summary(video_id)
+        return JSONResponse(content={
+            "success": True,
+            "duplicate": False,
+            "video_id": video.id,
+            "title": video.title,
+            "channel": video.channel_name,
+            "has_transcript": transcript is not None,
+            "summary": summary_obj.summary if summary_obj else None,
+        })
+
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error adding video: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500,
+        )
 
 
 @app.get("/api/refresh")
@@ -495,12 +643,228 @@ async def api_backfill_categories():
         )
 
 
-async def get_videos_with_details(include_completed: bool = False) -> list[VideoWithDetails]:
-    """Get all recent videos with their transcripts and summaries."""
-    if not app_config:
-        return []
+@app.post("/api/embed-all")
+async def api_embed_all():
+    """Generate embeddings for all items that need them (summaries + chunks)."""
+    if not embedder.is_available():
+        return JSONResponse(
+            content={"error": "VOYAGE_API_KEY is not set"},
+            status_code=400,
+        )
 
-    videos = await get_videos_since(app_config.digest.max_age_days, include_completed=include_completed)
+    try:
+        # Phase 1: Summary embeddings
+        summary_items = await get_items_without_embeddings()
+        summary_embedded = 0
+        summary_errors = 0
+
+        for item_id, item_type in summary_items:
+            text = await get_summary_text_for_embedding(item_id, item_type)
+            if not text:
+                summary_errors += 1
+                continue
+
+            success = await embedder.embed_item(item_id, item_type, text)
+            if success:
+                summary_embedded += 1
+                logger.info(f"Embedded summary for {item_type} {item_id}")
+            else:
+                summary_errors += 1
+
+        # Phase 2: Chunk embeddings
+        chunk_items = await get_items_without_chunk_embeddings()
+        chunks_embedded = 0
+        chunk_errors = 0
+
+        for item_id, item_type in chunk_items:
+            text = await get_full_text_for_embedding(item_id, item_type)
+            if not text:
+                chunk_errors += 1
+                continue
+
+            count = await embedder.embed_item_chunks(item_id, item_type, text)
+            if count > 0:
+                chunks_embedded += count
+                logger.info(f"Embedded {count} chunks for {item_type} {item_id}")
+            else:
+                chunk_errors += 1
+
+        return JSONResponse(content={
+            "success": True,
+            "summaries": {"total": len(summary_items), "embedded": summary_embedded, "errors": summary_errors},
+            "chunks": {"total": len(chunk_items), "embedded": chunks_embedded, "errors": chunk_errors},
+        })
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error during embedding backfill: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500,
+        )
+
+
+@app.get("/api/search")
+async def api_search(q: str = "", limit: int = 10):
+    """Search for items by semantic similarity to the query."""
+    if not q.strip():
+        return JSONResponse(
+            content={"error": "Query parameter 'q' is required"},
+            status_code=400,
+        )
+
+    if not embedder.is_available():
+        return JSONResponse(
+            content={"error": "VOYAGE_API_KEY is not set"},
+            status_code=400,
+        )
+
+    try:
+        results = await embedder.search(q.strip(), limit=limit)
+
+        # Load full DigestItem for each result
+        search_results = []
+        for item_id, item_type, score in results:
+            item = await get_digest_item(item_id, item_type)
+            if item:
+                search_results.append({
+                    "score": round(score, 4),
+                    "item": item.model_dump(mode="json"),
+                })
+
+        return JSONResponse(content={
+            "query": q.strip(),
+            "results": search_results,
+        })
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error during search: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500,
+        )
+
+
+@app.post("/api/articles")
+async def api_add_article(request: Request):
+    """Add a web article by URL. Extracts content, saves, and generates summary."""
+    try:
+        body = await request.json()
+        url = body.get("url")
+        if not url:
+            return JSONResponse(
+                content={"error": "URL is required"},
+                status_code=400,
+            )
+
+        # Check for duplicates
+        existing = await get_article_by_url(url)
+        if existing:
+            summary = await get_article_summary(existing.id)
+            return JSONResponse(content={
+                "success": True,
+                "duplicate": True,
+                "article_id": existing.id,
+                "title": existing.title,
+                "summary": summary.summary if summary else None,
+            })
+
+        # Extract article content
+        article, error = fetch_article(url)
+        if not article:
+            return JSONResponse(
+                content={"error": f"Failed to extract article: {error}"},
+                status_code=400,
+            )
+
+        # Save article
+        await save_article(article)
+
+        # Generate summary
+        summary = summarize_article(
+            article_id=article.id,
+            title=article.title,
+            domain=article.domain,
+            content=article.content,
+            author=article.author,
+        )
+        if summary:
+            await save_article_summary(summary)
+
+            # Auto-embed for semantic search
+            if embedder.is_available():
+                try:
+                    text = summary.summary
+                    if summary.topics:
+                        text += f"\n\nTopics: {','.join(summary.topics)}"
+                    await embedder.embed_item(article.id, "article", text)
+                    await embedder.embed_item_chunks(article.id, "article", article.content)
+                except Exception:
+                    pass  # non-critical
+
+        return JSONResponse(content={
+            "success": True,
+            "duplicate": False,
+            "article_id": article.id,
+            "title": article.title,
+            "domain": article.domain,
+            "word_count": article.word_count,
+            "summary": summary.summary if summary else None,
+        })
+
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error adding article: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500,
+        )
+
+
+@app.post("/api/articles/{article_id}/complete")
+async def api_complete_article(article_id: str, sentiment: str):
+    """Mark an article as completed with the given sentiment."""
+    if sentiment not in ("like", "neutral", "dislike"):
+        return JSONResponse(
+            content={"error": "Invalid sentiment. Must be: like, neutral, dislike"},
+            status_code=400,
+        )
+
+    try:
+        await mark_article_completed(article_id, sentiment)
+        return JSONResponse(content={"success": True})
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error marking article complete: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500,
+        )
+
+
+@app.get("/api/articles")
+async def api_articles():
+    """Get all articles with their summaries as JSON."""
+    articles = await get_all_articles(include_completed=True)
+    result = []
+    for article in articles:
+        summary = await get_article_summary(article.id)
+        result.append({
+            "id": article.id,
+            "title": article.title,
+            "url": article.url,
+            "domain": article.domain,
+            "author": article.author,
+            "word_count": article.word_count,
+            "added_at": article.added_at.isoformat(),
+            "summary": summary.summary if summary else None,
+            "topics": summary.topics if summary else [],
+        })
+    return JSONResponse(content=result)
+
+
+async def get_videos_with_details(include_completed: bool = False) -> list[VideoWithDetails]:
+    """Get all videos with their transcripts and summaries."""
+    videos = await get_all_videos(include_completed=include_completed)
 
     result = []
     for video in videos:
@@ -515,39 +879,98 @@ async def get_videos_with_details(include_completed: bool = False) -> list[Video
     return result
 
 
-def group_videos(
-    videos: list[VideoWithDetails], group_by: str
-) -> list[tuple[str, list[VideoWithDetails]]]:
-    """Group videos by the specified field.
+async def get_digest_items(include_completed: bool = False) -> list[DigestItem]:
+    """Get all videos and articles as a unified list of DigestItems."""
+    items: list[DigestItem] = []
 
-    Returns list of (group_name, videos) tuples, sorted appropriately.
+    # Load videos
+    videos = await get_all_videos(include_completed=include_completed)
+    for video in videos:
+        transcript = await get_transcript(video.id)
+        summary = await get_summary(video.id)
+        items.append(DigestItem(
+            item_type="video",
+            id=video.id,
+            title=video.title,
+            url=video.video_url,
+            source_name=video.channel_name,
+            published_at=video.published_at,
+            added_at=video.first_seen_at,
+            is_completed=video.is_completed,
+            sentiment=video.sentiment,
+            completed_at=video.completed_at,
+            summary=summary.summary if summary else None,
+            topics=summary.topics if summary else [],
+            category=summary.category if summary else None,
+            thumbnail_url=video.thumbnail_url,
+            duration=video.duration,
+            transcript_status=video.transcript_status,
+        ))
+
+    # Load articles
+    articles = await get_all_articles(include_completed=include_completed)
+    for article in articles:
+        summary = await get_article_summary(article.id)
+        items.append(DigestItem(
+            item_type="article",
+            id=article.id,
+            title=article.title,
+            url=article.url,
+            source_name=article.domain,
+            published_at=article.added_at,
+            added_at=article.added_at,
+            is_completed=article.is_completed,
+            sentiment=article.sentiment,
+            completed_at=article.completed_at,
+            summary=summary.summary if summary else None,
+            topics=summary.topics if summary else [],
+            category=summary.category if summary else None,
+            thumbnail_url=article.thumbnail_url,
+            author=article.author,
+            domain=article.domain,
+            word_count=article.word_count,
+            original_published_at=article.published_at,
+        ))
+
+    # Sort by date added, most recent first
+    items.sort(key=lambda x: x.added_at or x.published_at, reverse=True)
+    return items
+
+
+def group_items(
+    items: list[DigestItem], group_by: str
+) -> list[tuple[str, list[DigestItem]]]:
+    """Group digest items by the specified field.
+
+    Returns list of (group_name, items) tuples, sorted appropriately.
     """
     if group_by == "channel":
         groups = defaultdict(list)
-        for v in videos:
-            groups[v.video.channel_name].append(v)
-        # Sort groups alphabetically by channel name
+        for item in items:
+            groups[item.source_name].append(item)
+        # Sort groups alphabetically by source name
         return sorted(groups.items(), key=lambda x: x[0].lower())
 
     elif group_by == "topic":
         groups = defaultdict(list)
-        for v in videos:
-            if v.summary and v.summary.topics:
-                for topic in v.summary.topics:
-                    groups[topic].append(v)
+        for item in items:
+            if item.topics:
+                for topic in item.topics:
+                    groups[topic].append(item)
             else:
-                groups["No topics"].append(v)
+                groups["No topics"].append(item)
         # Sort groups alphabetically, "No topics" last
         return sorted(groups.items(), key=lambda x: (x[0] == "No topics", x[0].lower()))
 
-    else:  # Default: group by date
+    else:  # Default: group by date added
         groups = defaultdict(list)
-        for v in videos:
-            date_str = v.video.published_at.strftime("%B %d, %Y")
-            groups[date_str].append(v)
+        for item in items:
+            sort_date = item.added_at or item.published_at
+            date_str = sort_date.strftime("%B %d, %Y")
+            groups[date_str].append(item)
         # Sort groups by date (most recent first) using the max date in each group
         return sorted(
             groups.items(),
-            key=lambda x: max(v.video.published_at for v in x[1]),
+            key=lambda x: max(item.added_at or item.published_at for item in x[1]),
             reverse=True
         )

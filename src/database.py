@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
-from .models import Video, Transcript, Summary
+from .models import Article, ArticleSummary, DigestItem, Embedding, Video, Transcript, Summary
 
 DATABASE_PATH = Path(__file__).parent.parent / "data" / "ytdigest.db"
 
@@ -81,6 +81,41 @@ async def init_db() -> None:
             pass
 
         await db.execute("""
+            CREATE TABLE IF NOT EXISTS articles (
+                id TEXT PRIMARY KEY,
+                url TEXT NOT NULL UNIQUE,
+                domain TEXT NOT NULL,
+                title TEXT NOT NULL,
+                author TEXT,
+                published_at TEXT,
+                added_at TEXT NOT NULL,
+                content TEXT NOT NULL,
+                word_count INTEGER NOT NULL,
+                extract_status TEXT DEFAULT 'pending',
+                is_completed INTEGER DEFAULT 0,
+                sentiment TEXT,
+                completed_at TEXT
+            )
+        """)
+
+        # Migration: add thumbnail_url column to articles
+        try:
+            await db.execute("ALTER TABLE articles ADD COLUMN thumbnail_url TEXT")
+        except Exception:
+            pass  # Column already exists
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS article_summaries (
+                article_id TEXT PRIMARY KEY,
+                summary TEXT NOT NULL,
+                topics TEXT NOT NULL,
+                category TEXT,
+                generated_at TEXT NOT NULL,
+                FOREIGN KEY (article_id) REFERENCES articles(id)
+            )
+        """)
+
+        await db.execute("""
             CREATE TABLE IF NOT EXISTS settings (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
@@ -94,6 +129,17 @@ async def init_db() -> None:
             )
         except Exception:
             pass
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS embeddings (
+                item_id TEXT NOT NULL,
+                item_type TEXT NOT NULL,
+                content_type TEXT NOT NULL,
+                vector BLOB NOT NULL,
+                chunk_index INTEGER,
+                UNIQUE(item_id, content_type, chunk_index)
+            )
+        """)
 
         await db.commit()
 
@@ -150,6 +196,7 @@ def _video_from_row(row) -> Video:
         video_url=row["video_url"],
         duration=row["duration"],
         transcript_status=row["transcript_status"],
+        first_seen_at=datetime.fromisoformat(row["first_seen_at"]) if row["first_seen_at"] else None,
         is_completed=bool(row["is_completed"]),
         sentiment=row["sentiment"],
         completed_at=datetime.fromisoformat(row["completed_at"]) if row["completed_at"] else None,
@@ -169,19 +216,15 @@ async def get_video(video_id: str) -> Optional[Video]:
     return None
 
 
-async def get_videos_since(days: int, include_completed: bool = False) -> list[Video]:
-    """Get all videos published within the specified number of days."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-
+async def get_all_videos(include_completed: bool = False) -> list[Video]:
+    """Get all videos in the database."""
     async with aiosqlite.connect(DATABASE_PATH) as db:
         db.row_factory = aiosqlite.Row
         if include_completed:
-            query = "SELECT * FROM videos WHERE published_at >= ? ORDER BY published_at DESC"
-            params = (cutoff.isoformat(),)
+            query = "SELECT * FROM videos ORDER BY COALESCE(first_seen_at, published_at) DESC"
         else:
-            query = "SELECT * FROM videos WHERE published_at >= ? AND (is_completed = 0 OR is_completed IS NULL) ORDER BY published_at DESC"
-            params = (cutoff.isoformat(),)
-        async with db.execute(query, params) as cursor:
+            query = "SELECT * FROM videos WHERE (is_completed = 0 OR is_completed IS NULL) ORDER BY COALESCE(first_seen_at, published_at) DESC"
+        async with db.execute(query) as cursor:
             rows = await cursor.fetchall()
             return [_video_from_row(row) for row in rows]
 
@@ -376,3 +419,493 @@ async def count_new_videos_since(since: str) -> int:
         ) as cursor:
             row = await cursor.fetchone()
             return row[0] if row else 0
+
+
+# --- Article operations ---
+
+
+def _article_from_row(row) -> Article:
+    """Helper to create an Article from a database row."""
+    return Article(
+        id=row["id"],
+        url=row["url"],
+        domain=row["domain"],
+        title=row["title"],
+        author=row["author"],
+        published_at=datetime.fromisoformat(row["published_at"]) if row["published_at"] else None,
+        added_at=datetime.fromisoformat(row["added_at"]),
+        content=row["content"],
+        word_count=row["word_count"],
+        thumbnail_url=row["thumbnail_url"],
+        extract_status=row["extract_status"],
+        is_completed=bool(row["is_completed"]),
+        sentiment=row["sentiment"],
+        completed_at=datetime.fromisoformat(row["completed_at"]) if row["completed_at"] else None,
+    )
+
+
+async def save_article(article: Article) -> bool:
+    """Save an article to the database. Returns True if it was new."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        cursor = await db.execute("SELECT id FROM articles WHERE id = ?", (article.id,))
+        exists = await cursor.fetchone()
+
+        if exists:
+            await db.execute(
+                """
+                UPDATE articles SET title = ?, content = ?, word_count = ?, extract_status = ?, thumbnail_url = ?
+                WHERE id = ?
+                """,
+                (article.title, article.content, article.word_count, article.extract_status, article.thumbnail_url, article.id),
+            )
+        else:
+            await db.execute(
+                """
+                INSERT INTO articles
+                (id, url, domain, title, author, published_at, added_at, content, word_count, thumbnail_url, extract_status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    article.id,
+                    article.url,
+                    article.domain,
+                    article.title,
+                    article.author,
+                    article.published_at.isoformat() if article.published_at else None,
+                    article.added_at.isoformat(),
+                    article.content,
+                    article.word_count,
+                    article.thumbnail_url,
+                    article.extract_status,
+                ),
+            )
+
+        await db.commit()
+        return not exists
+
+
+async def get_article(article_id: str) -> Optional[Article]:
+    """Get an article by ID."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM articles WHERE id = ?", (article_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return _article_from_row(row)
+    return None
+
+
+async def get_article_by_url(url: str) -> Optional[Article]:
+    """Get an article by its URL."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM articles WHERE url = ?", (url,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return _article_from_row(row)
+    return None
+
+
+async def get_all_articles(include_completed: bool = False) -> list[Article]:
+    """Get all articles in the database."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        if include_completed:
+            query = "SELECT * FROM articles ORDER BY added_at DESC"
+        else:
+            query = "SELECT * FROM articles WHERE (is_completed = 0 OR is_completed IS NULL) ORDER BY added_at DESC"
+        async with db.execute(query) as cursor:
+            rows = await cursor.fetchall()
+            return [_article_from_row(row) for row in rows]
+
+
+async def save_article_summary(summary: ArticleSummary) -> None:
+    """Save an article summary to the database."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """
+            INSERT OR REPLACE INTO article_summaries (article_id, summary, topics, category, generated_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                summary.article_id,
+                summary.summary,
+                ",".join(summary.topics),
+                summary.category,
+                summary.generated_at.isoformat(),
+            ),
+        )
+        await db.commit()
+
+
+async def get_article_summary(article_id: str) -> Optional[ArticleSummary]:
+    """Get an article summary by article ID."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM article_summaries WHERE article_id = ?", (article_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return ArticleSummary(
+                    article_id=row["article_id"],
+                    summary=row["summary"],
+                    topics=row["topics"].split(",") if row["topics"] else [],
+                    category=row["category"],
+                    generated_at=datetime.fromisoformat(row["generated_at"]),
+                )
+    return None
+
+
+async def mark_article_completed(article_id: str, sentiment: str) -> None:
+    """Mark an article as completed with the given sentiment."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """
+            UPDATE articles
+            SET is_completed = 1, sentiment = ?, completed_at = ?
+            WHERE id = ?
+            """,
+            (sentiment, datetime.now(timezone.utc).isoformat(), article_id),
+        )
+        await db.commit()
+
+
+async def get_articles_without_summaries() -> list[Article]:
+    """Get articles that have content but no summaries yet."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """
+            SELECT a.* FROM articles a
+            LEFT JOIN article_summaries s ON a.id = s.article_id
+            WHERE s.article_id IS NULL AND a.extract_status = 'extracted'
+            ORDER BY a.added_at DESC
+            """
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [_article_from_row(row) for row in rows]
+
+
+async def get_digest_item(item_id: str, item_type: str) -> Optional[DigestItem]:
+    """Load a single video or article as a DigestItem (with summary data)."""
+    if item_type == "video":
+        video = await get_video(item_id)
+        if not video:
+            return None
+        summary = await get_summary(item_id)
+        return DigestItem(
+            item_type="video",
+            id=video.id,
+            title=video.title,
+            url=video.video_url,
+            source_name=video.channel_name,
+            published_at=video.published_at,
+            added_at=video.first_seen_at,
+            is_completed=video.is_completed,
+            sentiment=video.sentiment,
+            completed_at=video.completed_at,
+            summary=summary.summary if summary else None,
+            topics=summary.topics if summary else [],
+            category=summary.category if summary else None,
+            thumbnail_url=video.thumbnail_url,
+            duration=video.duration,
+            transcript_status=video.transcript_status,
+        )
+    else:
+        article = await get_article(item_id)
+        if not article:
+            return None
+        summary = await get_article_summary(item_id)
+        return DigestItem(
+            item_type="article",
+            id=article.id,
+            title=article.title,
+            url=article.url,
+            source_name=article.domain,
+            published_at=article.added_at,
+            added_at=article.added_at,
+            is_completed=article.is_completed,
+            sentiment=article.sentiment,
+            completed_at=article.completed_at,
+            summary=summary.summary if summary else None,
+            topics=summary.topics if summary else [],
+            category=summary.category if summary else None,
+            thumbnail_url=article.thumbnail_url,
+            author=article.author,
+            domain=article.domain,
+            word_count=article.word_count,
+            original_published_at=article.published_at,
+        )
+
+
+# --- Embedding operations ---
+
+
+async def save_embedding(embedding: Embedding, vector_bytes: bytes) -> None:
+    """Save an embedding to the database.
+
+    vector_bytes is the pre-serialized numpy array (via embedding_to_bytes).
+    We take bytes rather than doing the conversion here so that database.py
+    stays free of numpy dependency.
+    """
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        # SQLite treats NULL != NULL for UNIQUE constraints, so
+        # INSERT OR REPLACE won't match rows with chunk_index IS NULL.
+        # Delete first, then insert to handle both cases.
+        if embedding.chunk_index is not None:
+            await db.execute(
+                "DELETE FROM embeddings WHERE item_id = ? AND content_type = ? AND chunk_index = ?",
+                (embedding.item_id, embedding.content_type, embedding.chunk_index),
+            )
+        else:
+            await db.execute(
+                "DELETE FROM embeddings WHERE item_id = ? AND content_type = ? AND chunk_index IS NULL",
+                (embedding.item_id, embedding.content_type),
+            )
+        await db.execute(
+            """
+            INSERT INTO embeddings
+            (item_id, item_type, content_type, vector, chunk_index)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                embedding.item_id,
+                embedding.item_type,
+                embedding.content_type,
+                vector_bytes,
+                embedding.chunk_index,
+            ),
+        )
+        await db.commit()
+
+
+async def get_embedding(
+    item_id: str, content_type: str, chunk_index: Optional[int] = None
+) -> Optional[tuple[Embedding, bytes]]:
+    """Get an embedding by item ID and content type.
+
+    Returns (Embedding, raw_vector_bytes) or None.
+    """
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        if chunk_index is not None:
+            query = "SELECT * FROM embeddings WHERE item_id = ? AND content_type = ? AND chunk_index = ?"
+            params = (item_id, content_type, chunk_index)
+        else:
+            query = "SELECT * FROM embeddings WHERE item_id = ? AND content_type = ? AND chunk_index IS NULL"
+            params = (item_id, content_type)
+        async with db.execute(query, params) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                emb = Embedding(
+                    item_id=row["item_id"],
+                    item_type=row["item_type"],
+                    content_type=row["content_type"],
+                    vector=[],  # caller will deserialize from bytes
+                    chunk_index=row["chunk_index"],
+                )
+                return emb, bytes(row["vector"])
+    return None
+
+
+async def get_all_embeddings() -> list[tuple[Embedding, bytes]]:
+    """Get all embeddings from the database.
+
+    Returns list of (Embedding, raw_vector_bytes) tuples.
+    """
+    results = []
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM embeddings") as cursor:
+            rows = await cursor.fetchall()
+            for row in rows:
+                emb = Embedding(
+                    item_id=row["item_id"],
+                    item_type=row["item_type"],
+                    content_type=row["content_type"],
+                    vector=[],
+                    chunk_index=row["chunk_index"],
+                )
+                results.append((emb, bytes(row["vector"])))
+    return results
+
+
+async def has_embeddings() -> bool:
+    """Check whether any embeddings exist in the database."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute("SELECT COUNT(*) FROM embeddings") as cursor:
+            row = await cursor.fetchone()
+            return row[0] > 0
+
+
+async def count_embeddings() -> int:
+    """Count total embeddings in the database."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute("SELECT COUNT(*) FROM embeddings") as cursor:
+            row = await cursor.fetchone()
+            return row[0]
+
+
+async def get_items_without_embeddings() -> list[tuple[str, str]]:
+    """Get (item_id, item_type) pairs for items that have summaries but no summary embeddings.
+
+    This finds videos with summaries and articles with article_summaries
+    that don't yet have a corresponding row in the embeddings table.
+    """
+    results = []
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        # Videos with summaries but no summary embedding
+        async with db.execute(
+            """
+            SELECT s.video_id FROM summaries s
+            LEFT JOIN embeddings e
+                ON s.video_id = e.item_id AND e.content_type = 'video_summary'
+            WHERE e.item_id IS NULL
+            """
+        ) as cursor:
+            for row in await cursor.fetchall():
+                results.append((row[0], "video"))
+
+        # Articles with summaries but no summary embedding
+        async with db.execute(
+            """
+            SELECT s.article_id FROM article_summaries s
+            LEFT JOIN embeddings e
+                ON s.article_id = e.item_id AND e.content_type = 'article_summary'
+            WHERE e.item_id IS NULL
+            """
+        ) as cursor:
+            for row in await cursor.fetchall():
+                results.append((row[0], "article"))
+
+    return results
+
+
+async def get_summary_text_for_embedding(
+    item_id: str, item_type: str
+) -> Optional[str]:
+    """Get the summary text to embed for a given item.
+
+    Combines the summary text with topics to create a richer embedding.
+    Returns None if no summary exists.
+    """
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        if item_type == "video":
+            async with db.execute(
+                "SELECT summary, topics FROM summaries WHERE video_id = ?",
+                (item_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+        else:
+            async with db.execute(
+                "SELECT summary, topics FROM article_summaries WHERE article_id = ?",
+                (item_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+
+        if not row:
+            return None
+
+        summary = row["summary"]
+        topics = row["topics"]
+        if topics:
+            summary += f"\n\nTopics: {topics}"
+        return summary
+
+
+async def save_embeddings_batch(
+    embeddings: list[tuple[Embedding, bytes]],
+) -> None:
+    """Save multiple embeddings in a single transaction.
+
+    Used for chunk embeddings where one item produces many vectors.
+    Replaces any existing chunks for the same item and content_type.
+    """
+    if not embeddings:
+        return
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        # Delete old chunks for this item+content_type first
+        first_emb = embeddings[0][0]
+        await db.execute(
+            "DELETE FROM embeddings WHERE item_id = ? AND content_type = ?",
+            (first_emb.item_id, first_emb.content_type),
+        )
+
+        for emb, vector_bytes in embeddings:
+            await db.execute(
+                """
+                INSERT INTO embeddings
+                (item_id, item_type, content_type, vector, chunk_index)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    emb.item_id,
+                    emb.item_type,
+                    emb.content_type,
+                    vector_bytes,
+                    emb.chunk_index,
+                ),
+            )
+        await db.commit()
+
+
+async def get_items_without_chunk_embeddings() -> list[tuple[str, str]]:
+    """Get (item_id, item_type) pairs for items that have full text but no chunk embeddings.
+
+    Videos must have a transcript; articles must have content.
+    """
+    results = []
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        # Videos with transcripts but no chunk embeddings
+        async with db.execute(
+            """
+            SELECT t.video_id FROM transcripts t
+            LEFT JOIN embeddings e
+                ON t.video_id = e.item_id AND e.content_type = 'video_chunk'
+            WHERE e.item_id IS NULL
+            """
+        ) as cursor:
+            for row in await cursor.fetchall():
+                results.append((row[0], "video"))
+
+        # Articles with content but no chunk embeddings
+        async with db.execute(
+            """
+            SELECT a.id FROM articles a
+            LEFT JOIN embeddings e
+                ON a.id = e.item_id AND e.content_type = 'article_chunk'
+            WHERE e.item_id IS NULL AND a.extract_status = 'extracted'
+            """
+        ) as cursor:
+            for row in await cursor.fetchall():
+                results.append((row[0], "article"))
+
+    return results
+
+
+async def get_full_text_for_embedding(
+    item_id: str, item_type: str
+) -> Optional[str]:
+    """Get the full text (transcript or article content) for chunk embedding."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        if item_type == "video":
+            async with db.execute(
+                "SELECT content FROM transcripts WHERE video_id = ?",
+                (item_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+                return row[0] if row else None
+        else:
+            async with db.execute(
+                "SELECT content FROM articles WHERE id = ?",
+                (item_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+                return row[0] if row else None

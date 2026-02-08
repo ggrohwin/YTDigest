@@ -17,6 +17,7 @@ _Empty - ready for next task_
 ### Next
 | Item | Description | Effort |
 |------|-------------|--------|
+| Favorites list | Save items to a favorites collection; dedicated view to revisit liked/starred content | Medium |
 | Chat with transcript | Ask questions about a video while watching; send transcript + question to Claude | Medium |
 | Retry failed transcripts | Button or automatic retry for rate-limited videos after cooldown | Quick |
 
@@ -26,7 +27,6 @@ _Empty - ready for next task_
 | Filter/sort videos | Filter by channel, date, has-summary; sort options | Medium |
 | ~~Mark as read/interested~~ | ~~Track which videos you've watched or want to watch~~ | ~~Medium~~ |
 | Search across transcripts | Keyword search across all saved transcripts | Medium |
-| Semantic search | Embed transcripts, query by meaning ("what did anyone say about fine-tuning?") | Large |
 
 ### Maybe
 | Item | Description | Effort |
@@ -75,8 +75,7 @@ _Empty - ready for next task_
 ### Next
 | Item | Description | Effort |
 |------|-------------|--------|
-| Integration tests | Test API endpoints with FastAPI TestClient | Medium |
-| Mocking external APIs | Mock YouTube and Claude calls in tests | Medium |
+| API endpoint tests | Test HTTP endpoints with FastAPI TestClient | Medium |
 | Coverage reporting | Add pytest-cov, track coverage | Quick |
 
 ---
@@ -84,6 +83,15 @@ _Empty - ready for next task_
 ## Completed
 | Item | Date | Notes |
 |------|------|-------|
+| Fix add-video-by-URL bugs | 2026-02-07 | Fix bookmarklet regex for standard watch URLs; remove age filter from display queries; sort by date added instead of date published |
+| Add video by URL | 2026-02-07 | Paste any YouTube URL in sidebar or use bookmarklet; fetches metadata, transcript, and summary synchronously |
+| Semantic search | 2026-02-07 | Voyage AI embeddings for summaries + transcript/article chunks; cosine similarity search with deduplication, threshold filtering, auto-embed on save, search UI with score badges |
+| Article thumbnails | 2026-02-07 | Extract OG image from trafilatura, store in DB, display in article cards matching video card layout |
+| Article bookmarklet and paste-URL | 2026-02-06 | Draggable bookmarklet and sidebar URL input for saving articles to digest |
+| Article title and date fixes | 2026-02-06 | Enable trafilatura metadata extraction; group articles by added_at, show original pub date |
+| Web articles feature | 2026-02-06 | Extract, summarize, and display web articles alongside videos in unified digest |
+| Integration tests | 2026-02-06 | End-to-end tests for article fetch-summarize pipeline with pytest integration marker |
+| Mocking external APIs | 2026-02-06 | Mock trafilatura in unit tests; fixed for trafilatura 2.0 Document return type |
 | Skip completed videos in transcript queue | 2026-02-04 | Exclude completed videos from background transcript fetching |
 | Unified page summary bar | 2026-02-04 | Single status bar with video counts, new-since-last-visit, and transcript status; replaced startup banner |
 | Prioritize transcript fetch | 2026-02-04 | Button to bump a video to the front of the transcript queue |

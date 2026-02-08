@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YTDigest - Your Daily YouTube Digest</title>
+    <title>YTDigest - Your Daily AI Digest</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         html {
@@ -61,7 +61,7 @@
             <div class="flex justify-between items-center">
                 <div>
                     <h1 class="text-3xl font-bold text-gray-800">YTDigest</h1>
-                    <p class="text-gray-600">Your daily YouTube video summaries</p>
+                    <p class="text-gray-600">Your daily video &amp; article summaries</p>
                 </div>
                 <button
                     id="refreshBtn"
@@ -72,12 +72,47 @@
                     <span id="refreshText">Get New Videos</span>
                 </button>
             </div>
+
+            {% if search_enabled %}
+            <!-- Search bar -->
+            <div class="mt-4">
+                <form onsubmit="performSearch(event)" class="flex gap-2">
+                    <div class="relative flex-1">
+                        <input
+                            id="searchInput"
+                            type="text"
+                            placeholder="Search by meaning... (e.g. &quot;what did anyone say about fine-tuning?&quot;)"
+                            class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        >
+                        <svg class="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+                    <button
+                        type="submit"
+                        id="searchBtn"
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center"
+                    >
+                        <span id="searchSpinner" class="spinner hidden"></span>
+                        Search
+                    </button>
+                    <button
+                        type="button"
+                        id="clearSearchBtn"
+                        onclick="clearSearch()"
+                        class="hidden bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg transition-colors"
+                    >
+                        Back to digest
+                    </button>
+                </form>
+            </div>
+            {% endif %}
         </header>
 
         <!-- Page summary -->
         {% if page_summary and page_summary.total > 0 %}
         <div class="mb-6 px-4 py-2 rounded-lg bg-gray-200 text-gray-600 text-sm flex items-center gap-4">
-            <span>{{ page_summary.total }} videos</span>
+            <span>{{ page_summary.total }} items</span>
             {% if page_summary.new_since_last_visit > 0 %}
             <span>&bull;</span>
             <span class="text-green-700">{{ page_summary.new_since_last_visit }} new since last visit</span>
@@ -91,6 +126,10 @@
             {% if page_summary.failed > 0 %}
             <span>&bull;</span>
             <span class="text-red-700">{{ page_summary.failed }} transcripts failed</span>
+            {% endif %}
+            {% if page_summary.embedding_count > 0 %}
+            <span>&bull;</span>
+            <span class="text-purple-700">{{ page_summary.embedding_count }} embeddings</span>
             {% endif %}
         </div>
         {% endif %}
@@ -106,7 +145,7 @@
             <div class="flex items-center gap-2">
                 <span class="text-gray-600 text-sm">Group by:</span>
                 <a href="?group_by=date{{ '&show_completed=true' if show_completed else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'date' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Date</a>
-                <a href="?group_by=channel{{ '&show_completed=true' if show_completed else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'channel' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Channel</a>
+                <a href="?group_by=channel{{ '&show_completed=true' if show_completed else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'channel' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Source</a>
                 <a href="?group_by=topic{{ '&show_completed=true' if show_completed else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'topic' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Topic</a>
             </div>
             <div class="flex items-center gap-2">
@@ -116,13 +155,24 @@
             </div>
         </div>
 
+        <!-- Search results (hidden until a search is performed) -->
+        <div id="searchResults" class="hidden mb-6">
+            <div id="searchResultsHeader" class="mb-4 flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-gray-700">
+                    Search results for "<span id="searchQuery"></span>"
+                </h2>
+                <span id="searchResultsCount" class="text-sm text-gray-500"></span>
+            </div>
+            <div id="searchResultsList" class="space-y-4"></div>
+        </div>
+
         <!-- Main content with sidebar -->
-        <div class="flex gap-6">
+        <div id="digestContent" class="flex gap-6">
             <!-- Sidebar -->
             <nav id="sidebar" class="hidden lg:block w-56 flex-shrink-0 sticky top-4 self-start max-h-[calc(100vh-2rem)] overflow-y-auto">
                 <div class="bg-white rounded-lg shadow-md p-4">
                     <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Navigation</h3>
-                    {% if grouped_videos %}
+                    {% if grouped_items %}
                         {% if group_by == 'date' and month_groups %}
                             {# Date grouping: collapsible month/year hierarchy #}
                             {% for month_label, dates in month_groups %}
@@ -174,9 +224,9 @@
                             </div>
                             {% endfor %}
                         {% else %}
-                            {# Channel grouping or fallback: flat list #}
+                            {# Channel/source grouping or fallback: flat list #}
                             <div class="space-y-1">
-                                {% for group_name, items in grouped_videos %}
+                                {% for group_name, items in grouped_items %}
                                 <a
                                     href="#group-{{ group_name | slugify }}"
                                     onclick="scrollToGroup('{{ group_name | slugify }}'); return false;"
@@ -190,13 +240,46 @@
                         {% endif %}
                     {% endif %}
                 </div>
+
+                <!-- Bookmarklet -->
+                <div class="bg-white rounded-lg shadow-md p-4 mt-4">
+                    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Save to Digest</h3>
+                    <p class="text-xs text-gray-500 mb-2">Drag to your bookmarks bar:</p>
+                    <a
+                        href="javascript:void((function(){var u=location.href,o='{{ bookmarklet_origin }}',yt=/^https?:\/\/(www\.)?(youtube\.com|youtu\.be|m\.youtube\.com)\//i.test(u),ep=yt?'/api/videos':'/api/articles';fetch(o+ep,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:u})}).then(function(r){return r.json()}).then(function(d){if(d.success){alert((d.duplicate?'Already saved: ':'Saved: ')+d.title)}else{alert('Error: '+(d.error||'Unknown'))}}).catch(function(e){alert('Error: '+e.message)})})());"
+                        class="inline-block px-3 py-1.5 bg-emerald-100 text-emerald-800 text-xs font-medium rounded border border-emerald-300 hover:bg-emerald-200 cursor-grab"
+                        onclick="event.preventDefault(); alert('Drag this button to your bookmarks bar!');"
+                    >
+                        + Save to Digest
+                    </a>
+                    <p class="text-xs text-gray-400 mt-1">Works on YouTube videos and web articles</p>
+                    <div class="mt-3 pt-3 border-t border-gray-100">
+                        <p class="text-xs text-gray-500 mb-2">Or paste a URL:</p>
+                        <form onsubmit="addByUrl(event)" class="flex gap-1">
+                            <input
+                                id="addUrlInput"
+                                type="url"
+                                placeholder="YouTube or article URL..."
+                                class="flex-1 min-w-0 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:border-emerald-500"
+                            >
+                            <button
+                                type="submit"
+                                id="addUrlBtn"
+                                class="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded transition-colors flex-shrink-0"
+                            >
+                                Add
+                            </button>
+                        </form>
+                        <p id="addUrlStatus" class="text-xs mt-1 hidden"></p>
+                    </div>
+                </div>
             </nav>
 
-            <!-- Videos list -->
+            <!-- Items list -->
             <main class="flex-1 min-w-0">
-                <div id="videosList" class="space-y-6">
-                    {% if grouped_videos %}
-                        {% for group_name, items in grouped_videos %}
+                <div id="itemsList" class="space-y-6">
+                    {% if grouped_items %}
+                        {% for group_name, items in grouped_items %}
                         <div class="group-container" id="group-{{ group_name | slugify }}">
                             <!-- Group header (collapsible) -->
                             <button
@@ -204,23 +287,123 @@
                                 class="w-full flex items-center justify-between bg-gray-200 hover:bg-gray-300 px-4 py-3 rounded-lg mb-3 transition-colors"
                             >
                                 <span class="font-semibold text-gray-700">
-                                    <span class="group-arrow">▼</span>
+                                    <span class="group-arrow">&#9660;</span>
                                     {{ group_name }}
-                                    <span class="text-gray-500 font-normal">({{ items|length }} video{{ 's' if items|length != 1 else '' }})</span>
+                                    <span class="text-gray-500 font-normal">({{ items|length }} item{{ 's' if items|length != 1 else '' }})</span>
                                 </span>
                             </button>
 
                             <!-- Group content -->
                             <div class="group-content space-y-4 ml-2">
                         {% for item in items %}
+                        {% if item.item_type == 'article' %}
+                        {# --- Article card --- #}
+                        <article class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow border-l-4 border-emerald-500">
+                            <div class="{% if item.thumbnail_url %}md:flex{% endif %}">
+                                {% if item.thumbnail_url %}
+                                <!-- Thumbnail -->
+                                <div class="md:w-64 flex-shrink-0">
+                                    <a href="{{ item.url }}" target="_blank" rel="noopener">
+                                        <img
+                                            src="{{ item.thumbnail_url }}"
+                                            alt="{{ item.title }}"
+                                            class="w-full h-48 md:h-full object-cover"
+                                        >
+                                    </a>
+                                </div>
+                                {% endif %}
+
+                            <div class="p-4 flex-1">
+                                <!-- Type badge + Title -->
+                                <div class="flex items-start gap-2 mb-2">
+                                    <span class="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2 py-0.5 rounded flex-shrink-0 mt-1">Article</span>
+                                    <h2 class="text-xl font-semibold">
+                                        <a
+                                            href="{{ item.url }}"
+                                            target="_blank"
+                                            rel="noopener"
+                                            class="text-gray-800 hover:text-emerald-600 transition-colors"
+                                        >
+                                            {{ item.title }}
+                                        </a>
+                                    </h2>
+                                </div>
+
+                                <!-- Meta -->
+                                <div class="flex items-center text-sm text-gray-500 mb-3">
+                                    <span class="font-medium text-gray-700">{{ item.domain }}</span>
+                                    {% if item.author %}
+                                    <span class="mx-2">&bull;</span>
+                                    <span>{{ item.author }}</span>
+                                    {% endif %}
+                                    {% if item.original_published_at %}
+                                    <span class="mx-2">&bull;</span>
+                                    <span>{{ item.original_published_at.strftime('%B %d, %Y') }}</span>
+                                    {% endif %}
+                                    {% if item.word_count %}
+                                    <span class="mx-2">&bull;</span>
+                                    <span>{{ item.word_count }} words</span>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Topics -->
+                                {% if item.topics %}
+                                <div class="flex flex-wrap gap-2 mb-3">
+                                    {% for topic in item.topics %}
+                                    <span class="bg-emerald-100 text-emerald-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                                        {{ topic }}
+                                    </span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+
+                                <!-- Summary -->
+                                {% if item.summary %}
+                                <div class="text-gray-600 text-sm leading-relaxed">
+                                    <div class="summary-text line-clamp-3">
+                                        {{ item.summary }}
+                                    </div>
+                                    <button onclick="toggleSummary(this)" class="text-emerald-600 hover:text-emerald-800 text-xs mt-1">show more</button>
+                                </div>
+                                {% else %}
+                                <div class="text-gray-400 text-sm italic">
+                                    Summary pending...
+                                </div>
+                                {% endif %}
+
+                                <!-- Completion buttons -->
+                                {% if not item.is_completed %}
+                                <div class="mt-4 pt-3 border-t border-gray-100 flex items-center gap-1">
+                                    <span class="text-gray-400 text-xs mr-2">Mark as done:</span>
+                                    <button onclick="markComplete('{{ item.id }}', 'like', 'article')" class="p-2 hover:bg-green-100 rounded transition-colors" title="Like">
+                                        👍
+                                    </button>
+                                    <button onclick="markComplete('{{ item.id }}', 'neutral', 'article')" class="p-2 hover:bg-gray-100 rounded transition-colors" title="Neutral">
+                                        ✔️
+                                    </button>
+                                    <button onclick="markComplete('{{ item.id }}', 'dislike', 'article')" class="p-2 hover:bg-red-100 rounded transition-colors" title="Dislike">
+                                        👎
+                                    </button>
+                                </div>
+                                {% else %}
+                                <div class="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2 text-gray-400 text-sm">
+                                    <span>Completed</span>
+                                    {% if item.sentiment == 'like' %}👍{% elif item.sentiment == 'neutral' %}✔️{% elif item.sentiment == 'dislike' %}👎{% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            </div>
+                        </article>
+                        {% else %}
+                        {# --- Video card --- #}
                         <article class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                             <div class="md:flex">
                                 <!-- Thumbnail -->
                                 <div class="md:w-64 flex-shrink-0">
-                                    <a href="{{ item.video.video_url }}" target="_blank" rel="noopener">
+                                    <a href="{{ item.url }}" target="_blank" rel="noopener">
                                         <img
-                                            src="{{ item.video.thumbnail_url }}"
-                                            alt="{{ item.video.title }}"
+                                            src="{{ item.thumbnail_url }}"
+                                            alt="{{ item.title }}"
                                             class="w-full h-48 md:h-full object-cover"
                                         >
                                     </a>
@@ -231,30 +414,30 @@
                                     <!-- Title -->
                                     <h2 class="text-xl font-semibold mb-2">
                                         <a
-                                            href="{{ item.video.video_url }}"
+                                            href="{{ item.url }}"
                                             target="_blank"
                                             rel="noopener"
                                             class="text-gray-800 hover:text-blue-600 transition-colors"
                                         >
-                                            {{ item.video.title }}
+                                            {{ item.title }}
                                         </a>
                                     </h2>
 
                                     <!-- Meta -->
                                     <div class="flex items-center text-sm text-gray-500 mb-3">
-                                        <span class="font-medium text-gray-700">{{ item.video.channel_name }}</span>
+                                        <span class="font-medium text-gray-700">{{ item.source_name }}</span>
                                         <span class="mx-2">&bull;</span>
-                                        <span>{{ item.video.published_at.strftime('%B %d, %Y') }}</span>
-                                        {% if item.video.duration %}
+                                        <span>{{ item.published_at.strftime('%B %d, %Y') }}</span>
+                                        {% if item.duration %}
                                         <span class="mx-2">&bull;</span>
-                                        <span>{{ item.video.duration | format_duration }}</span>
+                                        <span>{{ item.duration | format_duration }}</span>
                                         {% endif %}
                                     </div>
 
                                     <!-- Topics -->
-                                    {% if item.summary and item.summary.topics %}
+                                    {% if item.topics %}
                                     <div class="flex flex-wrap gap-2 mb-3">
-                                        {% for topic in item.summary.topics %}
+                                        {% for topic in item.topics %}
                                         <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
                                             {{ topic }}
                                         </span>
@@ -266,70 +449,71 @@
                                     {% if item.summary %}
                                     <div class="text-gray-600 text-sm leading-relaxed">
                                         <div class="summary-text line-clamp-3">
-                                            {{ item.summary.summary }}
+                                            {{ item.summary }}
                                         </div>
                                         <button onclick="toggleSummary(this)" class="text-blue-600 hover:text-blue-800 text-xs mt-1">show more</button>
                                     </div>
-                                    {% elif item.transcript %}
-                                    <div class="text-gray-500 text-sm italic">
-                                        Transcript available, summary pending...
-                                    </div>
-                                    {% elif item.video.transcript_status == 'unavailable' %}
+                                    {% elif item.transcript_status == 'unavailable' %}
                                     <div class="text-gray-400 text-sm italic">
                                         No transcript available
                                     </div>
-                                    {% elif item.video.transcript_status == 'priority' %}
-                                    <div class="text-blue-600 text-sm italic flex items-center" id="transcript-status-{{ item.video.id }}">
+                                    {% elif item.transcript_status == 'priority' %}
+                                    <div class="text-blue-600 text-sm italic flex items-center" id="transcript-status-{{ item.id }}">
                                         <span class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px;"></span>
                                         Transcript prioritized, fetching soon...
                                     </div>
-                                    {% elif item.video.transcript_status == 'failed' %}
-                                    <div class="text-amber-600 text-sm italic flex items-center justify-between" id="transcript-status-{{ item.video.id }}">
+                                    {% elif item.transcript_status == 'failed' %}
+                                    <div class="text-amber-600 text-sm italic flex items-center justify-between" id="transcript-status-{{ item.id }}">
                                         <span>Transcript fetch failed (will retry)</span>
-                                        <button onclick="prioritizeVideo('{{ item.video.id }}')" class="ml-3 px-2 py-0.5 bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs font-medium rounded transition-colors">
+                                        <button onclick="prioritizeVideo('{{ item.id }}')" class="ml-3 px-2 py-0.5 bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs font-medium rounded transition-colors">
                                             Prioritize
                                         </button>
                                     </div>
+                                    {% elif item.transcript_status == 'fetched' %}
+                                    <div class="text-gray-500 text-sm italic">
+                                        Transcript available, summary pending...
+                                    </div>
                                     {% else %}
-                                    <div class="text-gray-400 text-sm italic flex items-center justify-between" id="transcript-status-{{ item.video.id }}">
+                                    <div class="text-gray-400 text-sm italic flex items-center justify-between" id="transcript-status-{{ item.id }}">
                                         <span>Transcript pending...</span>
-                                        <button onclick="prioritizeVideo('{{ item.video.id }}')" class="ml-3 px-2 py-0.5 bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs font-medium rounded transition-colors">
+                                        <button onclick="prioritizeVideo('{{ item.id }}')" class="ml-3 px-2 py-0.5 bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs font-medium rounded transition-colors">
                                             Prioritize
                                         </button>
                                     </div>
                                     {% endif %}
 
                                     <!-- Completion buttons -->
-                                    {% if not item.video.is_completed %}
+                                    {% if not item.is_completed %}
                                     <div class="mt-4 pt-3 border-t border-gray-100 flex items-center gap-1">
                                         <span class="text-gray-400 text-xs mr-2">Mark as done:</span>
-                                        <button onclick="markComplete('{{ item.video.id }}', 'like')" class="p-2 hover:bg-green-100 rounded transition-colors" title="Like">
+                                        <button onclick="markComplete('{{ item.id }}', 'like', 'video')" class="p-2 hover:bg-green-100 rounded transition-colors" title="Like">
                                             👍
                                         </button>
-                                        <button onclick="markComplete('{{ item.video.id }}', 'neutral')" class="p-2 hover:bg-gray-100 rounded transition-colors" title="Neutral">
+                                        <button onclick="markComplete('{{ item.id }}', 'neutral', 'video')" class="p-2 hover:bg-gray-100 rounded transition-colors" title="Neutral">
                                             ✔️
                                         </button>
-                                        <button onclick="markComplete('{{ item.video.id }}', 'dislike')" class="p-2 hover:bg-red-100 rounded transition-colors" title="Dislike">
+                                        <button onclick="markComplete('{{ item.id }}', 'dislike', 'video')" class="p-2 hover:bg-red-100 rounded transition-colors" title="Dislike">
                                             👎
                                         </button>
                                     </div>
                                     {% else %}
                                     <div class="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2 text-gray-400 text-sm">
                                         <span>Completed</span>
-                                        {% if item.video.sentiment == 'like' %}👍{% elif item.video.sentiment == 'neutral' %}✔️{% elif item.video.sentiment == 'dislike' %}👎{% endif %}
+                                        {% if item.sentiment == 'like' %}👍{% elif item.sentiment == 'neutral' %}✔️{% elif item.sentiment == 'dislike' %}👎{% endif %}
                                     </div>
                                     {% endif %}
                                 </div>
                             </div>
                         </article>
+                        {% endif %}
                         {% endfor %}
                             </div>
                         </div>
                         {% endfor %}
                     {% else %}
                         <div class="bg-white rounded-lg shadow-md p-8 text-center">
-                            <p class="text-gray-500 text-lg mb-4">No videos yet</p>
-                            <p class="text-gray-400">Click "Get New Videos" to fetch videos from your configured channels.</p>
+                            <p class="text-gray-500 text-lg mb-4">No items yet</p>
+                            <p class="text-gray-400">Click "Get New Videos" to fetch videos, or use the bookmarklet to save articles.</p>
                         </div>
                     {% endif %}
                 </div>
@@ -389,10 +573,10 @@
 
             if (content.style.display === 'none') {
                 content.style.display = 'block';
-                arrow.textContent = '▼';
+                arrow.innerHTML = '&#9660;';
             } else {
                 content.style.display = 'none';
-                arrow.textContent = '►';
+                arrow.innerHTML = '&#9658;';
             }
         }
 
@@ -405,7 +589,7 @@
             const arrow = el.querySelector('.group-arrow');
             if (content && content.style.display === 'none') {
                 content.style.display = 'block';
-                if (arrow) arrow.textContent = '▼';
+                if (arrow) arrow.innerHTML = '&#9660;';
             }
 
             // Also expand the parent sidebar month section if it's collapsed
@@ -417,7 +601,7 @@
                     const monthBtn = monthContent.previousElementSibling;
                     if (monthBtn) {
                         const monthArrow = monthBtn.querySelector('.sidebar-month-arrow');
-                        if (monthArrow) monthArrow.textContent = '▼';
+                        if (monthArrow) monthArrow.innerHTML = '&#9660;';
                     }
                 }
             }
@@ -431,10 +615,10 @@
 
             if (content.style.display === 'none') {
                 content.style.display = 'block';
-                arrow.textContent = '▼';
+                arrow.innerHTML = '&#9660;';
             } else {
                 content.style.display = 'none';
-                arrow.textContent = '►';
+                arrow.innerHTML = '&#9658;';
             }
         }
 
@@ -502,16 +686,224 @@
             }
         }
 
-        async function markComplete(videoId, sentiment) {
+        function isYouTubeUrl(url) {
+            return /^https?:\/\/(www\.)?(youtube\.com|youtu\.be|m\.youtube\.com)\//i.test(url);
+        }
+
+        async function addByUrl(event) {
+            event.preventDefault();
+            const input = document.getElementById('addUrlInput');
+            const btn = document.getElementById('addUrlBtn');
+            const status = document.getElementById('addUrlStatus');
+            const url = input.value.trim();
+            if (!url) return;
+
+            const isVideo = isYouTubeUrl(url);
+            const endpoint = isVideo ? '/api/videos' : '/api/articles';
+
+            btn.disabled = true;
+            btn.textContent = '...';
+            status.className = 'text-xs mt-1 text-gray-500';
+            status.textContent = isVideo ? 'Fetching video and summarizing...' : 'Fetching and summarizing...';
+            status.classList.remove('hidden');
+
             try {
-                const response = await fetch(`/api/videos/${videoId}/complete?sentiment=${sentiment}`, {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url})
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    status.className = 'text-xs mt-1 text-emerald-600';
+                    status.textContent = (data.duplicate ? 'Already saved: ' : 'Saved: ') + data.title;
+                    input.value = '';
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    status.className = 'text-xs mt-1 text-red-600';
+                    status.textContent = data.error || 'Unknown error';
+                }
+            } catch (error) {
+                status.className = 'text-xs mt-1 text-red-600';
+                status.textContent = error.message;
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Add';
+        }
+
+        // --- Search functions ---
+
+        async function performSearch(event) {
+            event.preventDefault();
+            const input = document.getElementById('searchInput');
+            const query = input.value.trim();
+            if (!query) return;
+
+            const btn = document.getElementById('searchBtn');
+            const spinner = document.getElementById('searchSpinner');
+
+            // Show loading state
+            btn.disabled = true;
+            spinner.classList.remove('hidden');
+
+            try {
+                const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&limit=20`);
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                renderSearchResults(data.query, data.results);
+            } catch (error) {
+                document.getElementById('statusText').textContent = `Search error: ${error.message}`;
+                document.getElementById('statusMessage').classList.remove('hidden');
+            }
+
+            btn.disabled = false;
+            spinner.classList.add('hidden');
+        }
+
+        function renderSearchResults(query, results) {
+            // Hide digest, show search results
+            document.getElementById('digestContent').classList.add('hidden');
+            document.getElementById('searchResults').classList.remove('hidden');
+            document.getElementById('clearSearchBtn').classList.remove('hidden');
+
+            // Hide grouping selector and page summary during search
+            const groupingSelector = document.querySelector('.mb-6.flex.items-center.justify-between');
+            if (groupingSelector) groupingSelector.classList.add('hidden');
+
+            document.getElementById('searchQuery').textContent = query;
+            document.getElementById('searchResultsCount').textContent =
+                results.length === 0 ? 'No results found' : `${results.length} result${results.length !== 1 ? 's' : ''}`;
+
+            const list = document.getElementById('searchResultsList');
+            list.innerHTML = '';
+
+            if (results.length === 0) {
+                list.innerHTML = `
+                    <div class="bg-white rounded-lg shadow-md p-8 text-center">
+                        <p class="text-gray-500 text-lg mb-2">No results found</p>
+                        <p class="text-gray-400 text-sm">Try different keywords or a broader query.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            for (const result of results) {
+                list.appendChild(renderSearchResult(result));
+            }
+        }
+
+        function renderSearchResult(result) {
+            const item = result.item;
+            const score = result.score;
+            const pct = Math.round(score * 100);
+
+            // Score color
+            let scoreColor = 'text-gray-500 bg-gray-100';
+            if (pct >= 70) scoreColor = 'text-green-700 bg-green-100';
+            else if (pct >= 50) scoreColor = 'text-amber-700 bg-amber-100';
+
+            const isArticle = item.item_type === 'article';
+            const borderColor = isArticle ? 'border-emerald-500' : 'border-blue-500';
+            const badgeColor = isArticle ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800';
+            const typeBadge = isArticle ? 'Article' : 'Video';
+            const linkColor = isArticle ? 'hover:text-emerald-600' : 'hover:text-blue-600';
+            const topicColor = isArticle ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800';
+
+            const card = document.createElement('article');
+            card.className = `bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow border-l-4 ${borderColor}`;
+
+            let thumbnailHtml = '';
+            if (item.thumbnail_url) {
+                thumbnailHtml = `
+                    <div class="md:w-48 flex-shrink-0">
+                        <a href="${item.url}" target="_blank" rel="noopener">
+                            <img src="${item.thumbnail_url}" alt="${item.title}" class="w-full h-36 md:h-full object-cover">
+                        </a>
+                    </div>
+                `;
+            }
+
+            let meta = `<span class="font-medium text-gray-700">${item.source_name}</span>`;
+            if (item.published_at) {
+                const date = new Date(item.published_at);
+                meta += `<span class="mx-2">&bull;</span><span>${date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>`;
+            }
+            if (item.duration) {
+                meta += `<span class="mx-2">&bull;</span><span>${formatDuration(item.duration)}</span>`;
+            }
+            if (item.word_count) {
+                meta += `<span class="mx-2">&bull;</span><span>${item.word_count} words</span>`;
+            }
+
+            const topics = (item.topics || []).map(t =>
+                `<span class="${topicColor} text-xs font-medium px-2.5 py-0.5 rounded">${t}</span>`
+            ).join('');
+
+            card.innerHTML = `
+                <div class="${item.thumbnail_url ? 'md:flex' : ''}">
+                    ${thumbnailHtml}
+                    <div class="p-4 flex-1">
+                        <div class="flex items-start gap-2 mb-2">
+                            <span class="${badgeColor} text-xs font-semibold px-2 py-0.5 rounded flex-shrink-0 mt-1">${typeBadge}</span>
+                            <span class="${scoreColor} text-xs font-semibold px-2 py-0.5 rounded flex-shrink-0 mt-1">${pct}% match</span>
+                            <h2 class="text-xl font-semibold">
+                                <a href="${item.url}" target="_blank" rel="noopener" class="text-gray-800 ${linkColor} transition-colors">
+                                    ${item.title}
+                                </a>
+                            </h2>
+                        </div>
+                        <div class="flex items-center text-sm text-gray-500 mb-3">${meta}</div>
+                        ${topics ? `<div class="flex flex-wrap gap-2 mb-3">${topics}</div>` : ''}
+                        ${item.summary ? `<div class="text-gray-600 text-sm leading-relaxed">${item.summary}</div>` : ''}
+                    </div>
+                </div>
+            `;
+
+            return card;
+        }
+
+        function formatDuration(iso) {
+            if (!iso) return '';
+            const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+            if (!match) return '';
+            const h = parseInt(match[1] || 0);
+            const m = parseInt(match[2] || 0);
+            const s = parseInt(match[3] || 0);
+            if (h) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            return `${m}:${String(s).padStart(2, '0')}`;
+        }
+
+        function clearSearch() {
+            // Show digest, hide search results
+            document.getElementById('digestContent').classList.remove('hidden');
+            document.getElementById('searchResults').classList.add('hidden');
+            document.getElementById('clearSearchBtn').classList.add('hidden');
+            document.getElementById('searchInput').value = '';
+
+            // Restore grouping selector
+            const groupingSelector = document.querySelector('.mb-6.flex.items-center.justify-between.hidden');
+            if (groupingSelector) groupingSelector.classList.remove('hidden');
+        }
+
+        async function markComplete(itemId, sentiment, itemType) {
+            const endpoint = itemType === 'article'
+                ? `/api/articles/${itemId}/complete?sentiment=${sentiment}`
+                : `/api/videos/${itemId}/complete?sentiment=${sentiment}`;
+            try {
+                const response = await fetch(endpoint, {
                     method: 'POST'
                 });
                 const data = await response.json();
 
                 if (data.success) {
-                    // Remove the video card from the page
-                    const card = document.querySelector(`button[onclick*="${videoId}"]`).closest('article');
+                    // Remove the card from the page
+                    const card = document.querySelector(`button[onclick*="${itemId}"]`).closest('article');
                     card.style.transition = 'opacity 0.3s';
                     card.style.opacity = '0';
                     setTimeout(() => card.remove(), 300);
