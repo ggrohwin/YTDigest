@@ -350,9 +350,9 @@
                                 {% if item.topics %}
                                 <div class="flex flex-wrap gap-2 mb-3">
                                     {% for topic in item.topics %}
-                                    <span class="bg-emerald-100 text-emerald-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                                    <a href="?group_by=topic#group-{{ topic | slugify }}" class="bg-emerald-100 text-emerald-800 text-xs font-medium px-2.5 py-0.5 rounded hover:bg-emerald-200 transition-colors">
                                         {{ topic }}
-                                    </span>
+                                    </a>
                                     {% endfor %}
                                 </div>
                                 {% endif %}
@@ -438,9 +438,9 @@
                                     {% if item.topics %}
                                     <div class="flex flex-wrap gap-2 mb-3">
                                         {% for topic in item.topics %}
-                                        <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                                        <a href="?group_by=topic#group-{{ topic | slugify }}" class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded hover:bg-blue-200 transition-colors">
                                             {{ topic }}
-                                        </span>
+                                        </a>
                                         {% endfor %}
                                     </div>
                                     {% endif %}
