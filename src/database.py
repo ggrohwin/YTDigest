@@ -196,6 +196,7 @@ def _video_from_row(row) -> Video:
         video_url=row["video_url"],
         duration=row["duration"],
         transcript_status=row["transcript_status"],
+        first_seen_at=datetime.fromisoformat(row["first_seen_at"]) if row["first_seen_at"] else None,
         is_completed=bool(row["is_completed"]),
         sentiment=row["sentiment"],
         completed_at=datetime.fromisoformat(row["completed_at"]) if row["completed_at"] else None,
@@ -215,19 +216,15 @@ async def get_video(video_id: str) -> Optional[Video]:
     return None
 
 
-async def get_videos_since(days: int, include_completed: bool = False) -> list[Video]:
-    """Get all videos published within the specified number of days."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-
+async def get_all_videos(include_completed: bool = False) -> list[Video]:
+    """Get all videos in the database."""
     async with aiosqlite.connect(DATABASE_PATH) as db:
         db.row_factory = aiosqlite.Row
         if include_completed:
-            query = "SELECT * FROM videos WHERE published_at >= ? ORDER BY published_at DESC"
-            params = (cutoff.isoformat(),)
+            query = "SELECT * FROM videos ORDER BY COALESCE(first_seen_at, published_at) DESC"
         else:
-            query = "SELECT * FROM videos WHERE published_at >= ? AND (is_completed = 0 OR is_completed IS NULL) ORDER BY published_at DESC"
-            params = (cutoff.isoformat(),)
-        async with db.execute(query, params) as cursor:
+            query = "SELECT * FROM videos WHERE (is_completed = 0 OR is_completed IS NULL) ORDER BY COALESCE(first_seen_at, published_at) DESC"
+        async with db.execute(query) as cursor:
             rows = await cursor.fetchall()
             return [_video_from_row(row) for row in rows]
 
@@ -513,19 +510,15 @@ async def get_article_by_url(url: str) -> Optional[Article]:
     return None
 
 
-async def get_articles_since(days: int, include_completed: bool = False) -> list[Article]:
-    """Get all articles added within the specified number of days."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-
+async def get_all_articles(include_completed: bool = False) -> list[Article]:
+    """Get all articles in the database."""
     async with aiosqlite.connect(DATABASE_PATH) as db:
         db.row_factory = aiosqlite.Row
         if include_completed:
-            query = "SELECT * FROM articles WHERE added_at >= ? ORDER BY added_at DESC"
-            params = (cutoff.isoformat(),)
+            query = "SELECT * FROM articles ORDER BY added_at DESC"
         else:
-            query = "SELECT * FROM articles WHERE added_at >= ? AND (is_completed = 0 OR is_completed IS NULL) ORDER BY added_at DESC"
-            params = (cutoff.isoformat(),)
-        async with db.execute(query, params) as cursor:
+            query = "SELECT * FROM articles WHERE (is_completed = 0 OR is_completed IS NULL) ORDER BY added_at DESC"
+        async with db.execute(query) as cursor:
             rows = await cursor.fetchall()
             return [_article_from_row(row) for row in rows]
 
@@ -612,6 +605,7 @@ async def get_digest_item(item_id: str, item_type: str) -> Optional[DigestItem]:
             url=video.video_url,
             source_name=video.channel_name,
             published_at=video.published_at,
+            added_at=video.first_seen_at,
             is_completed=video.is_completed,
             sentiment=video.sentiment,
             completed_at=video.completed_at,

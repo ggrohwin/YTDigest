@@ -29,7 +29,7 @@ from .database import (
     save_summary,
     get_transcript,
     get_summary,
-    get_videos_since,
+    get_all_videos,
     get_videos_without_transcripts,
     get_videos_with_transcripts_without_summaries,
     update_transcript_status,
@@ -41,7 +41,7 @@ from .database import (
     set_setting,
     save_article,
     get_article_by_url,
-    get_articles_since,
+    get_all_articles,
     save_article_summary,
     get_article_summary,
     mark_article_completed,
@@ -844,10 +844,7 @@ async def api_complete_article(article_id: str, sentiment: str):
 @app.get("/api/articles")
 async def api_articles():
     """Get all articles with their summaries as JSON."""
-    if not app_config:
-        return JSONResponse(content=[])
-
-    articles = await get_articles_since(app_config.digest.max_age_days, include_completed=True)
+    articles = await get_all_articles(include_completed=True)
     result = []
     for article in articles:
         summary = await get_article_summary(article.id)
@@ -866,11 +863,8 @@ async def api_articles():
 
 
 async def get_videos_with_details(include_completed: bool = False) -> list[VideoWithDetails]:
-    """Get all recent videos with their transcripts and summaries."""
-    if not app_config:
-        return []
-
-    videos = await get_videos_since(app_config.digest.max_age_days, include_completed=include_completed)
+    """Get all videos with their transcripts and summaries."""
+    videos = await get_all_videos(include_completed=include_completed)
 
     result = []
     for video in videos:
@@ -886,14 +880,11 @@ async def get_videos_with_details(include_completed: bool = False) -> list[Video
 
 
 async def get_digest_items(include_completed: bool = False) -> list[DigestItem]:
-    """Get all recent videos and articles as a unified list of DigestItems."""
-    if not app_config:
-        return []
-
+    """Get all videos and articles as a unified list of DigestItems."""
     items: list[DigestItem] = []
 
     # Load videos
-    videos = await get_videos_since(app_config.digest.max_age_days, include_completed=include_completed)
+    videos = await get_all_videos(include_completed=include_completed)
     for video in videos:
         transcript = await get_transcript(video.id)
         summary = await get_summary(video.id)
@@ -904,6 +895,7 @@ async def get_digest_items(include_completed: bool = False) -> list[DigestItem]:
             url=video.video_url,
             source_name=video.channel_name,
             published_at=video.published_at,
+            added_at=video.first_seen_at,
             is_completed=video.is_completed,
             sentiment=video.sentiment,
             completed_at=video.completed_at,
@@ -916,7 +908,7 @@ async def get_digest_items(include_completed: bool = False) -> list[DigestItem]:
         ))
 
     # Load articles
-    articles = await get_articles_since(app_config.digest.max_age_days, include_completed=include_completed)
+    articles = await get_all_articles(include_completed=include_completed)
     for article in articles:
         summary = await get_article_summary(article.id)
         items.append(DigestItem(
@@ -940,8 +932,8 @@ async def get_digest_items(include_completed: bool = False) -> list[DigestItem]:
             original_published_at=article.published_at,
         ))
 
-    # Sort by date, most recent first
-    items.sort(key=lambda x: x.published_at, reverse=True)
+    # Sort by date added, most recent first
+    items.sort(key=lambda x: x.added_at or x.published_at, reverse=True)
     return items
 
 
@@ -970,14 +962,15 @@ def group_items(
         # Sort groups alphabetically, "No topics" last
         return sorted(groups.items(), key=lambda x: (x[0] == "No topics", x[0].lower()))
 
-    else:  # Default: group by date
+    else:  # Default: group by date added
         groups = defaultdict(list)
         for item in items:
-            date_str = item.published_at.strftime("%B %d, %Y")
+            sort_date = item.added_at or item.published_at
+            date_str = sort_date.strftime("%B %d, %Y")
             groups[date_str].append(item)
         # Sort groups by date (most recent first) using the max date in each group
         return sorted(
             groups.items(),
-            key=lambda x: max(item.published_at for item in x[1]),
+            key=lambda x: max(item.added_at or item.published_at for item in x[1]),
             reverse=True
         )

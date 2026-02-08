@@ -88,11 +88,10 @@ class TestVideoOperations:
         retrieved = await database.get_video("test123")
         assert retrieved.title == "Updated Title"
 
-    async def test_get_videos_since(self, test_db):
-        """Test retrieving videos within a date range."""
+    async def test_get_all_videos(self, test_db):
+        """Test retrieving all videos regardless of age."""
         now = datetime.now(timezone.utc)
 
-        # Create videos at different times
         old_video = Video(
             id="old",
             channel_id="UC123",
@@ -115,11 +114,12 @@ class TestVideoOperations:
         await database.save_video(old_video)
         await database.save_video(recent_video)
 
-        # Get videos from last 7 days
-        videos = await database.get_videos_since(7)
+        # Both videos should be returned regardless of age
+        videos = await database.get_all_videos()
 
-        assert len(videos) == 1
+        assert len(videos) == 2
         assert videos[0].id == "recent"
+        assert videos[1].id == "old"
 
 
 class TestTranscriptOperations:
@@ -235,8 +235,8 @@ class TestArticleOperations:
         retrieved = await database.get_article_by_url("https://example.com/nope")
         assert retrieved is None
 
-    async def test_get_articles_since(self, test_db):
-        """Test retrieving articles within a date range."""
+    async def test_get_all_articles(self, test_db):
+        """Test retrieving all articles regardless of age."""
         now = datetime.now(timezone.utc)
 
         old_article = Article(
@@ -263,11 +263,12 @@ class TestArticleOperations:
         await database.save_article(old_article)
         await database.save_article(recent_article)
 
-        # Get articles from last 7 days
-        articles = await database.get_articles_since(7)
+        # Both articles should be returned regardless of age
+        articles = await database.get_all_articles()
 
-        assert len(articles) == 1
+        assert len(articles) == 2
         assert articles[0].id == "recent_art_id"
+        assert articles[1].id == "old_article_id"
 
     async def test_save_article_updates_existing(self, test_db, sample_article):
         """Test that saving an article with same ID updates it."""
