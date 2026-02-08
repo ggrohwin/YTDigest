@@ -17,6 +17,8 @@ _Empty - ready for next task_
 ### Next
 | Item | Description | Effort |
 |------|-------------|--------|
+| Refine topic tags | Too many unique topics make tag grouping unusable for navigation; consolidate to a controlled set or merge similar tags | Medium |
+| Clickable topic tags | Topic labels in item cards link to the topic group view for that tag | Quick |
 | Favorites list | Save items to a favorites collection; dedicated view to revisit liked/starred content | Medium |
 | Chat with transcript | Ask questions about a video while watching; send transcript + question to Claude | Medium |
 | Retry failed transcripts | Button or automatic retry for rate-limited videos after cooldown | Quick |
@@ -47,6 +49,7 @@ _Empty - ready for next task_
 ### Next
 | Item | Description | Effort |
 |------|-------------|--------|
+| Push to GitHub | Create remote repo and push; enables CI, PRs, and backup | Quick |
 | Code formatting | Set up black + ruff for consistent style | Quick |
 | Pre-commit hooks | Run formatter, linter, tests before commit | Quick |
 | Dependency pinning | Lock versions in requirements.txt | Quick |
