@@ -48,7 +48,6 @@ _Empty - ready for next task_
 ### Next
 | Item | Description | Effort |
 |------|-------------|--------|
-| Push to GitHub | Create remote repo and push; enables CI, PRs, and backup | Quick |
 | Code formatting | Set up black + ruff for consistent style | Quick |
 | Pre-commit hooks | Run formatter, linter, tests before commit | Quick |
 | Dependency pinning | Lock versions in requirements.txt | Quick |
@@ -85,6 +84,7 @@ _Empty - ready for next task_
 ## Completed
 | Item | Date | Notes |
 |------|------|-------|
+| Push to GitHub | 2026-02-07 | Private repo with gh CLI; pushed master and feature branch, opened first PR |
 | Clickable topic tags | 2026-02-07 | Topic labels in cards link to topic group view |
 | Fix add-video-by-URL bugs | 2026-02-07 | Fix bookmarklet regex for standard watch URLs; remove age filter from display queries; sort by date added instead of date published |
 | Add video by URL | 2026-02-07 | Paste any YouTube URL in sidebar or use bookmarklet; fetches metadata, transcript, and summary synchronously |
