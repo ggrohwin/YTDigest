@@ -122,6 +122,61 @@ class TestVideoOperations:
         assert videos[1].id == "old"
 
 
+class TestGetVideosWithoutTranscripts:
+    """Tests for get_videos_without_transcripts()."""
+
+    async def test_returns_pending_video(self, test_db):
+        """A video with pending transcript status should be returned."""
+        video = Video(
+            id="pending_vid", channel_id="UC123", channel_name="Test",
+            title="Pending Video", published_at=datetime.now(timezone.utc),
+            thumbnail_url="https://example.com/thumb.jpg",
+            video_url="https://youtube.com/watch?v=pending_vid",
+        )
+        await database.save_video(video)
+
+        videos = await database.get_videos_without_transcripts(limit=10)
+        assert any(v.id == "pending_vid" for v in videos)
+
+    async def test_excludes_completed_video(self, test_db):
+        """A completed video should not be returned."""
+        video = Video(
+            id="done_vid", channel_id="UC123", channel_name="Test",
+            title="Done Video", published_at=datetime.now(timezone.utc),
+            thumbnail_url="https://example.com/thumb.jpg",
+            video_url="https://youtube.com/watch?v=done_vid",
+        )
+        await database.save_video(video)
+        await database.mark_video_completed("done_vid", "like")
+
+        videos = await database.get_videos_without_transcripts(limit=10)
+        assert not any(v.id == "done_vid" for v in videos)
+
+    async def test_priority_ordered_first(self, test_db):
+        """Prioritized videos should appear before pending ones."""
+        now = datetime.now(timezone.utc)
+        pending = Video(
+            id="pending_vid", channel_id="UC123", channel_name="Test",
+            title="Pending", published_at=now - timedelta(days=1),
+            thumbnail_url="https://example.com/thumb.jpg",
+            video_url="https://youtube.com/watch?v=pending_vid",
+        )
+        priority = Video(
+            id="priority_vid", channel_id="UC123", channel_name="Test",
+            title="Priority", published_at=now - timedelta(days=2),
+            thumbnail_url="https://example.com/thumb.jpg",
+            video_url="https://youtube.com/watch?v=priority_vid",
+        )
+        await database.save_video(pending)
+        await database.save_video(priority)
+        await database.update_transcript_status("priority_vid", "priority")
+
+        videos = await database.get_videos_without_transcripts(limit=10)
+        assert len(videos) == 2
+        assert videos[0].id == "priority_vid"
+        assert videos[1].id == "pending_vid"
+
+
 class TestTranscriptOperations:
     """Tests for transcript CRUD operations."""
 

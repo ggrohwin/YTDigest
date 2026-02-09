@@ -350,23 +350,20 @@ async def update_transcript_status(video_id: str, status: str) -> None:
         await db.commit()
 
 
-async def get_videos_without_transcripts(days: int, limit: int = 1) -> list[Video]:
+async def get_videos_without_transcripts(limit: int = 1) -> list[Video]:
     """Get videos that are pending transcript fetch."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-
     async with aiosqlite.connect(DATABASE_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """
             SELECT v.* FROM videos v
-            WHERE v.published_at >= ?
-            AND (v.is_completed = 0 OR v.is_completed IS NULL)
+            WHERE (v.is_completed = 0 OR v.is_completed IS NULL)
             AND (v.transcript_status IS NULL OR v.transcript_status = 'pending' OR v.transcript_status = 'priority')
             ORDER BY CASE WHEN v.transcript_status = 'priority' THEN 0 ELSE 1 END,
                      v.published_at DESC
             LIMIT ?
             """,
-            (cutoff.isoformat(), limit),
+            (limit,),
         ) as cursor:
             rows = await cursor.fetchall()
             return [_video_from_row(row) for row in rows]

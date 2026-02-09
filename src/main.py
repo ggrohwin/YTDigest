@@ -193,7 +193,6 @@ async def background_transcript_fetcher():
 
             # Find videos that need transcripts
             videos = await get_videos_without_transcripts(
-                days=app_config.digest.max_age_days,
                 limit=app_config.digest.transcript_batch_size
             )
 
@@ -559,7 +558,6 @@ async def api_refresh():
 
         # Count pending transcripts for user feedback
         pending_transcripts = await get_videos_without_transcripts(
-            days=app_config.digest.max_age_days,
             limit=100
         )
 
