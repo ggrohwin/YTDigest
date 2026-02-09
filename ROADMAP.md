@@ -75,7 +75,6 @@ _Empty - ready for next task_
 ### Next
 | Item | Description | Effort |
 |------|-------------|--------|
-| API endpoint tests | Test HTTP endpoints with FastAPI TestClient | Medium |
 | Coverage reporting | Add pytest-cov, track coverage | Quick |
 
 ---
@@ -83,6 +82,7 @@ _Empty - ready for next task_
 ## Completed
 | Item | Date | Notes |
 |------|------|-------|
+| API endpoint tests | 2026-02-08 | 22 tests for 8 HTTP endpoints using httpx AsyncClient + ASGITransport; shared conftest.py with test_db, test_client fixtures, and seed helpers |
 | Favorites list | 2026-02-08 | Star/unstar any digest item; dedicated favorites view with sidebar link; optimistic UI with fade-out on unfavorite |
 | Push to GitHub | 2026-02-07 | Private repo with gh CLI; pushed master and feature branch, opened first PR |
 | Clickable topic tags | 2026-02-07 | Topic labels in cards link to topic group view |
