@@ -55,6 +55,16 @@ async def init_db() -> None:
         except Exception:
             pass
 
+        # Migration: add favorites tracking columns to videos
+        try:
+            await db.execute("ALTER TABLE videos ADD COLUMN is_favorited INTEGER DEFAULT 0")
+        except Exception:
+            pass
+        try:
+            await db.execute("ALTER TABLE videos ADD COLUMN favorited_at TEXT")
+        except Exception:
+            pass
+
         await db.execute("""
             CREATE TABLE IF NOT EXISTS transcripts (
                 video_id TEXT PRIMARY KEY,
@@ -103,6 +113,16 @@ async def init_db() -> None:
             await db.execute("ALTER TABLE articles ADD COLUMN thumbnail_url TEXT")
         except Exception:
             pass  # Column already exists
+
+        # Migration: add favorites tracking columns to articles
+        try:
+            await db.execute("ALTER TABLE articles ADD COLUMN is_favorited INTEGER DEFAULT 0")
+        except Exception:
+            pass
+        try:
+            await db.execute("ALTER TABLE articles ADD COLUMN favorited_at TEXT")
+        except Exception:
+            pass
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS article_summaries (
@@ -200,6 +220,8 @@ def _video_from_row(row) -> Video:
         is_completed=bool(row["is_completed"]),
         sentiment=row["sentiment"],
         completed_at=datetime.fromisoformat(row["completed_at"]) if row["completed_at"] else None,
+        is_favorited=bool(row["is_favorited"]),
+        favorited_at=datetime.fromisoformat(row["favorited_at"]) if row["favorited_at"] else None,
     )
 
 
@@ -441,6 +463,8 @@ def _article_from_row(row) -> Article:
         is_completed=bool(row["is_completed"]),
         sentiment=row["sentiment"],
         completed_at=datetime.fromisoformat(row["completed_at"]) if row["completed_at"] else None,
+        is_favorited=bool(row["is_favorited"]),
+        favorited_at=datetime.fromisoformat(row["favorited_at"]) if row["favorited_at"] else None,
     )
 
 
@@ -575,6 +599,80 @@ async def mark_article_completed(article_id: str, sentiment: str) -> None:
         await db.commit()
 
 
+async def toggle_video_favorite(video_id: str) -> bool:
+    """Toggle the favorite status of a video. Returns the new is_favorited state."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT is_favorited FROM videos WHERE id = ?", (video_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                return False
+            currently_favorited = bool(row[0])
+
+        new_state = not currently_favorited
+        if new_state:
+            await db.execute(
+                "UPDATE videos SET is_favorited = 1, favorited_at = ? WHERE id = ?",
+                (datetime.now(timezone.utc).isoformat(), video_id),
+            )
+        else:
+            await db.execute(
+                "UPDATE videos SET is_favorited = 0, favorited_at = NULL WHERE id = ?",
+                (video_id,),
+            )
+        await db.commit()
+        return new_state
+
+
+async def toggle_article_favorite(article_id: str) -> bool:
+    """Toggle the favorite status of an article. Returns the new is_favorited state."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT is_favorited FROM articles WHERE id = ?", (article_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                return False
+            currently_favorited = bool(row[0])
+
+        new_state = not currently_favorited
+        if new_state:
+            await db.execute(
+                "UPDATE articles SET is_favorited = 1, favorited_at = ? WHERE id = ?",
+                (datetime.now(timezone.utc).isoformat(), article_id),
+            )
+        else:
+            await db.execute(
+                "UPDATE articles SET is_favorited = 0, favorited_at = NULL WHERE id = ?",
+                (article_id,),
+            )
+        await db.commit()
+        return new_state
+
+
+async def get_favorite_videos() -> list[Video]:
+    """Get all favorited videos, ordered by most recently favorited."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM videos WHERE is_favorited = 1 ORDER BY favorited_at DESC"
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [_video_from_row(row) for row in rows]
+
+
+async def get_favorite_articles() -> list[Article]:
+    """Get all favorited articles, ordered by most recently favorited."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM articles WHERE is_favorited = 1 ORDER BY favorited_at DESC"
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [_article_from_row(row) for row in rows]
+
+
 async def get_articles_without_summaries() -> list[Article]:
     """Get articles that have content but no summaries yet."""
     async with aiosqlite.connect(DATABASE_PATH) as db:
@@ -609,6 +707,8 @@ async def get_digest_item(item_id: str, item_type: str) -> Optional[DigestItem]:
             is_completed=video.is_completed,
             sentiment=video.sentiment,
             completed_at=video.completed_at,
+            is_favorited=video.is_favorited,
+            favorited_at=video.favorited_at,
             summary=summary.summary if summary else None,
             topics=summary.topics if summary else [],
             category=summary.category if summary else None,
@@ -632,6 +732,8 @@ async def get_digest_item(item_id: str, item_type: str) -> Optional[DigestItem]:
             is_completed=article.is_completed,
             sentiment=article.sentiment,
             completed_at=article.completed_at,
+            is_favorited=article.is_favorited,
+            favorited_at=article.favorited_at,
             summary=summary.summary if summary else None,
             topics=summary.topics if summary else [],
             category=summary.category if summary else None,

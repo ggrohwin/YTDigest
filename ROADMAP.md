@@ -18,9 +18,9 @@ _Empty - ready for next task_
 | Item | Description | Effort |
 |------|-------------|--------|
 | Refine topic tags | Too many unique topics make tag grouping unusable for navigation; consolidate to a controlled set or merge similar tags. Case-insensitive grouping needed (e.g. "Workflow Automation" vs "workflow automation" are separate groups — fix in `group_items` by normalizing keys to lowercase) | Medium |
-| Favorites list | Save items to a favorites collection; dedicated view to revisit liked/starred content | Medium |
 | Chat with transcript | Ask questions about a video while watching; send transcript + question to Claude | Medium |
 | Retry failed transcripts | Button or automatic retry for rate-limited videos after cooldown | Quick |
+| Daily engagement tracking | Track daily completions and engagement with digest items; streak counter, daily goal, progress dashboard to build a consistent habit | Medium |
 
 ### Later
 | Item | Description | Effort |
@@ -32,11 +32,10 @@ _Empty - ready for next task_
 ### Maybe
 | Item | Description | Effort |
 |------|-------------|--------|
-| Email digest | Daily/weekly email summary of new videos | Medium |
 | Mobile-friendly UI | Responsive design improvements | Medium |
 | Export summaries | Export to markdown, PDF, or Notion | Quick |
-| Multiple summary styles | Bullet points vs prose, length options | Quick |
 | Live updates via SSE | Server-Sent Events to push transcript/summary completion to the browser in real time | Medium |
+| Publish to public internet | Deploy to a public URL with auth, DB migration (SQLite→Postgres), secrets management, HTTPS | Large |
 
 ---
 
@@ -84,6 +83,7 @@ _Empty - ready for next task_
 ## Completed
 | Item | Date | Notes |
 |------|------|-------|
+| Favorites list | 2026-02-08 | Star/unstar any digest item; dedicated favorites view with sidebar link; optimistic UI with fade-out on unfavorite |
 | Push to GitHub | 2026-02-07 | Private repo with gh CLI; pushed master and feature branch, opened first PR |
 | Clickable topic tags | 2026-02-07 | Topic labels in cards link to topic group view |
 | Fix add-video-by-URL bugs | 2026-02-07 | Fix bookmarklet regex for standard watch URLs; remove age filter from display queries; sort by date added instead of date published |

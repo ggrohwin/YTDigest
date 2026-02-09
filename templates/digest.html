@@ -144,15 +144,17 @@
         <div class="mb-6 flex items-center justify-between flex-wrap gap-2">
             <div class="flex items-center gap-2">
                 <span class="text-gray-600 text-sm">Group by:</span>
-                <a href="?group_by=date{{ '&show_completed=true' if show_completed else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'date' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Date</a>
-                <a href="?group_by=channel{{ '&show_completed=true' if show_completed else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'channel' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Source</a>
-                <a href="?group_by=topic{{ '&show_completed=true' if show_completed else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'topic' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Topic</a>
+                <a href="?group_by=date{{ '&show_completed=true' if show_completed else '' }}{{ '&view=favorites' if view == 'favorites' else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'date' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Date</a>
+                <a href="?group_by=channel{{ '&show_completed=true' if show_completed else '' }}{{ '&view=favorites' if view == 'favorites' else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'channel' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Source</a>
+                <a href="?group_by=topic{{ '&show_completed=true' if show_completed else '' }}{{ '&view=favorites' if view == 'favorites' else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'topic' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Topic</a>
             </div>
+            {% if view != 'favorites' %}
             <div class="flex items-center gap-2">
                 <a href="?group_by={{ group_by }}{{ '&show_completed=true' if not show_completed else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-green-600 text-white' if show_completed else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">
                     {{ 'Showing Completed' if show_completed else 'Show Completed' }}
                 </a>
             </div>
+            {% endif %}
         </div>
 
         <!-- Search results (hidden until a search is performed) -->
@@ -171,6 +173,10 @@
             <!-- Sidebar -->
             <nav id="sidebar" class="hidden lg:block w-56 flex-shrink-0 sticky top-4 self-start max-h-[calc(100vh-2rem)] overflow-y-auto">
                 <div class="bg-white rounded-lg shadow-md p-4">
+                    <a href="?view=favorites&group_by={{ group_by }}" class="block text-sm font-medium py-1.5 px-2 rounded mb-2 transition-colors {{ 'bg-yellow-100 text-yellow-800' if view == 'favorites' else 'text-gray-600 hover:bg-yellow-50 hover:text-yellow-700' }}">
+                        <span class="text-base">&#9733;</span> Favorites
+                    </a>
+                    <hr class="mb-3">
                     <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Navigation</h3>
                     {% if grouped_items %}
                         {% if group_by == 'date' and month_groups %}
@@ -278,6 +284,12 @@
             <!-- Items list -->
             <main class="flex-1 min-w-0">
                 <div id="itemsList" class="space-y-6">
+                    {% if view == 'favorites' %}
+                    <div class="flex items-center gap-3 mb-2">
+                        <h2 class="text-xl font-semibold text-gray-800"><span class="text-yellow-500">&#9733;</span> Your Favorites</h2>
+                        <a href="?group_by={{ group_by }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; Back to digest</a>
+                    </div>
+                    {% endif %}
                     {% if grouped_items %}
                         {% for group_name, items in grouped_items %}
                         <div class="group-container" id="group-{{ group_name | slugify }}">
@@ -384,11 +396,23 @@
                                     <button onclick="markComplete('{{ item.id }}', 'dislike', 'article')" class="p-2 hover:bg-red-100 rounded transition-colors" title="Dislike">
                                         👎
                                     </button>
+                                    <span class="flex-1"></span>
+                                    <button
+                                        onclick="toggleFavorite('{{ item.id }}', 'article', this)"
+                                        class="p-2 hover:bg-yellow-100 rounded transition-colors text-lg {{ 'text-yellow-500' if item.is_favorited else 'text-gray-400' }}"
+                                        title="{{ 'Remove from favorites' if item.is_favorited else 'Add to favorites' }}"
+                                    >{{ '★' if item.is_favorited else '☆' }}</button>
                                 </div>
                                 {% else %}
                                 <div class="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2 text-gray-400 text-sm">
                                     <span>Completed</span>
                                     {% if item.sentiment == 'like' %}👍{% elif item.sentiment == 'neutral' %}✔️{% elif item.sentiment == 'dislike' %}👎{% endif %}
+                                    <span class="flex-1"></span>
+                                    <button
+                                        onclick="toggleFavorite('{{ item.id }}', 'article', this)"
+                                        class="p-2 hover:bg-yellow-100 rounded transition-colors text-lg {{ 'text-yellow-500' if item.is_favorited else 'text-gray-400' }}"
+                                        title="{{ 'Remove from favorites' if item.is_favorited else 'Add to favorites' }}"
+                                    >{{ '★' if item.is_favorited else '☆' }}</button>
                                 </div>
                                 {% endif %}
                             </div>
@@ -495,11 +519,23 @@
                                         <button onclick="markComplete('{{ item.id }}', 'dislike', 'video')" class="p-2 hover:bg-red-100 rounded transition-colors" title="Dislike">
                                             👎
                                         </button>
+                                        <span class="flex-1"></span>
+                                        <button
+                                            onclick="toggleFavorite('{{ item.id }}', 'video', this)"
+                                            class="p-2 hover:bg-yellow-100 rounded transition-colors text-lg {{ 'text-yellow-500' if item.is_favorited else 'text-gray-400' }}"
+                                            title="{{ 'Remove from favorites' if item.is_favorited else 'Add to favorites' }}"
+                                        >{{ '★' if item.is_favorited else '☆' }}</button>
                                     </div>
                                     {% else %}
                                     <div class="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2 text-gray-400 text-sm">
                                         <span>Completed</span>
                                         {% if item.sentiment == 'like' %}👍{% elif item.sentiment == 'neutral' %}✔️{% elif item.sentiment == 'dislike' %}👎{% endif %}
+                                        <span class="flex-1"></span>
+                                        <button
+                                            onclick="toggleFavorite('{{ item.id }}', 'video', this)"
+                                            class="p-2 hover:bg-yellow-100 rounded transition-colors text-lg {{ 'text-yellow-500' if item.is_favorited else 'text-gray-400' }}"
+                                            title="{{ 'Remove from favorites' if item.is_favorited else 'Add to favorites' }}"
+                                        >{{ '★' if item.is_favorited else '☆' }}</button>
                                     </div>
                                     {% endif %}
                                 </div>
@@ -512,8 +548,13 @@
                         {% endfor %}
                     {% else %}
                         <div class="bg-white rounded-lg shadow-md p-8 text-center">
+                            {% if view == 'favorites' %}
+                            <p class="text-gray-500 text-lg mb-4">No favorites yet</p>
+                            <p class="text-gray-400">Click <span class="text-yellow-500">&#9734;</span> on any card to add it to your favorites.</p>
+                            {% else %}
                             <p class="text-gray-500 text-lg mb-4">No items yet</p>
                             <p class="text-gray-400">Click "Get New Videos" to fetch videos, or use the bookmarklet to save articles.</p>
+                            {% endif %}
                         </div>
                     {% endif %}
                 </div>
@@ -889,6 +930,48 @@
             // Restore grouping selector
             const groupingSelector = document.querySelector('.mb-6.flex.items-center.justify-between.hidden');
             if (groupingSelector) groupingSelector.classList.remove('hidden');
+        }
+
+        async function toggleFavorite(itemId, itemType, button) {
+            const endpoint = itemType === 'article'
+                ? `/api/articles/${itemId}/favorite`
+                : `/api/videos/${itemId}/favorite`;
+
+            // Optimistic UI toggle
+            const wasFavorited = button.innerHTML.trim() === '\u2605';  // ★
+            button.innerHTML = wasFavorited ? '\u2606' : '\u2605';  // ☆ or ★
+            button.classList.toggle('text-yellow-500', !wasFavorited);
+            button.classList.toggle('text-gray-400', wasFavorited);
+            button.title = wasFavorited ? 'Add to favorites' : 'Remove from favorites';
+
+            try {
+                const response = await fetch(endpoint, { method: 'POST' });
+                const data = await response.json();
+
+                if (!data.success) {
+                    // Revert on failure
+                    button.innerHTML = wasFavorited ? '\u2605' : '\u2606';
+                    button.classList.toggle('text-yellow-500', wasFavorited);
+                    button.classList.toggle('text-gray-400', !wasFavorited);
+                    button.title = wasFavorited ? 'Remove from favorites' : 'Add to favorites';
+                    return;
+                }
+
+                // In favorites view, unfavoriting should fade out the card
+                const isFavoritesView = new URLSearchParams(window.location.search).get('view') === 'favorites';
+                if (isFavoritesView && !data.is_favorited) {
+                    const card = button.closest('article');
+                    card.style.transition = 'opacity 0.3s';
+                    card.style.opacity = '0';
+                    setTimeout(() => card.remove(), 300);
+                }
+            } catch (error) {
+                // Revert on error
+                button.innerHTML = wasFavorited ? '&#9733;' : '&#9734;';
+                button.classList.toggle('text-yellow-500', wasFavorited);
+                button.classList.toggle('text-gray-400', !wasFavorited);
+                button.title = wasFavorited ? 'Remove from favorites' : 'Add to favorites';
+            }
         }
 
         async function markComplete(itemId, sentiment, itemType) {

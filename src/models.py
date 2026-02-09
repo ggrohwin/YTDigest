@@ -47,6 +47,8 @@ class Video(BaseModel):
     is_completed: bool = False
     sentiment: Optional[str] = None  # like, neutral, dislike
     completed_at: Optional[datetime] = None
+    is_favorited: bool = False
+    favorited_at: Optional[datetime] = None
 
 
 class Transcript(BaseModel):
@@ -84,6 +86,8 @@ class Article(BaseModel):
     is_completed: bool = False
     sentiment: Optional[str] = None
     completed_at: Optional[datetime] = None
+    is_favorited: bool = False
+    favorited_at: Optional[datetime] = None
 
 
 class ArticleSummary(BaseModel):
@@ -105,6 +109,8 @@ class DigestItem(BaseModel):
     is_completed: bool = False
     sentiment: Optional[str] = None
     completed_at: Optional[datetime] = None
+    is_favorited: bool = False
+    favorited_at: Optional[datetime] = None
     # Summary fields (shared)
     summary: Optional[str] = None
     topics: list[str] = []

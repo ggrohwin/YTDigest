@@ -45,6 +45,10 @@ from .database import (
     save_article_summary,
     get_article_summary,
     mark_article_completed,
+    toggle_video_favorite,
+    toggle_article_favorite,
+    get_favorite_videos,
+    get_favorite_articles,
     get_items_without_embeddings,
     get_items_without_chunk_embeddings,
     get_summary_text_for_embedding,
@@ -371,9 +375,12 @@ app.add_middleware(
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request, group_by: str = "date", show_completed: bool = False):
+async def index(request: Request, group_by: str = "date", show_completed: bool = False, view: str = ""):
     """Render the main digest page."""
-    items = await get_digest_items(include_completed=show_completed)
+    if view == "favorites":
+        items = await get_favorite_digest_items()
+    else:
+        items = await get_digest_items(include_completed=show_completed)
     grouped = group_items(items, group_by)
     month_groups = build_month_hierarchy(grouped) if group_by == "date" else None
     category_groups = build_category_hierarchy(grouped, items) if group_by == "topic" else None
@@ -416,6 +423,7 @@ async def index(request: Request, group_by: str = "date", show_completed: bool =
             "category_groups": category_groups,
             "bookmarklet_origin": f"{request.url.scheme}://{request.url.netloc}",
             "search_enabled": search_enabled,
+            "view": view,
         }
     )
 
@@ -841,6 +849,36 @@ async def api_complete_article(article_id: str, sentiment: str):
         )
 
 
+@app.post("/api/videos/{video_id}/favorite")
+async def api_favorite_video(video_id: str):
+    """Toggle the favorite status of a video."""
+    try:
+        new_state = await toggle_video_favorite(video_id)
+        return JSONResponse(content={"success": True, "is_favorited": new_state})
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error toggling video favorite: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500,
+        )
+
+
+@app.post("/api/articles/{article_id}/favorite")
+async def api_favorite_article(article_id: str):
+    """Toggle the favorite status of an article."""
+    try:
+        new_state = await toggle_article_favorite(article_id)
+        return JSONResponse(content={"success": True, "is_favorited": new_state})
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error toggling article favorite: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500,
+        )
+
+
 @app.get("/api/articles")
 async def api_articles():
     """Get all articles with their summaries as JSON."""
@@ -899,6 +937,8 @@ async def get_digest_items(include_completed: bool = False) -> list[DigestItem]:
             is_completed=video.is_completed,
             sentiment=video.sentiment,
             completed_at=video.completed_at,
+            is_favorited=video.is_favorited,
+            favorited_at=video.favorited_at,
             summary=summary.summary if summary else None,
             topics=summary.topics if summary else [],
             category=summary.category if summary else None,
@@ -922,6 +962,8 @@ async def get_digest_items(include_completed: bool = False) -> list[DigestItem]:
             is_completed=article.is_completed,
             sentiment=article.sentiment,
             completed_at=article.completed_at,
+            is_favorited=article.is_favorited,
+            favorited_at=article.favorited_at,
             summary=summary.summary if summary else None,
             topics=summary.topics if summary else [],
             category=summary.category if summary else None,
@@ -934,6 +976,65 @@ async def get_digest_items(include_completed: bool = False) -> list[DigestItem]:
 
     # Sort by date added, most recent first
     items.sort(key=lambda x: x.added_at or x.published_at, reverse=True)
+    return items
+
+
+async def get_favorite_digest_items() -> list[DigestItem]:
+    """Get all favorited videos and articles as a unified list of DigestItems."""
+    items: list[DigestItem] = []
+
+    videos = await get_favorite_videos()
+    for video in videos:
+        summary = await get_summary(video.id)
+        items.append(DigestItem(
+            item_type="video",
+            id=video.id,
+            title=video.title,
+            url=video.video_url,
+            source_name=video.channel_name,
+            published_at=video.published_at,
+            added_at=video.first_seen_at,
+            is_completed=video.is_completed,
+            sentiment=video.sentiment,
+            completed_at=video.completed_at,
+            is_favorited=video.is_favorited,
+            favorited_at=video.favorited_at,
+            summary=summary.summary if summary else None,
+            topics=summary.topics if summary else [],
+            category=summary.category if summary else None,
+            thumbnail_url=video.thumbnail_url,
+            duration=video.duration,
+            transcript_status=video.transcript_status,
+        ))
+
+    articles = await get_favorite_articles()
+    for article in articles:
+        summary = await get_article_summary(article.id)
+        items.append(DigestItem(
+            item_type="article",
+            id=article.id,
+            title=article.title,
+            url=article.url,
+            source_name=article.domain,
+            published_at=article.added_at,
+            added_at=article.added_at,
+            is_completed=article.is_completed,
+            sentiment=article.sentiment,
+            completed_at=article.completed_at,
+            is_favorited=article.is_favorited,
+            favorited_at=article.favorited_at,
+            summary=summary.summary if summary else None,
+            topics=summary.topics if summary else [],
+            category=summary.category if summary else None,
+            thumbnail_url=article.thumbnail_url,
+            author=article.author,
+            domain=article.domain,
+            word_count=article.word_count,
+            original_published_at=article.published_at,
+        ))
+
+    # Sort by favorited_at DESC
+    items.sort(key=lambda x: x.favorited_at or x.published_at, reverse=True)
     return items
 
 
