@@ -14,7 +14,6 @@
 ### Now
 | Item | Description | Effort |
 |------|-------------|--------|
-| Log persistence | Write logs to file with rotation (RotatingFileHandler); keep console logging too | Quick |
 
 ### Next
 | Item | Description | Effort |
@@ -83,6 +82,7 @@ _Empty - ready for next task_
 ## Completed
 | Item | Date | Notes |
 |------|------|-------|
+| Log persistence | 2026-02-10 | RotatingFileHandler writing to logs/ytdigest.log (5 MB cap, 3 backups); console logging unchanged |
 | Configurable summarization model | 2026-02-09 | Moved hardcoded Claude model to config.yaml; extracted summarize_and_save_video() helper to deduplicate three call sites |
 | Mark as read/interested | 2026-02-04 | Superseded by video completion with sentiment (like/neutral/dislike) |
 | Coverage reporting | 2026-02-09 | pytest-cov with terminal + HTML reports; 60% overall coverage, 188 tests passing |

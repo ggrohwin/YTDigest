@@ -5,6 +5,9 @@ cookies.txt
 # Database
 data/*.db
 
+# Logs
+logs/
+
 # Test reports
 reports/
 

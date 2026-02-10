@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import logging.handlers
 import os
 import random
 import re
@@ -15,12 +16,26 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
 # Configure logging with timestamps
+LOG_FORMAT = "%(asctime)s - %(message)s"
+LOG_DATEFMT = "%H:%M:%S"
+
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(message)s",
-    datefmt="%H:%M:%S"
+    format=LOG_FORMAT,
+    datefmt=LOG_DATEFMT,
 )
 logger = logging.getLogger("ytdigest")
+
+# Add file handler with rotation (5 MB max, keep 3 backups)
+_log_dir = Path(__file__).parent.parent / "logs"
+_log_dir.mkdir(exist_ok=True)
+_file_handler = logging.handlers.RotatingFileHandler(
+    _log_dir / "ytdigest.log",
+    maxBytes=5 * 1024 * 1024,
+    backupCount=3,
+)
+_file_handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATEFMT))
+logger.addHandler(_file_handler)
 
 from .database import (
     init_db,
