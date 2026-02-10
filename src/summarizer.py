@@ -26,7 +26,8 @@ def summarize_video(
     video_id: str,
     title: str,
     channel: str,
-    transcript: str
+    transcript: str,
+    model: str = "claude-sonnet-4-20250514",
 ) -> Optional[Summary]:
     """
     Generate a summary of a video using Claude.
@@ -72,7 +73,7 @@ Be concise but informative. Help the reader quickly understand if this video is 
 
     try:
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=model,
             max_tokens=1024,
             messages=[
                 {"role": "user", "content": prompt}
@@ -126,6 +127,7 @@ def summarize_article(
     domain: str,
     content: str,
     author: Optional[str] = None,
+    model: str = "claude-sonnet-4-20250514",
 ) -> Optional[ArticleSummary]:
     """Generate a summary of a web article using Claude.
 
@@ -171,7 +173,7 @@ Be concise but informative. Help the reader quickly understand if this article i
 
     try:
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=model,
             max_tokens=1024,
             messages=[
                 {"role": "user", "content": prompt}
@@ -220,7 +222,7 @@ Be concise but informative. Help the reader quickly understand if this article i
 
 
 def classify_existing_summary(
-    summary_text: str, topics: list[str]
+    summary_text: str, topics: list[str], model: str = "claude-sonnet-4-20250514",
 ) -> Optional[str]:
     """Classify an existing summary into a category using a lightweight LLM call.
 
@@ -240,7 +242,7 @@ Reply with ONLY the category name, nothing else."""
     try:
         client = get_anthropic_client()
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=model,
             max_tokens=50,
             messages=[{"role": "user", "content": prompt}],
         )

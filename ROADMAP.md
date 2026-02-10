@@ -12,30 +12,32 @@
 ## Features
 
 ### Now
-_Empty - ready for next task_
+| Item | Description | Effort |
+|------|-------------|--------|
 
 ### Next
 | Item | Description | Effort |
 |------|-------------|--------|
+| Filter/sort videos | Filter by channel, date, has-summary, video length; sort options | Medium |
 | Refine topic tags | Too many unique topics make tag grouping unusable for navigation; consolidate to a controlled set or merge similar tags. Case-insensitive grouping needed (e.g. "Workflow Automation" vs "workflow automation" are separate groups — fix in `group_items` by normalizing keys to lowercase) | Medium |
 | Chat with transcript | Ask questions about a video while watching; send transcript + question to Claude | Medium |
-| Retry failed transcripts | Button or automatic retry for rate-limited videos after cooldown | Quick |
+| Add notes to digest entries | Let users add personal notes to any video or article card; stored in DB, displayed on the card | Medium |
 | Daily engagement tracking | Track daily completions and engagement with digest items; streak counter, daily goal, progress dashboard to build a consistent habit | Medium |
 
 ### Later
 | Item | Description | Effort |
 |------|-------------|--------|
-| Filter/sort videos | Filter by channel, date, has-summary; sort options | Medium |
 | ~~Mark as read/interested~~ | ~~Track which videos you've watched or want to watch~~ | ~~Medium~~ |
 | Search across transcripts | Keyword search across all saved transcripts | Medium |
+| Proxy for transcripts | Replace cookies auth (risks account ban) with rotating proxy for youtube-transcript-api. Two options: **Webshare** (library's built-in `WebshareProxyConfig`, paid residential rotating proxies) or **Generic proxy** (`GenericProxyConfig` with any HTTPS proxy provider). Credentials via `.env`. | Medium |
+| Retry failed transcripts | Button or automatic retry for rate-limited videos after cooldown | Quick |
 
 ### Maybe
 | Item | Description | Effort |
 |------|-------------|--------|
-| Mobile-friendly UI | Responsive design improvements | Medium |
-| Export summaries | Export to markdown, PDF, or Notion | Quick |
-| Live updates via SSE | Server-Sent Events to push transcript/summary completion to the browser in real time | Medium |
 | Publish to public internet | Deploy to a public URL with auth, DB migration (SQLite→Postgres), secrets management, HTTPS | Large |
+| Mobile-friendly UI | Responsive design improvements | Medium |
+| Live updates via SSE | Server-Sent Events to push transcript/summary completion to the browser in real time | Medium |
 
 ---
 
@@ -73,15 +75,14 @@ _Empty - ready for next task_
 ## Testing
 
 ### Next
-| Item | Description | Effort |
-|------|-------------|--------|
-| Coverage reporting | Add pytest-cov, track coverage | Quick |
+_Empty - ready for next task_
 
 ---
 
 ## Completed
 | Item | Date | Notes |
 |------|------|-------|
+| Coverage reporting | 2026-02-09 | pytest-cov with terminal + HTML reports; 60% overall coverage, 188 tests passing |
 | API endpoint tests | 2026-02-08 | 22 tests for 8 HTTP endpoints using httpx AsyncClient + ASGITransport; shared conftest.py with test_db, test_client fixtures, and seed helpers |
 | Favorites list | 2026-02-08 | Star/unstar any digest item; dedicated favorites view with sidebar link; optimistic UI with fade-out on unfavorite |
 | Push to GitHub | 2026-02-07 | Private repo with gh CLI; pushed master and feature branch, opened first PR |

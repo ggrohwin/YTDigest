@@ -175,6 +175,38 @@ def load_config() -> AppConfig:
     return AppConfig(**data)
 
 
+async def summarize_and_save_video(
+    video_id: str, title: str, channel: str, transcript_content: str
+) -> bool:
+    """Summarize a video, save the summary, and generate embeddings.
+
+    Returns True if a summary was saved, False otherwise.
+    """
+    summary = summarize_video(
+        video_id=video_id,
+        title=title,
+        channel=channel,
+        transcript=transcript_content,
+        model=app_config.digest.summarization_model,
+    )
+    if not summary:
+        return False
+
+    await save_summary(summary)
+
+    if embedder.is_available():
+        try:
+            text = summary.summary
+            if summary.topics:
+                text += f"\n\nTopics: {','.join(summary.topics)}"
+            await embedder.embed_item(video_id, "video", text)
+            await embedder.embed_item_chunks(video_id, "video", transcript_content)
+        except Exception as e:
+            logger.warning(f"Embedding failed for {title}: {e}")
+
+    return True
+
+
 async def background_transcript_fetcher():
     """Background task that gradually fetches transcripts to avoid rate limiting."""
     logger.info("Background transcript fetcher started")
@@ -211,27 +243,11 @@ async def background_transcript_fetcher():
 
                     # Also generate summary immediately if we got a transcript
                     logger.info(f"[Background] Generating summary for: {video.title}")
-                    summary = summarize_video(
-                        video_id=video.id,
-                        title=video.title,
-                        channel=video.channel_name,
-                        transcript=transcript.content
+                    saved = await summarize_and_save_video(
+                        video.id, video.title, video.channel_name, transcript.content
                     )
-                    if summary:
-                        await save_summary(summary)
+                    if saved:
                         logger.info(f"[Background] Summary saved for: {video.title}")
-
-                        # Auto-embed for semantic search
-                        if embedder.is_available():
-                            try:
-                                text = summary.summary
-                                if summary.topics:
-                                    text += f"\n\nTopics: {','.join(summary.topics)}"
-                                await embedder.embed_item(video.id, "video", text)
-                                await embedder.embed_item_chunks(video.id, "video", transcript.content)
-                                logger.info(f"[Background] Embeddings saved for: {video.title}")
-                            except Exception as e:
-                                logger.warning(f"[Background] Embedding failed for {video.title}: {e}")
                 else:
                     # Mark with appropriate status based on failure reason
                     status = failure_reason or "failed"
@@ -284,26 +300,11 @@ async def refresh_video_metadata() -> tuple[int, int]:
         transcript = await get_transcript(video.id)
         if transcript:
             logger.info(f"Generating summary for: {video.title}")
-            summary = summarize_video(
-                video_id=video.id,
-                title=video.title,
-                channel=video.channel_name,
-                transcript=transcript.content
+            saved = await summarize_and_save_video(
+                video.id, video.title, video.channel_name, transcript.content
             )
-            if summary:
-                await save_summary(summary)
+            if saved:
                 total_summaries += 1
-
-                # Auto-embed for semantic search
-                if embedder.is_available():
-                    try:
-                        text = summary.summary
-                        if summary.topics:
-                            text += f"\n\nTopics: {','.join(summary.topics)}"
-                        await embedder.embed_item(video.id, "video", text)
-                        await embedder.embed_item_chunks(video.id, "video", transcript.content)
-                    except Exception:
-                        pass  # non-critical
 
     return total_videos, total_summaries
 
@@ -496,25 +497,9 @@ async def api_add_video(request: Request):
             await update_transcript_status(video_id, "fetched")
 
             # Generate summary
-            summary = summarize_video(
-                video_id=video_id,
-                title=video.title,
-                channel=video.channel_name,
-                transcript=transcript.content,
+            await summarize_and_save_video(
+                video_id, video.title, video.channel_name, transcript.content
             )
-            if summary:
-                await save_summary(summary)
-
-                # Auto-embed for semantic search
-                if embedder.is_available():
-                    try:
-                        text = summary.summary
-                        if summary.topics:
-                            text += f"\n\nTopics: {','.join(summary.topics)}"
-                        await embedder.embed_item(video_id, "video", text)
-                        await embedder.embed_item_chunks(video_id, "video", transcript.content)
-                    except Exception:
-                        pass  # non-critical
         else:
             status = failure_reason or "failed"
             await update_transcript_status(video_id, status)
@@ -627,7 +612,7 @@ async def api_backfill_categories():
                 errors += 1
                 continue
 
-            category = classify_existing_summary(summary.summary, summary.topics)
+            category = classify_existing_summary(summary.summary, summary.topics, model=app_config.digest.summarization_model)
             if category:
                 await update_summary_category(video_id, category)
                 updated += 1
@@ -792,6 +777,7 @@ async def api_add_article(request: Request):
             domain=article.domain,
             content=article.content,
             author=article.author,
+            model=app_config.digest.summarization_model,
         )
         if summary:
             await save_article_summary(summary)
