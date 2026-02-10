@@ -18,6 +18,7 @@
 ### Next
 | Item | Description | Effort |
 |------|-------------|--------|
+| Local timezone support | All dates display in UTC; items added in the evening show as the next day. Add a timezone setting (config.yaml or UI) and convert dates to local time before display. | Quick |
 | Filter/sort videos | Filter by channel, date, has-summary, video length; sort options | Medium |
 | Refine topic tags | Too many unique topics make tag grouping unusable for navigation; consolidate to a controlled set or merge similar tags. Case-insensitive grouping needed (e.g. "Workflow Automation" vs "workflow automation" are separate groups — fix in `group_items` by normalizing keys to lowercase) | Medium |
 | Chat with transcript | Ask questions about a video while watching; send transcript + question to Claude | Medium |
@@ -27,7 +28,6 @@
 ### Later
 | Item | Description | Effort |
 |------|-------------|--------|
-| ~~Mark as read/interested~~ | ~~Track which videos you've watched or want to watch~~ | ~~Medium~~ |
 | Search across transcripts | Keyword search across all saved transcripts | Medium |
 | Proxy for transcripts | Replace cookies auth (risks account ban) with rotating proxy for youtube-transcript-api. Two options: **Webshare** (library's built-in `WebshareProxyConfig`, paid residential rotating proxies) or **Generic proxy** (`GenericProxyConfig` with any HTTPS proxy provider). Credentials via `.env`. | Medium |
 | Retry failed transcripts | Button or automatic retry for rate-limited videos after cooldown | Quick |
@@ -38,6 +38,7 @@
 | Publish to public internet | Deploy to a public URL with auth, DB migration (SQLite→Postgres), secrets management, HTTPS | Large |
 | Mobile-friendly UI | Responsive design improvements | Medium |
 | Live updates via SSE | Server-Sent Events to push transcript/summary completion to the browser in real time | Medium |
+| Consolidate card templates | Article, video, and search result cards share duplicated layout; extract a Jinja macro or partial to render cards once with type-specific conditionals | Medium |
 
 ---
 
@@ -56,7 +57,6 @@ _Empty - ready for next task_
 ### Later
 | Item | Description | Effort |
 |------|-------------|--------|
-| Virtual environment | Document venv setup in README | Quick |
 | Type checking | Add mypy, fix type errors | Medium |
 | Feature branches | Adopt branch-based workflow | Quick |
 | Database migrations | Replace ad-hoc ALTER TABLE with Alembic | Medium |
@@ -82,6 +82,8 @@ _Empty - ready for next task_
 ## Completed
 | Item | Date | Notes |
 |------|------|-------|
+| Configurable summarization model | 2026-02-09 | Moved hardcoded Claude model to config.yaml; extracted summarize_and_save_video() helper to deduplicate three call sites |
+| Mark as read/interested | 2026-02-04 | Superseded by video completion with sentiment (like/neutral/dislike) |
 | Coverage reporting | 2026-02-09 | pytest-cov with terminal + HTML reports; 60% overall coverage, 188 tests passing |
 | API endpoint tests | 2026-02-08 | 22 tests for 8 HTTP endpoints using httpx AsyncClient + ASGITransport; shared conftest.py with test_db, test_client fixtures, and seed helpers |
 | Favorites list | 2026-02-08 | Star/unstar any digest item; dedicated favorites view with sidebar link; optimistic UI with fade-out on unfavorite |

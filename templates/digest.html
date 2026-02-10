@@ -882,9 +882,11 @@
                 meta += `<span class="mx-2">&bull;</span><span>${item.word_count} words</span>`;
             }
 
-            const topics = (item.topics || []).map(t =>
-                `<span class="${topicColor} text-xs font-medium px-2.5 py-0.5 rounded">${t}</span>`
-            ).join('');
+            const topics = (item.topics || []).map(t => {
+                const slug = t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                const hoverColor = isArticle ? 'hover:bg-emerald-200' : 'hover:bg-blue-200';
+                return `<a href="?group_by=topic#group-${slug}" class="${topicColor} text-xs font-medium px-2.5 py-0.5 rounded ${hoverColor} transition-colors">${t}</a>`;
+            }).join('');
 
             card.innerHTML = `
                 <div class="${item.thumbnail_url ? 'md:flex' : ''}">
