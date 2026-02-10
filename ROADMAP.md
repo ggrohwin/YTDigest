@@ -14,16 +14,18 @@
 ### Now
 | Item | Description | Effort |
 |------|-------------|--------|
+| Log persistence | Write logs to file with rotation (RotatingFileHandler); keep console logging too | Quick |
 
 ### Next
 | Item | Description | Effort |
 |------|-------------|--------|
-| Local timezone support | All dates display in UTC; items added in the evening show as the next day. Add a timezone setting (config.yaml or UI) and convert dates to local time before display. | Quick |
-| Filter/sort videos | Filter by channel, date, has-summary, video length; sort options | Medium |
-| Refine topic tags | Too many unique topics make tag grouping unusable for navigation; consolidate to a controlled set or merge similar tags. Case-insensitive grouping needed (e.g. "Workflow Automation" vs "workflow automation" are separate groups — fix in `group_items` by normalizing keys to lowercase) | Medium |
-| Chat with transcript | Ask questions about a video while watching; send transcript + question to Claude | Medium |
+| Filter/sort videos | Rethink grouping vs. filtering: currently Date/Source/Topic regroup the entire page, but clicking a specific date, source, or topic should probably filter to just those items (not rearrange everything). All three criteria should behave consistently. Include show/hide completed in filtered views. Also: sort options, filter by has-summary, video length, etc. | Medium |
+| Un-complete a digest item | Allow reversing a completed item back to active; currently completion is one-way | Quick |
 | Add notes to digest entries | Let users add personal notes to any video or article card; stored in DB, displayed on the card | Medium |
 | Daily engagement tracking | Track daily completions and engagement with digest items; streak counter, daily goal, progress dashboard to build a consistent habit | Medium |
+| Local timezone support | All dates display in UTC; items added in the evening show as the next day. Add a timezone setting (config.yaml or UI) and convert dates to local time before display. | Quick |
+| Refine topic tags | Too many unique topics make tag grouping unusable for navigation; consolidate to a controlled set or merge similar tags. Case-insensitive grouping needed (e.g. "Workflow Automation" vs "workflow automation" are separate groups — fix in `group_items` by normalizing keys to lowercase) | Medium |
+| Chat with transcript | Ask questions about a video while watching; send transcript + question to Claude | Medium |
 
 ### Later
 | Item | Description | Effort |
@@ -66,7 +68,6 @@ _Empty - ready for next task_
 |------|-------------|--------|
 | CI/CD | GitHub Actions to run tests on push | Medium |
 | Error monitoring | Sentry integration for production errors | Medium |
-| Log persistence | Write logs to file, rotation | Quick |
 | Database backups | Scheduled backup script | Quick |
 | Docker | Containerize for easy deployment | Medium |
 

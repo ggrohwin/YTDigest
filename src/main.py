@@ -201,6 +201,7 @@ async def summarize_and_save_video(
                 text += f"\n\nTopics: {','.join(summary.topics)}"
             await embedder.embed_item(video_id, "video", text)
             await embedder.embed_item_chunks(video_id, "video", transcript_content)
+            logger.info(f"Embeddings saved for: {title}")
         except Exception as e:
             logger.warning(f"Embedding failed for {title}: {e}")
 
