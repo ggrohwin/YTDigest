@@ -20,7 +20,7 @@
 |------|-------------|--------|
 | Filter/sort videos | Rethink grouping vs. filtering: currently Date/Source/Topic regroup the entire page, but clicking a specific date, source, or topic should probably filter to just those items (not rearrange everything). All three criteria should behave consistently. Include show/hide completed in filtered views. Also: sort options, filter by has-summary, video length, etc. | Medium |
 | Add notes to digest entries | Let users add personal notes to any video or article card; stored in DB, displayed on the card | Medium |
-| Daily engagement tracking | Track daily completions and engagement with digest items; streak counter, daily goal, progress dashboard to build a consistent habit | Medium |
+
 | Local timezone support | All dates display in UTC; items added in the evening show as the next day. Add a timezone setting (config.yaml or UI) and convert dates to local time before display. | Quick |
 | Refine topic tags | Too many unique topics make tag grouping unusable for navigation; consolidate to a controlled set or merge similar tags. Case-insensitive grouping needed (e.g. "Workflow Automation" vs "workflow automation" are separate groups — fix in `group_items` by normalizing keys to lowercase) | Medium |
 | Chat with transcript | Ask questions about a video while watching; send transcript + question to Claude | Medium |
@@ -28,6 +28,7 @@
 ### Later
 | Item | Description | Effort |
 |------|-------------|--------|
+| Progress dashboard | Visualize engagement metrics (videos watched, articles read, minutes, words) broken down by day/week/month with yesterday comparison | Medium |
 | Search across transcripts | Keyword search across all saved transcripts | Medium |
 | Proxy for transcripts | Replace cookies auth (risks account ban) with rotating proxy for youtube-transcript-api. Two options: **Webshare** (library's built-in `WebshareProxyConfig`, paid residential rotating proxies) or **Generic proxy** (`GenericProxyConfig` with any HTTPS proxy provider). Credentials via `.env`. | Medium |
 | Retry failed transcripts | Button or automatic retry for rate-limited videos after cooldown | Quick |
@@ -81,6 +82,7 @@ _Empty - ready for next task_
 ## Completed
 | Item | Date | Notes |
 |------|------|-------|
+| Daily engagement tracking | 2026-02-11 | Skip sentiment (⏭️) to complete without engagement; today's stats always visible in summary bar (watched, minutes, read, words, skipped); local timezone date matching |
 | Un-complete a digest item | 2026-02-11 | Undo button on completed cards to restore items to active status with sentiment buttons |
 | Log persistence | 2026-02-10 | RotatingFileHandler writing to logs/ytdigest.log (5 MB cap, 3 backups); console logging unchanged |
 | Configurable summarization model | 2026-02-09 | Moved hardcoded Claude model to config.yaml; extracted summarize_and_save_video() helper to deduplicate three call sites |

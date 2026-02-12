@@ -74,8 +74,10 @@ from .database import (
     has_embeddings,
     count_embeddings,
     get_video,
+    get_engagement_stats,
 )
 from collections import defaultdict, Counter
+from datetime import date
 from .models import AppConfig, CATEGORIES, DigestItem, VideoWithDetails
 from .youtube import get_channel_uploads, parse_video_id, is_youtube_url, get_video_by_id
 from .transcripts import fetch_transcript
@@ -416,6 +418,16 @@ async def index(request: Request, group_by: str = "date", show_completed: bool =
 
     embedding_count = await count_embeddings() if embedder.is_available() else 0
 
+    today_str = date.today().isoformat()
+    engagement = await get_engagement_stats(today_str)
+    total_minutes = engagement["total_minutes_watched"]
+    if total_minutes >= 60:
+        hours = int(total_minutes // 60)
+        mins = int(total_minutes % 60)
+        minutes_display = f"{hours}h {mins}m"
+    else:
+        minutes_display = f"{int(total_minutes)}m"
+
     page_summary = {
         "total": total,
         "with_summary": with_summary,
@@ -423,6 +435,12 @@ async def index(request: Request, group_by: str = "date", show_completed: bool =
         "failed": failed,
         "new_since_last_visit": new_since_last_visit,
         "embedding_count": embedding_count,
+        "videos_engaged": engagement["videos_engaged"],
+        "articles_engaged": engagement["articles_engaged"],
+        "total_minutes_watched": total_minutes,
+        "minutes_watched_display": minutes_display,
+        "total_words_read": engagement["total_words_read"],
+        "total_skipped": engagement["videos_skipped"] + engagement["articles_skipped"],
     }
 
     # Search bar only appears when there are embeddings to search
@@ -583,9 +601,9 @@ async def api_refresh():
 @app.post("/api/videos/{video_id}/complete")
 async def api_complete_video(video_id: str, sentiment: str):
     """Mark a video as completed with the given sentiment (like, neutral, dislike)."""
-    if sentiment not in ("like", "neutral", "dislike"):
+    if sentiment not in ("like", "neutral", "dislike", "skip"):
         return JSONResponse(
-            content={"error": "Invalid sentiment. Must be: like, neutral, dislike"},
+            content={"error": "Invalid sentiment. Must be: like, neutral, dislike, skip"},
             status_code=400
         )
 
@@ -848,9 +866,9 @@ async def api_add_article(request: Request):
 @app.post("/api/articles/{article_id}/complete")
 async def api_complete_article(article_id: str, sentiment: str):
     """Mark an article as completed with the given sentiment."""
-    if sentiment not in ("like", "neutral", "dislike"):
+    if sentiment not in ("like", "neutral", "dislike", "skip"):
         return JSONResponse(
-            content={"error": "Invalid sentiment. Must be: like, neutral, dislike"},
+            content={"error": "Invalid sentiment. Must be: like, neutral, dislike, skip"},
             status_code=400,
         )
 

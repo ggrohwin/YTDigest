@@ -1,3 +1,5 @@
+import re
+
 import aiosqlite
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -277,6 +279,73 @@ async def uncomplete_video(video_id: str) -> None:
             (video_id,),
         )
         await db.commit()
+
+
+def _parse_duration_minutes(iso_duration: str | None) -> float:
+    """Parse ISO 8601 duration (e.g. 'PT5M30S') into total minutes as a float."""
+    if not iso_duration:
+        return 0.0
+    match = re.match(r"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?", iso_duration)
+    if not match:
+        return 0.0
+    hours = int(match.group(1) or 0)
+    minutes = int(match.group(2) or 0)
+    seconds = int(match.group(3) or 0)
+    return hours * 60 + minutes + seconds / 60
+
+
+async def get_engagement_stats(date_str: str | None = None) -> dict:
+    """Get engagement stats, optionally filtered to a specific date.
+
+    Returns counts of engaged vs skipped items and totals for
+    minutes watched (videos) and words read (articles).
+    """
+    stats = {
+        "videos_engaged": 0,
+        "videos_skipped": 0,
+        "articles_engaged": 0,
+        "articles_skipped": 0,
+        "total_minutes_watched": 0.0,
+        "total_words_read": 0,
+    }
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        # --- Videos ---
+        # Use DATE(completed_at, 'localtime') so UTC timestamps match the local date
+        if date_str:
+            video_query = "SELECT sentiment, duration FROM videos WHERE is_completed = 1 AND DATE(completed_at, 'localtime') = ?"
+            video_params = (date_str,)
+        else:
+            video_query = "SELECT sentiment, duration FROM videos WHERE is_completed = 1"
+            video_params = ()
+
+        async with db.execute(video_query, video_params) as cursor:
+            async for row in cursor:
+                if row["sentiment"] == "skip":
+                    stats["videos_skipped"] += 1
+                else:
+                    stats["videos_engaged"] += 1
+                    stats["total_minutes_watched"] += _parse_duration_minutes(row["duration"])
+
+        # --- Articles ---
+        if date_str:
+            article_query = "SELECT sentiment, word_count FROM articles WHERE is_completed = 1 AND DATE(completed_at, 'localtime') = ?"
+            article_params = (date_str,)
+        else:
+            article_query = "SELECT sentiment, word_count FROM articles WHERE is_completed = 1"
+            article_params = ()
+
+        async with db.execute(article_query, article_params) as cursor:
+            async for row in cursor:
+                if row["sentiment"] == "skip":
+                    stats["articles_skipped"] += 1
+                else:
+                    stats["articles_engaged"] += 1
+                    stats["total_words_read"] += row["word_count"] or 0
+
+    return stats
 
 
 async def save_transcript(transcript: Transcript) -> None:

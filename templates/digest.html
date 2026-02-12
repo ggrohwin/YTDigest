@@ -131,6 +131,15 @@
             <span>&bull;</span>
             <span class="text-purple-700">{{ page_summary.embedding_count }} embeddings</span>
             {% endif %}
+            <span>&bull;</span>
+            <span class="text-blue-700">
+                Today: {{ page_summary.videos_engaged }} watched ({{ page_summary.minutes_watched_display }})
+                &middot; {{ page_summary.articles_engaged }} read ({{ "{:,}".format(page_summary.total_words_read) }} words)
+            </span>
+            {% if page_summary.total_skipped > 0 %}
+            <span>&bull;</span>
+            <span class="text-gray-500">{{ page_summary.total_skipped }} skipped</span>
+            {% endif %}
         </div>
         {% endif %}
 
@@ -396,6 +405,9 @@
                                     <button onclick="markComplete('{{ item.id }}', 'dislike', 'article')" class="p-2 hover:bg-red-100 rounded transition-colors" title="Dislike">
                                         👎
                                     </button>
+                                    <button onclick="markComplete('{{ item.id }}', 'skip', 'article')" class="p-2 hover:bg-gray-200 rounded transition-colors" title="Skip">
+                                        ⏭️
+                                    </button>
                                     <span class="flex-1"></span>
                                     <button
                                         onclick="toggleFavorite('{{ item.id }}', 'article', this)"
@@ -406,7 +418,7 @@
                                 {% else %}
                                 <div class="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2 text-gray-400 text-sm">
                                     <span>Completed</span>
-                                    {% if item.sentiment == 'like' %}👍{% elif item.sentiment == 'neutral' %}✔️{% elif item.sentiment == 'dislike' %}👎{% endif %}
+                                    {% if item.sentiment == 'like' %}👍{% elif item.sentiment == 'neutral' %}✔️{% elif item.sentiment == 'dislike' %}👎{% elif item.sentiment == 'skip' %}⏭️{% endif %}
                                     <button onclick="unComplete('{{ item.id }}', 'article')" class="ml-1 px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-500 rounded transition-colors" title="Undo completion">Undo</button>
                                     <span class="flex-1"></span>
                                     <button
@@ -520,6 +532,9 @@
                                         <button onclick="markComplete('{{ item.id }}', 'dislike', 'video')" class="p-2 hover:bg-red-100 rounded transition-colors" title="Dislike">
                                             👎
                                         </button>
+                                        <button onclick="markComplete('{{ item.id }}', 'skip', 'video')" class="p-2 hover:bg-gray-200 rounded transition-colors" title="Skip">
+                                            ⏭️
+                                        </button>
                                         <span class="flex-1"></span>
                                         <button
                                             onclick="toggleFavorite('{{ item.id }}', 'video', this)"
@@ -530,7 +545,7 @@
                                     {% else %}
                                     <div class="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2 text-gray-400 text-sm">
                                         <span>Completed</span>
-                                        {% if item.sentiment == 'like' %}👍{% elif item.sentiment == 'neutral' %}✔️{% elif item.sentiment == 'dislike' %}👎{% endif %}
+                                        {% if item.sentiment == 'like' %}👍{% elif item.sentiment == 'neutral' %}✔️{% elif item.sentiment == 'dislike' %}👎{% elif item.sentiment == 'skip' %}⏭️{% endif %}
                                         <button onclick="unComplete('{{ item.id }}', 'video')" class="ml-1 px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-500 rounded transition-colors" title="Undo completion">Undo</button>
                                         <span class="flex-1"></span>
                                         <button
