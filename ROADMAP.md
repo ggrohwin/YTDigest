@@ -19,7 +19,6 @@
 | Item | Description | Effort |
 |------|-------------|--------|
 | Filter/sort videos | Rethink grouping vs. filtering: currently Date/Source/Topic regroup the entire page, but clicking a specific date, source, or topic should probably filter to just those items (not rearrange everything). All three criteria should behave consistently. Include show/hide completed in filtered views. Also: sort options, filter by has-summary, video length, etc. | Medium |
-| Un-complete a digest item | Allow reversing a completed item back to active; currently completion is one-way | Quick |
 | Add notes to digest entries | Let users add personal notes to any video or article card; stored in DB, displayed on the card | Medium |
 | Daily engagement tracking | Track daily completions and engagement with digest items; streak counter, daily goal, progress dashboard to build a consistent habit | Medium |
 | Local timezone support | All dates display in UTC; items added in the evening show as the next day. Add a timezone setting (config.yaml or UI) and convert dates to local time before display. | Quick |
@@ -82,6 +81,7 @@ _Empty - ready for next task_
 ## Completed
 | Item | Date | Notes |
 |------|------|-------|
+| Un-complete a digest item | 2026-02-11 | Undo button on completed cards to restore items to active status with sentiment buttons |
 | Log persistence | 2026-02-10 | RotatingFileHandler writing to logs/ytdigest.log (5 MB cap, 3 backups); console logging unchanged |
 | Configurable summarization model | 2026-02-09 | Moved hardcoded Claude model to config.yaml; extracted summarize_and_save_video() helper to deduplicate three call sites |
 | Mark as read/interested | 2026-02-04 | Superseded by video completion with sentiment (like/neutral/dislike) |

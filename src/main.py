@@ -49,6 +49,7 @@ from .database import (
     get_videos_with_transcripts_without_summaries,
     update_transcript_status,
     mark_video_completed,
+    uncomplete_video,
     get_summaries_without_category,
     update_summary_category,
     count_new_videos_since,
@@ -60,6 +61,7 @@ from .database import (
     save_article_summary,
     get_article_summary,
     mark_article_completed,
+    uncomplete_article,
     toggle_video_favorite,
     toggle_article_favorite,
     get_favorite_videos,
@@ -599,6 +601,21 @@ async def api_complete_video(video_id: str, sentiment: str):
         )
 
 
+@app.post("/api/videos/{video_id}/uncomplete")
+async def api_uncomplete_video(video_id: str):
+    """Un-complete a video, restoring it to active status."""
+    try:
+        await uncomplete_video(video_id)
+        return JSONResponse(content={"success": True})
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error un-completing video: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500
+        )
+
+
 @app.post("/api/videos/{video_id}/prioritize")
 async def api_prioritize_video(video_id: str):
     """Mark a video as priority so the background fetcher processes it next."""
@@ -843,6 +860,21 @@ async def api_complete_article(article_id: str, sentiment: str):
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
         logger.error(f"Error marking article complete: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500,
+        )
+
+
+@app.post("/api/articles/{article_id}/uncomplete")
+async def api_uncomplete_article(article_id: str):
+    """Un-complete an article, restoring it to active status."""
+    try:
+        await uncomplete_article(article_id)
+        return JSONResponse(content={"success": True})
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error un-completing article: {error_msg}")
         return JSONResponse(
             content={"error": error_msg},
             status_code=500,

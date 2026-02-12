@@ -265,6 +265,20 @@ async def mark_video_completed(video_id: str, sentiment: str) -> None:
         await db.commit()
 
 
+async def uncomplete_video(video_id: str) -> None:
+    """Un-complete a video, restoring it to active status."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """
+            UPDATE videos
+            SET is_completed = 0, sentiment = NULL, completed_at = NULL
+            WHERE id = ?
+            """,
+            (video_id,),
+        )
+        await db.commit()
+
+
 async def save_transcript(transcript: Transcript) -> None:
     """Save a transcript to the database."""
     async with aiosqlite.connect(DATABASE_PATH) as db:
@@ -592,6 +606,20 @@ async def mark_article_completed(article_id: str, sentiment: str) -> None:
             WHERE id = ?
             """,
             (sentiment, datetime.now(timezone.utc).isoformat(), article_id),
+        )
+        await db.commit()
+
+
+async def uncomplete_article(article_id: str) -> None:
+    """Un-complete an article, restoring it to active status."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """
+            UPDATE articles
+            SET is_completed = 0, sentiment = NULL, completed_at = NULL
+            WHERE id = ?
+            """,
+            (article_id,),
         )
         await db.commit()
 

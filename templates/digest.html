@@ -407,6 +407,7 @@
                                 <div class="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2 text-gray-400 text-sm">
                                     <span>Completed</span>
                                     {% if item.sentiment == 'like' %}👍{% elif item.sentiment == 'neutral' %}✔️{% elif item.sentiment == 'dislike' %}👎{% endif %}
+                                    <button onclick="unComplete('{{ item.id }}', 'article')" class="ml-1 px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-500 rounded transition-colors" title="Undo completion">Undo</button>
                                     <span class="flex-1"></span>
                                     <button
                                         onclick="toggleFavorite('{{ item.id }}', 'article', this)"
@@ -530,6 +531,7 @@
                                     <div class="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2 text-gray-400 text-sm">
                                         <span>Completed</span>
                                         {% if item.sentiment == 'like' %}👍{% elif item.sentiment == 'neutral' %}✔️{% elif item.sentiment == 'dislike' %}👎{% endif %}
+                                        <button onclick="unComplete('{{ item.id }}', 'video')" class="ml-1 px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-500 rounded transition-colors" title="Undo completion">Undo</button>
                                         <span class="flex-1"></span>
                                         <button
                                             onclick="toggleFavorite('{{ item.id }}', 'video', this)"
@@ -992,6 +994,23 @@
                     card.style.transition = 'opacity 0.3s';
                     card.style.opacity = '0';
                     setTimeout(() => card.remove(), 300);
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function unComplete(itemId, itemType) {
+            const endpoint = itemType === 'article'
+                ? `/api/articles/${itemId}/uncomplete`
+                : `/api/videos/${itemId}/uncomplete`;
+            try {
+                const response = await fetch(endpoint, { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    location.reload();
                 } else {
                     alert('Error: ' + (data.error || 'Unknown error'));
                 }
