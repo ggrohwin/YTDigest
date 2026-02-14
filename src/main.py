@@ -17,7 +17,7 @@ from fastapi.templating import Jinja2Templates
 
 # Configure logging with timestamps
 LOG_FORMAT = "%(asctime)s - %(message)s"
-LOG_DATEFMT = "%H:%M:%S"
+LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
 
 logging.basicConfig(
     level=logging.INFO,
