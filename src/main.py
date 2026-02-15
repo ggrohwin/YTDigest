@@ -19,10 +19,13 @@ from fastapi.templating import Jinja2Templates
 LOG_FORMAT = "%(asctime)s - %(message)s"
 LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
 
+import sys
+
 logging.basicConfig(
     level=logging.INFO,
     format=LOG_FORMAT,
     datefmt=LOG_DATEFMT,
+    handlers=[logging.StreamHandler(stream=open(sys.stdout.fileno(), mode='w', encoding='utf-8', closefd=False))],
 )
 logger = logging.getLogger("ytdigest")
 
