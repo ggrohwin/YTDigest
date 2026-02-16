@@ -4,9 +4,14 @@ cookies.txt
 
 # Database
 data/*.db
+*.db
 
 # Logs
 logs/
+
+# Coverage
+.coverage
+htmlcov/
 
 # Test reports
 reports/
