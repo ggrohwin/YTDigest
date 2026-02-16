@@ -69,6 +69,7 @@ from .database import (
     toggle_article_favorite,
     get_favorite_videos,
     get_favorite_articles,
+    get_article,
     get_items_without_embeddings,
     get_items_without_chunk_embeddings,
     get_summary_text_for_embedding,
@@ -84,7 +85,7 @@ from datetime import date
 from .models import AppConfig, CATEGORIES, DigestItem, VideoWithDetails
 from .youtube import get_channel_uploads, parse_video_id, is_youtube_url, get_video_by_id
 from .transcripts import fetch_transcript
-from .summarizer import summarize_video, summarize_article, classify_existing_summary
+from .summarizer import summarize_video, summarize_article, classify_existing_summary, chat_with_content
 from .articles import fetch_article
 from . import embedder
 
@@ -896,6 +897,86 @@ async def api_uncomplete_article(article_id: str):
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
         logger.error(f"Error un-completing article: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500,
+        )
+
+
+@app.post("/api/chat")
+async def api_chat(request: Request):
+    """Multi-turn chat about a video transcript or article content."""
+    try:
+        body = await request.json()
+        item_id = body.get("item_id")
+        item_type = body.get("item_type")
+        messages = body.get("messages")
+
+        # Validate required fields
+        if not item_id or not item_type:
+            return JSONResponse(
+                content={"error": "item_id and item_type are required"},
+                status_code=400,
+            )
+        if item_type not in ("video", "article"):
+            return JSONResponse(
+                content={"error": "item_type must be 'video' or 'article'"},
+                status_code=400,
+            )
+        if not messages or not isinstance(messages, list) or messages[-1].get("role") != "user":
+            return JSONResponse(
+                content={"error": "messages must be a list ending with a user message"},
+                status_code=400,
+            )
+
+        # Load content based on type
+        if item_type == "video":
+            transcript = await get_transcript(item_id)
+            if not transcript:
+                return JSONResponse(
+                    content={"error": "No transcript available for this video"},
+                    status_code=404,
+                )
+            video = await get_video(item_id)
+            if not video:
+                return JSONResponse(
+                    content={"error": "Video not found"},
+                    status_code=404,
+                )
+            content = transcript.content
+            title = video.title
+            source_name = video.channel_name
+        else:
+            article = await get_article(item_id)
+            if not article:
+                return JSONResponse(
+                    content={"error": "Article not found"},
+                    status_code=404,
+                )
+            content = article.content
+            title = article.title
+            source_name = article.domain
+
+        response_text = chat_with_content(
+            content=content,
+            title=title,
+            source_name=source_name,
+            content_type=item_type,
+            messages=messages,
+            model=app_config.digest.summarization_model,
+        )
+
+        if response_text is None:
+            return JSONResponse(
+                content={"error": "Failed to get a response from Claude"},
+                status_code=500,
+            )
+
+        return JSONResponse(content={"success": True, "response": response_text})
+
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error during chat: {error_msg}")
         return JSONResponse(
             content={"error": error_msg},
             status_code=500,

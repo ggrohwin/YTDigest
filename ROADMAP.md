@@ -12,18 +12,15 @@
 ## Features
 
 ### Now
-| Item | Description | Effort |
-|------|-------------|--------|
+_Empty - ready for next task_
 
 ### Next
 | Item | Description | Effort |
 |------|-------------|--------|
 | Filter/sort videos | Rethink grouping vs. filtering: currently Date/Source/Topic regroup the entire page, but clicking a specific date, source, or topic should probably filter to just those items (not rearrange everything). All three criteria should behave consistently. Include show/hide completed in filtered views. Also: sort options, filter by has-summary, video length, etc. | Medium |
 | Add notes to digest entries | Let users add personal notes to any video or article card; stored in DB, displayed on the card | Medium |
-
 | Local timezone support | All dates display in UTC; items added in the evening show as the next day. Add a timezone setting (config.yaml or UI) and convert dates to local time before display. | Quick |
 | Refine topic tags | Too many unique topics make tag grouping unusable for navigation; consolidate to a controlled set or merge similar tags. Case-insensitive grouping needed (e.g. "Workflow Automation" vs "workflow automation" are separate groups — fix in `group_items` by normalizing keys to lowercase) | Medium |
-| Chat with transcript | Ask questions about a video while watching; send transcript + question to Claude | Medium |
 
 ### Later
 | Item | Description | Effort |
@@ -82,6 +79,7 @@ _Empty - ready for next task_
 ## Completed
 | Item | Date | Notes |
 |------|------|-------|
+| Chat with transcript | 2026-02-16 | Multi-turn chat modal to ask Claude questions about any video transcript or article content; system-prompt architecture keeps content constant across turns |
 | Daily engagement tracking | 2026-02-11 | Skip sentiment (⏭️) to complete without engagement; today's stats always visible in summary bar (watched, minutes, read, words, skipped); local timezone date matching |
 | Un-complete a digest item | 2026-02-11 | Undo button on completed cards to restore items to active status with sentiment buttons |
 | Log persistence | 2026-02-10 | RotatingFileHandler writing to logs/ytdigest.log (5 MB cap, 3 backups); console logging unchanged |
