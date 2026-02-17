@@ -67,6 +67,12 @@ async def init_db() -> None:
         except Exception:
             pass
 
+        # Migration: add notes column to videos
+        try:
+            await db.execute("ALTER TABLE videos ADD COLUMN notes TEXT")
+        except Exception:
+            pass
+
         await db.execute("""
             CREATE TABLE IF NOT EXISTS transcripts (
                 video_id TEXT PRIMARY KEY,
@@ -123,6 +129,12 @@ async def init_db() -> None:
             pass
         try:
             await db.execute("ALTER TABLE articles ADD COLUMN favorited_at TEXT")
+        except Exception:
+            pass
+
+        # Migration: add notes column to articles
+        try:
+            await db.execute("ALTER TABLE articles ADD COLUMN notes TEXT")
         except Exception:
             pass
 
@@ -224,6 +236,7 @@ def _video_from_row(row) -> Video:
         completed_at=datetime.fromisoformat(row["completed_at"]) if row["completed_at"] else None,
         is_favorited=bool(row["is_favorited"]),
         favorited_at=datetime.fromisoformat(row["favorited_at"]) if row["favorited_at"] else None,
+        notes=row["notes"],
     )
 
 
@@ -545,6 +558,7 @@ def _article_from_row(row) -> Article:
         completed_at=datetime.fromisoformat(row["completed_at"]) if row["completed_at"] else None,
         is_favorited=bool(row["is_favorited"]),
         favorited_at=datetime.fromisoformat(row["favorited_at"]) if row["favorited_at"] else None,
+        notes=row["notes"],
     )
 
 
@@ -745,6 +759,26 @@ async def toggle_article_favorite(article_id: str) -> bool:
         return new_state
 
 
+async def save_video_notes(video_id: str, notes: str) -> None:
+    """Save notes for a video. Empty string clears the notes."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "UPDATE videos SET notes = ? WHERE id = ?",
+            (notes or None, video_id),
+        )
+        await db.commit()
+
+
+async def save_article_notes(article_id: str, notes: str) -> None:
+    """Save notes for an article. Empty string clears the notes."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "UPDATE articles SET notes = ? WHERE id = ?",
+            (notes or None, article_id),
+        )
+        await db.commit()
+
+
 async def get_favorite_videos() -> list[Video]:
     """Get all favorited videos, ordered by most recently favorited."""
     async with aiosqlite.connect(DATABASE_PATH) as db:
@@ -806,6 +840,7 @@ async def get_digest_item(item_id: str, item_type: str) -> Optional[DigestItem]:
             summary=summary.summary if summary else None,
             topics=summary.topics if summary else [],
             category=summary.category if summary else None,
+            notes=video.notes,
             thumbnail_url=video.thumbnail_url,
             duration=video.duration,
             transcript_status=video.transcript_status,
@@ -831,6 +866,7 @@ async def get_digest_item(item_id: str, item_type: str) -> Optional[DigestItem]:
             summary=summary.summary if summary else None,
             topics=summary.topics if summary else [],
             category=summary.category if summary else None,
+            notes=article.notes,
             thumbnail_url=article.thumbnail_url,
             author=article.author,
             domain=article.domain,

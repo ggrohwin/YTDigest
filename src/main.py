@@ -79,6 +79,8 @@ from .database import (
     count_embeddings,
     get_video,
     get_engagement_stats,
+    save_video_notes,
+    save_article_notes,
 )
 from collections import defaultdict, Counter
 from datetime import date
@@ -1013,6 +1015,40 @@ async def api_favorite_article(article_id: str):
         )
 
 
+@app.post("/api/videos/{video_id}/notes")
+async def api_save_video_notes(video_id: str, request: Request):
+    """Save notes for a video."""
+    try:
+        body = await request.json()
+        notes = body.get("notes", "")
+        await save_video_notes(video_id, notes)
+        return JSONResponse(content={"success": True})
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error saving video notes: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500,
+        )
+
+
+@app.post("/api/articles/{article_id}/notes")
+async def api_save_article_notes(article_id: str, request: Request):
+    """Save notes for an article."""
+    try:
+        body = await request.json()
+        notes = body.get("notes", "")
+        await save_article_notes(article_id, notes)
+        return JSONResponse(content={"success": True})
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error saving article notes: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500,
+        )
+
+
 @app.get("/api/articles")
 async def api_articles():
     """Get all articles with their summaries as JSON."""
@@ -1076,6 +1112,7 @@ async def get_digest_items(include_completed: bool = False) -> list[DigestItem]:
             summary=summary.summary if summary else None,
             topics=summary.topics if summary else [],
             category=summary.category if summary else None,
+            notes=video.notes,
             thumbnail_url=video.thumbnail_url,
             duration=video.duration,
             transcript_status=video.transcript_status,
@@ -1101,6 +1138,7 @@ async def get_digest_items(include_completed: bool = False) -> list[DigestItem]:
             summary=summary.summary if summary else None,
             topics=summary.topics if summary else [],
             category=summary.category if summary else None,
+            notes=article.notes,
             thumbnail_url=article.thumbnail_url,
             author=article.author,
             domain=article.domain,
@@ -1136,6 +1174,7 @@ async def get_favorite_digest_items() -> list[DigestItem]:
             summary=summary.summary if summary else None,
             topics=summary.topics if summary else [],
             category=summary.category if summary else None,
+            notes=video.notes,
             thumbnail_url=video.thumbnail_url,
             duration=video.duration,
             transcript_status=video.transcript_status,
@@ -1160,6 +1199,7 @@ async def get_favorite_digest_items() -> list[DigestItem]:
             summary=summary.summary if summary else None,
             topics=summary.topics if summary else [],
             category=summary.category if summary else None,
+            notes=article.notes,
             thumbnail_url=article.thumbnail_url,
             author=article.author,
             domain=article.domain,

@@ -474,6 +474,12 @@
                                     {% if item.summary %}
                                     <button onclick='openChatModal({{ item.id | tojson }}, "article", {{ item.title | tojson }})' class="p-2 hover:bg-emerald-100 rounded transition-colors" title="Chat about this article">💬</button>
                                     {% endif %}
+                                    <button
+                                        id="notes-btn-{{ item.id }}"
+                                        onclick="toggleNotesPanel('{{ item.id }}', 'article')"
+                                        class="p-2 rounded transition-colors {{ 'bg-amber-100 hover:bg-amber-200 text-amber-700' if item.notes else 'hover:bg-gray-100 text-gray-400' }}"
+                                        title="{{ 'Edit notes' if item.notes else 'Add notes' }}"
+                                    >📝</button>
                                     <span class="flex-1"></span>
                                     <button
                                         onclick="toggleFavorite('{{ item.id }}', 'article', this)"
@@ -489,6 +495,12 @@
                                     {% if item.summary %}
                                     <button onclick='openChatModal({{ item.id | tojson }}, "article", {{ item.title | tojson }})' class="p-2 hover:bg-emerald-100 rounded transition-colors" title="Chat about this article">💬</button>
                                     {% endif %}
+                                    <button
+                                        id="notes-btn-{{ item.id }}"
+                                        onclick="toggleNotesPanel('{{ item.id }}', 'article')"
+                                        class="p-2 rounded transition-colors {{ 'bg-amber-100 hover:bg-amber-200 text-amber-700' if item.notes else 'hover:bg-gray-100 text-gray-400' }}"
+                                        title="{{ 'Edit notes' if item.notes else 'Add notes' }}"
+                                    >📝</button>
                                     <span class="flex-1"></span>
                                     <button
                                         onclick="toggleFavorite('{{ item.id }}', 'article', this)"
@@ -497,6 +509,23 @@
                                     >{{ '★' if item.is_favorited else '☆' }}</button>
                                 </div>
                                 {% endif %}
+
+                                <!-- Notes panel (hidden by default) -->
+                                <div id="notes-panel-{{ item.id }}" class="hidden mt-2 pt-3 border-t border-gray-100 bg-gray-50 rounded p-3">
+                                    {% if item.notes %}
+                                    <div id="notes-display-{{ item.id }}" class="text-sm text-gray-700 mb-2 whitespace-pre-wrap">{{ item.notes }}</div>
+                                    {% endif %}
+                                    <textarea
+                                        id="notes-textarea-{{ item.id }}"
+                                        class="w-full border border-gray-300 rounded text-sm p-2 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                                        rows="3"
+                                        placeholder="Add a note..."
+                                    >{{ item.notes or '' }}</textarea>
+                                    <div class="flex gap-2 mt-2">
+                                        <button onclick="saveNotes('{{ item.id }}', 'article')" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded transition-colors">Save</button>
+                                        <button onclick="cancelNotes('{{ item.id }}')" class="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium rounded transition-colors">Cancel</button>
+                                    </div>
+                                </div>
                             </div>
                             </div>
                         </article>
@@ -607,6 +636,12 @@
                                         {% if item.summary %}
                                         <button onclick='openChatModal({{ item.id | tojson }}, "video", {{ item.title | tojson }})' class="p-2 hover:bg-blue-100 rounded transition-colors" title="Chat about this video">💬</button>
                                         {% endif %}
+                                        <button
+                                            id="notes-btn-{{ item.id }}"
+                                            onclick="toggleNotesPanel('{{ item.id }}', 'video')"
+                                            class="p-2 rounded transition-colors {{ 'bg-amber-100 hover:bg-amber-200 text-amber-700' if item.notes else 'hover:bg-gray-100 text-gray-400' }}"
+                                            title="{{ 'Edit notes' if item.notes else 'Add notes' }}"
+                                        >📝</button>
                                         <span class="flex-1"></span>
                                         <button
                                             onclick="toggleFavorite('{{ item.id }}', 'video', this)"
@@ -622,6 +657,12 @@
                                         {% if item.summary %}
                                         <button onclick='openChatModal({{ item.id | tojson }}, "video", {{ item.title | tojson }})' class="p-2 hover:bg-blue-100 rounded transition-colors" title="Chat about this video">💬</button>
                                         {% endif %}
+                                        <button
+                                            id="notes-btn-{{ item.id }}"
+                                            onclick="toggleNotesPanel('{{ item.id }}', 'video')"
+                                            class="p-2 rounded transition-colors {{ 'bg-amber-100 hover:bg-amber-200 text-amber-700' if item.notes else 'hover:bg-gray-100 text-gray-400' }}"
+                                            title="{{ 'Edit notes' if item.notes else 'Add notes' }}"
+                                        >📝</button>
                                         <span class="flex-1"></span>
                                         <button
                                             onclick="toggleFavorite('{{ item.id }}', 'video', this)"
@@ -630,6 +671,23 @@
                                         >{{ '★' if item.is_favorited else '☆' }}</button>
                                     </div>
                                     {% endif %}
+
+                                    <!-- Notes panel (hidden by default) -->
+                                    <div id="notes-panel-{{ item.id }}" class="hidden mt-2 pt-3 border-t border-gray-100 bg-gray-50 rounded p-3">
+                                        {% if item.notes %}
+                                        <div id="notes-display-{{ item.id }}" class="text-sm text-gray-700 mb-2 whitespace-pre-wrap">{{ item.notes }}</div>
+                                        {% endif %}
+                                        <textarea
+                                            id="notes-textarea-{{ item.id }}"
+                                            class="w-full border border-gray-300 rounded text-sm p-2 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                            rows="3"
+                                            placeholder="Add a note..."
+                                        >{{ item.notes or '' }}</textarea>
+                                        <div class="flex gap-2 mt-2">
+                                            <button onclick="saveNotes('{{ item.id }}', 'video')" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors">Save</button>
+                                            <button onclick="cancelNotes('{{ item.id }}')" class="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium rounded transition-colors">Cancel</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </article>
@@ -1138,6 +1196,89 @@
                 }
             } catch (error) {
                 alert('Error: ' + error.message);
+            }
+        }
+
+        // --- Notes functions ---
+
+        function toggleNotesPanel(itemId, itemType) {
+            const panel = document.getElementById('notes-panel-' + itemId);
+            if (!panel) return;
+
+            if (panel.classList.contains('hidden')) {
+                panel.classList.remove('hidden');
+                const textarea = document.getElementById('notes-textarea-' + itemId);
+                if (textarea) textarea.focus();
+            } else {
+                panel.classList.add('hidden');
+            }
+        }
+
+        async function saveNotes(itemId, itemType) {
+            const textarea = document.getElementById('notes-textarea-' + itemId);
+            if (!textarea) return;
+
+            const notes = textarea.value.trim();
+            const endpoint = itemType === 'article'
+                ? `/api/articles/${itemId}/notes`
+                : `/api/videos/${itemId}/notes`;
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ notes }),
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    // Update button style
+                    const btn = document.getElementById('notes-btn-' + itemId);
+                    if (btn) {
+                        if (notes) {
+                            btn.className = 'p-2 rounded transition-colors bg-amber-100 hover:bg-amber-200 text-amber-700';
+                            btn.title = 'Edit notes';
+                        } else {
+                            btn.className = 'p-2 rounded transition-colors hover:bg-gray-100 text-gray-400';
+                            btn.title = 'Add notes';
+                        }
+                    }
+
+                    // Update display text
+                    const display = document.getElementById('notes-display-' + itemId);
+                    if (notes) {
+                        if (display) {
+                            display.textContent = notes;
+                        } else {
+                            // Create display element
+                            const panel = document.getElementById('notes-panel-' + itemId);
+                            const newDisplay = document.createElement('div');
+                            newDisplay.id = 'notes-display-' + itemId;
+                            newDisplay.className = 'text-sm text-gray-700 mb-2 whitespace-pre-wrap';
+                            newDisplay.textContent = notes;
+                            panel.insertBefore(newDisplay, panel.firstChild);
+                        }
+                    } else if (display) {
+                        display.remove();
+                    }
+
+                    // Close panel
+                    document.getElementById('notes-panel-' + itemId).classList.add('hidden');
+                } else {
+                    alert('Error saving notes: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error saving notes: ' + error.message);
+            }
+        }
+
+        function cancelNotes(itemId) {
+            document.getElementById('notes-panel-' + itemId).classList.add('hidden');
+            // Reset textarea to display text (or empty)
+            const display = document.getElementById('notes-display-' + itemId);
+            const textarea = document.getElementById('notes-textarea-' + itemId);
+            if (textarea) {
+                textarea.value = display ? display.textContent : '';
             }
         }
 

@@ -50,6 +50,7 @@ class Video(BaseModel):
     completed_at: Optional[datetime] = None
     is_favorited: bool = False
     favorited_at: Optional[datetime] = None
+    notes: Optional[str] = None
 
 
 class Transcript(BaseModel):
@@ -89,6 +90,7 @@ class Article(BaseModel):
     completed_at: Optional[datetime] = None
     is_favorited: bool = False
     favorited_at: Optional[datetime] = None
+    notes: Optional[str] = None
 
 
 class ArticleSummary(BaseModel):
@@ -116,6 +118,7 @@ class DigestItem(BaseModel):
     summary: Optional[str] = None
     topics: list[str] = []
     category: Optional[str] = None
+    notes: Optional[str] = None
     # Video-specific
     thumbnail_url: Optional[str] = None
     duration: Optional[str] = None
