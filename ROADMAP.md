@@ -44,7 +44,6 @@ _Empty - ready for next task_
 ### Now
 | Item | Description | Effort |
 |------|-------------|--------|
-| Dockerize the app | Dockerfile + Docker Compose with SQLite volume. Design for local use now, cloud-ready later. | Medium |
 | CI/CD | GitHub Actions to run tests on push, build container image | Medium |
 
 ### Next
@@ -81,6 +80,7 @@ _Empty - ready for next task_
 ## Completed
 | Item | Date | Notes |
 |------|------|-------|
+| Dockerize the app | 2026-02-22 | Dockerfile + Docker Compose with SQLite volume mount, non-root user, config editable without rebuilding |
 | Add notes to digest entries | 2026-02-16 | Personal notes on any video or article card; stored in DB, displayed on card with amber indicator |
 | Chat with transcript | 2026-02-16 | Multi-turn chat modal to ask Claude questions about any video transcript or article content; system-prompt architecture keeps content constant across turns |
 | Daily engagement tracking | 2026-02-11 | Skip sentiment (⏭️) to complete without engagement; today's stats always visible in summary bar (watched, minutes, read, words, skipped); local timezone date matching |
