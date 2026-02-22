@@ -17,13 +17,14 @@ _Empty - ready for next task_
 ### Next
 | Item | Description | Effort |
 |------|-------------|--------|
-| Filter/sort videos | Rethink grouping vs. filtering: currently Date/Source/Topic regroup the entire page, but clicking a specific date, source, or topic should probably filter to just those items (not rearrange everything). All three criteria should behave consistently. Include show/hide completed in filtered views. Also: sort options, filter by has-summary, video length, etc. | Medium |
-| Local timezone support | All dates display in UTC; items added in the evening show as the next day. Add a timezone setting (config.yaml or UI) and convert dates to local time before display. | Quick |
 | Refine topic tags | Too many unique topics make tag grouping unusable for navigation; consolidate to a controlled set or merge similar tags. Case-insensitive grouping needed (e.g. "Workflow Automation" vs "workflow automation" are separate groups — fix in `group_items` by normalizing keys to lowercase) | Medium |
+| Filter/sort videos | Rethink grouping vs. filtering: currently Date/Source/Topic regroup the entire page, but clicking a specific date, source, or topic should probably filter to just those items (not rearrange everything). All three criteria should behave consistently. Include show/hide completed in filtered views. Also: sort options, filter by has-summary, video length, etc. | Medium |
 
 ### Later
 | Item | Description | Effort |
 |------|-------------|--------|
+| Publish to public internet | Deploy to a public URL with auth, DB migration (SQLite→Postgres), secrets management, HTTPS | Large |
+| Mobile-friendly UI | Responsive design improvements | Medium |
 | Progress dashboard | Visualize engagement metrics (videos watched, articles read, minutes, words) broken down by day/week/month with yesterday comparison | Medium |
 | Search across transcripts | Keyword search across all saved transcripts | Medium |
 | Proxy for transcripts | Replace cookies auth (risks account ban) with rotating proxy for youtube-transcript-api. Two options: **Webshare** (library's built-in `WebshareProxyConfig`, paid residential rotating proxies) or **Generic proxy** (`GenericProxyConfig` with any HTTPS proxy provider). Credentials via `.env`. | Medium |
@@ -32,8 +33,7 @@ _Empty - ready for next task_
 ### Maybe
 | Item | Description | Effort |
 |------|-------------|--------|
-| Publish to public internet | Deploy to a public URL with auth, DB migration (SQLite→Postgres), secrets management, HTTPS | Large |
-| Mobile-friendly UI | Responsive design improvements | Medium |
+| Local timezone support | All dates display in UTC; items added in the evening show as the next day. Add a timezone setting (config.yaml or UI) and convert dates to local time before display. | Quick |
 | Live updates via SSE | Server-Sent Events to push transcript/summary completion to the browser in real time | Medium |
 | Consolidate card templates | Article, video, and search result cards share duplicated layout; extract a Jinja macro or partial to render cards once with type-specific conditionals | Medium |
 
@@ -42,11 +42,16 @@ _Empty - ready for next task_
 ## Infrastructure & DevOps
 
 ### Now
-_Empty - ready for next task_
+| Item | Description | Effort |
+|------|-------------|--------|
+| Dockerize the app | Dockerfile + Docker Compose with SQLite volume. Design for local use now, cloud-ready later. | Medium |
+| CI/CD | GitHub Actions to run tests on push, build container image | Medium |
 
 ### Next
 | Item | Description | Effort |
 |------|-------------|--------|
+| Basic auth middleware | Environment-variable-toggled auth (`AUTH_ENABLED`, `AUTH_USERNAME`, `AUTH_PASSWORD`). Off locally, on in cloud. | Quick |
+| Migrate SQLite to Postgres | Swap `aiosqlite` for `asyncpg`, add Postgres container to Docker Compose, replace ad-hoc ALTER TABLE with Alembic migrations | Medium |
 | Code formatting | Set up black + ruff for consistent style | Quick |
 | Pre-commit hooks | Run formatter, linter, tests before commit | Quick |
 | Dependency pinning | Lock versions in requirements.txt | Quick |
@@ -54,17 +59,15 @@ _Empty - ready for next task_
 ### Later
 | Item | Description | Effort |
 |------|-------------|--------|
+| Cloud deployment | Push container to Fly.io or similar; persistent volume for DB, platform secrets for API keys, HTTPS | Medium |
 | Type checking | Add mypy, fix type errors | Medium |
 | Feature branches | Adopt branch-based workflow | Quick |
-| Database migrations | Replace ad-hoc ALTER TABLE with Alembic | Medium |
 
 ### Maybe
 | Item | Description | Effort |
 |------|-------------|--------|
-| CI/CD | GitHub Actions to run tests on push | Medium |
 | Error monitoring | Sentry integration for production errors | Medium |
 | Database backups | Scheduled backup script | Quick |
-| Docker | Containerize for easy deployment | Medium |
 
 ---
 

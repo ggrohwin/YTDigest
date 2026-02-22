@@ -13,6 +13,12 @@ logs/
 .coverage
 htmlcov/
 
+# Docs (personal reference, not committed)
+docs/
+
+# Claude project data symlink
+claude-project
+
 # Test reports
 reports/
 
