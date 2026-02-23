@@ -17,39 +17,40 @@ _Empty - ready for next task_
 ### Next
 | Item | Description | Effort |
 |------|-------------|--------|
-| Refine topic tags | Too many unique topics make tag grouping unusable for navigation; consolidate to a controlled set or merge similar tags | Medium |
-| Clickable topic tags | Topic labels in item cards link to the topic group view for that tag | Quick |
-| Favorites list | Save items to a favorites collection; dedicated view to revisit liked/starred content | Medium |
-| Chat with transcript | Ask questions about a video while watching; send transcript + question to Claude | Medium |
-| Retry failed transcripts | Button or automatic retry for rate-limited videos after cooldown | Quick |
+| Refine topic tags | Too many unique topics make tag grouping unusable for navigation; consolidate to a controlled set or merge similar tags. Case-insensitive grouping needed (e.g. "Workflow Automation" vs "workflow automation" are separate groups — fix in `group_items` by normalizing keys to lowercase) | Medium |
+| Filter/sort videos | Rethink grouping vs. filtering: currently Date/Source/Topic regroup the entire page, but clicking a specific date, source, or topic should probably filter to just those items (not rearrange everything). All three criteria should behave consistently. Include show/hide completed in filtered views. Also: sort options, filter by has-summary, video length, etc. | Medium |
 
 ### Later
 | Item | Description | Effort |
 |------|-------------|--------|
-| Filter/sort videos | Filter by channel, date, has-summary; sort options | Medium |
-| ~~Mark as read/interested~~ | ~~Track which videos you've watched or want to watch~~ | ~~Medium~~ |
+| Publish to public internet | Deploy to a public URL with auth, DB migration (SQLite→Postgres), secrets management, HTTPS | Large |
+| Mobile-friendly UI | Responsive design improvements | Medium |
+| Progress dashboard | Visualize engagement metrics (videos watched, articles read, minutes, words) broken down by day/week/month with yesterday comparison | Medium |
 | Search across transcripts | Keyword search across all saved transcripts | Medium |
+| Proxy for transcripts | Replace cookies auth (risks account ban) with rotating proxy for youtube-transcript-api. Two options: **Webshare** (library's built-in `WebshareProxyConfig`, paid residential rotating proxies) or **Generic proxy** (`GenericProxyConfig` with any HTTPS proxy provider). Credentials via `.env`. | Medium |
+| Retry failed transcripts | Button or automatic retry for rate-limited videos after cooldown | Quick |
 
 ### Maybe
 | Item | Description | Effort |
 |------|-------------|--------|
-| Email digest | Daily/weekly email summary of new videos | Medium |
-| Mobile-friendly UI | Responsive design improvements | Medium |
-| Export summaries | Export to markdown, PDF, or Notion | Quick |
-| Multiple summary styles | Bullet points vs prose, length options | Quick |
+| Local timezone support | All dates display in UTC; items added in the evening show as the next day. Add a timezone setting (config.yaml or UI) and convert dates to local time before display. | Quick |
 | Live updates via SSE | Server-Sent Events to push transcript/summary completion to the browser in real time | Medium |
+| Consolidate card templates | Article, video, and search result cards share duplicated layout; extract a Jinja macro or partial to render cards once with type-specific conditionals | Medium |
 
 ---
 
 ## Infrastructure & DevOps
 
 ### Now
-_Empty - ready for next task_
+| Item | Description | Effort |
+|------|-------------|--------|
+| CI/CD | GitHub Actions to run tests on push, build container image | Medium |
 
 ### Next
 | Item | Description | Effort |
 |------|-------------|--------|
-| Push to GitHub | Create remote repo and push; enables CI, PRs, and backup | Quick |
+| Basic auth middleware | Environment-variable-toggled auth (`AUTH_ENABLED`, `AUTH_USERNAME`, `AUTH_PASSWORD`). Off locally, on in cloud. | Quick |
+| Migrate SQLite to Postgres | Swap `aiosqlite` for `asyncpg`, add Postgres container to Docker Compose, replace ad-hoc ALTER TABLE with Alembic migrations | Medium |
 | Code formatting | Set up black + ruff for consistent style | Quick |
 | Pre-commit hooks | Run formatter, linter, tests before commit | Quick |
 | Dependency pinning | Lock versions in requirements.txt | Quick |
@@ -57,35 +58,41 @@ _Empty - ready for next task_
 ### Later
 | Item | Description | Effort |
 |------|-------------|--------|
-| Virtual environment | Document venv setup in README | Quick |
+| Cloud deployment | Push container to Fly.io or similar; persistent volume for DB, platform secrets for API keys, HTTPS | Medium |
 | Type checking | Add mypy, fix type errors | Medium |
 | Feature branches | Adopt branch-based workflow | Quick |
-| Database migrations | Replace ad-hoc ALTER TABLE with Alembic | Medium |
 
 ### Maybe
 | Item | Description | Effort |
 |------|-------------|--------|
-| CI/CD | GitHub Actions to run tests on push | Medium |
 | Error monitoring | Sentry integration for production errors | Medium |
-| Log persistence | Write logs to file, rotation | Quick |
 | Database backups | Scheduled backup script | Quick |
-| Docker | Containerize for easy deployment | Medium |
 
 ---
 
 ## Testing
 
 ### Next
-| Item | Description | Effort |
-|------|-------------|--------|
-| API endpoint tests | Test HTTP endpoints with FastAPI TestClient | Medium |
-| Coverage reporting | Add pytest-cov, track coverage | Quick |
+_Empty - ready for next task_
 
 ---
 
 ## Completed
 | Item | Date | Notes |
 |------|------|-------|
+| Dockerize the app | 2026-02-22 | Dockerfile + Docker Compose with SQLite volume mount, non-root user, config editable without rebuilding |
+| Add notes to digest entries | 2026-02-16 | Personal notes on any video or article card; stored in DB, displayed on card with amber indicator |
+| Chat with transcript | 2026-02-16 | Multi-turn chat modal to ask Claude questions about any video transcript or article content; system-prompt architecture keeps content constant across turns |
+| Daily engagement tracking | 2026-02-11 | Skip sentiment (⏭️) to complete without engagement; today's stats always visible in summary bar (watched, minutes, read, words, skipped); local timezone date matching |
+| Un-complete a digest item | 2026-02-11 | Undo button on completed cards to restore items to active status with sentiment buttons |
+| Log persistence | 2026-02-10 | RotatingFileHandler writing to logs/ytdigest.log (5 MB cap, 3 backups); console logging unchanged |
+| Configurable summarization model | 2026-02-09 | Moved hardcoded Claude model to config.yaml; extracted summarize_and_save_video() helper to deduplicate three call sites |
+| Mark as read/interested | 2026-02-04 | Superseded by video completion with sentiment (like/neutral/dislike) |
+| Coverage reporting | 2026-02-09 | pytest-cov with terminal + HTML reports; 60% overall coverage, 188 tests passing |
+| API endpoint tests | 2026-02-08 | 22 tests for 8 HTTP endpoints using httpx AsyncClient + ASGITransport; shared conftest.py with test_db, test_client fixtures, and seed helpers |
+| Favorites list | 2026-02-08 | Star/unstar any digest item; dedicated favorites view with sidebar link; optimistic UI with fade-out on unfavorite |
+| Push to GitHub | 2026-02-07 | Private repo with gh CLI; pushed master and feature branch, opened first PR |
+| Clickable topic tags | 2026-02-07 | Topic labels in cards link to topic group view |
 | Fix add-video-by-URL bugs | 2026-02-07 | Fix bookmarklet regex for standard watch URLs; remove age filter from display queries; sort by date added instead of date published |
 | Add video by URL | 2026-02-07 | Paste any YouTube URL in sidebar or use bookmarklet; fetches metadata, transcript, and summary synchronously |
 | Semantic search | 2026-02-07 | Voyage AI embeddings for summaries + transcript/article chunks; cosine similarity search with deduplication, threshold filtering, auto-embed on save, search UI with score badges |

@@ -4,6 +4,20 @@ cookies.txt
 
 # Database
 data/*.db
+*.db
+
+# Logs
+logs/
+
+# Coverage
+.coverage
+htmlcov/
+
+# Docs (personal reference, not committed)
+docs/
+
+# Claude project data symlink
+claude-project
 
 # Test reports
 reports/
@@ -41,6 +55,9 @@ env/
 .vscode/
 *.swp
 *.swo
+
+# Docker
+docker-compose.override.yml
 
 # OS
 .DS_Store

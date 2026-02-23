@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import logging.handlers
 import os
 import random
 import re
@@ -15,12 +16,29 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
 # Configure logging with timestamps
+LOG_FORMAT = "%(asctime)s - %(message)s"
+LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
+
+import sys
+
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(message)s",
-    datefmt="%H:%M:%S"
+    format=LOG_FORMAT,
+    datefmt=LOG_DATEFMT,
+    handlers=[logging.StreamHandler(stream=open(sys.stdout.fileno(), mode='w', encoding='utf-8', closefd=False))],
 )
 logger = logging.getLogger("ytdigest")
+
+# Add file handler with rotation (5 MB max, keep 3 backups)
+_log_dir = Path(__file__).parent.parent / "logs"
+_log_dir.mkdir(exist_ok=True)
+_file_handler = logging.handlers.RotatingFileHandler(
+    _log_dir / "ytdigest.log",
+    maxBytes=5 * 1024 * 1024,
+    backupCount=3,
+)
+_file_handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATEFMT))
+logger.addHandler(_file_handler)
 
 from .database import (
     init_db,
@@ -34,6 +52,7 @@ from .database import (
     get_videos_with_transcripts_without_summaries,
     update_transcript_status,
     mark_video_completed,
+    uncomplete_video,
     get_summaries_without_category,
     update_summary_category,
     count_new_videos_since,
@@ -45,6 +64,12 @@ from .database import (
     save_article_summary,
     get_article_summary,
     mark_article_completed,
+    uncomplete_article,
+    toggle_video_favorite,
+    toggle_article_favorite,
+    get_favorite_videos,
+    get_favorite_articles,
+    get_article,
     get_items_without_embeddings,
     get_items_without_chunk_embeddings,
     get_summary_text_for_embedding,
@@ -53,12 +78,16 @@ from .database import (
     has_embeddings,
     count_embeddings,
     get_video,
+    get_engagement_stats,
+    save_video_notes,
+    save_article_notes,
 )
 from collections import defaultdict, Counter
+from datetime import date
 from .models import AppConfig, CATEGORIES, DigestItem, VideoWithDetails
 from .youtube import get_channel_uploads, parse_video_id, is_youtube_url, get_video_by_id
 from .transcripts import fetch_transcript
-from .summarizer import summarize_video, summarize_article, classify_existing_summary
+from .summarizer import summarize_video, summarize_article, classify_existing_summary, chat_with_content
 from .articles import fetch_article
 from . import embedder
 
@@ -171,6 +200,39 @@ def load_config() -> AppConfig:
     return AppConfig(**data)
 
 
+async def summarize_and_save_video(
+    video_id: str, title: str, channel: str, transcript_content: str
+) -> bool:
+    """Summarize a video, save the summary, and generate embeddings.
+
+    Returns True if a summary was saved, False otherwise.
+    """
+    summary = summarize_video(
+        video_id=video_id,
+        title=title,
+        channel=channel,
+        transcript=transcript_content,
+        model=app_config.digest.summarization_model,
+    )
+    if not summary:
+        return False
+
+    await save_summary(summary)
+
+    if embedder.is_available():
+        try:
+            text = summary.summary
+            if summary.topics:
+                text += f"\n\nTopics: {','.join(summary.topics)}"
+            await embedder.embed_item(video_id, "video", text)
+            await embedder.embed_item_chunks(video_id, "video", transcript_content)
+            logger.info(f"Embeddings saved for: {title}")
+        except Exception as e:
+            logger.warning(f"Embedding failed for {title}: {e}")
+
+    return True
+
+
 async def background_transcript_fetcher():
     """Background task that gradually fetches transcripts to avoid rate limiting."""
     logger.info("Background transcript fetcher started")
@@ -189,7 +251,6 @@ async def background_transcript_fetcher():
 
             # Find videos that need transcripts
             videos = await get_videos_without_transcripts(
-                days=app_config.digest.max_age_days,
                 limit=app_config.digest.transcript_batch_size
             )
 
@@ -208,27 +269,11 @@ async def background_transcript_fetcher():
 
                     # Also generate summary immediately if we got a transcript
                     logger.info(f"[Background] Generating summary for: {video.title}")
-                    summary = summarize_video(
-                        video_id=video.id,
-                        title=video.title,
-                        channel=video.channel_name,
-                        transcript=transcript.content
+                    saved = await summarize_and_save_video(
+                        video.id, video.title, video.channel_name, transcript.content
                     )
-                    if summary:
-                        await save_summary(summary)
+                    if saved:
                         logger.info(f"[Background] Summary saved for: {video.title}")
-
-                        # Auto-embed for semantic search
-                        if embedder.is_available():
-                            try:
-                                text = summary.summary
-                                if summary.topics:
-                                    text += f"\n\nTopics: {','.join(summary.topics)}"
-                                await embedder.embed_item(video.id, "video", text)
-                                await embedder.embed_item_chunks(video.id, "video", transcript.content)
-                                logger.info(f"[Background] Embeddings saved for: {video.title}")
-                            except Exception as e:
-                                logger.warning(f"[Background] Embedding failed for {video.title}: {e}")
                 else:
                     # Mark with appropriate status based on failure reason
                     status = failure_reason or "failed"
@@ -281,26 +326,11 @@ async def refresh_video_metadata() -> tuple[int, int]:
         transcript = await get_transcript(video.id)
         if transcript:
             logger.info(f"Generating summary for: {video.title}")
-            summary = summarize_video(
-                video_id=video.id,
-                title=video.title,
-                channel=video.channel_name,
-                transcript=transcript.content
+            saved = await summarize_and_save_video(
+                video.id, video.title, video.channel_name, transcript.content
             )
-            if summary:
-                await save_summary(summary)
+            if saved:
                 total_summaries += 1
-
-                # Auto-embed for semantic search
-                if embedder.is_available():
-                    try:
-                        text = summary.summary
-                        if summary.topics:
-                            text += f"\n\nTopics: {','.join(summary.topics)}"
-                        await embedder.embed_item(video.id, "video", text)
-                        await embedder.embed_item_chunks(video.id, "video", transcript.content)
-                    except Exception:
-                        pass  # non-critical
 
     return total_videos, total_summaries
 
@@ -371,9 +401,12 @@ app.add_middleware(
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request, group_by: str = "date", show_completed: bool = False):
+async def index(request: Request, group_by: str = "date", show_completed: bool = False, view: str = ""):
     """Render the main digest page."""
-    items = await get_digest_items(include_completed=show_completed)
+    if view == "favorites":
+        items = await get_favorite_digest_items()
+    else:
+        items = await get_digest_items(include_completed=show_completed)
     grouped = group_items(items, group_by)
     month_groups = build_month_hierarchy(grouped) if group_by == "date" else None
     category_groups = build_category_hierarchy(grouped, items) if group_by == "topic" else None
@@ -391,6 +424,16 @@ async def index(request: Request, group_by: str = "date", show_completed: bool =
 
     embedding_count = await count_embeddings() if embedder.is_available() else 0
 
+    today_str = date.today().isoformat()
+    engagement = await get_engagement_stats(today_str)
+    total_minutes = engagement["total_minutes_watched"]
+    if total_minutes >= 60:
+        hours = int(total_minutes // 60)
+        mins = int(total_minutes % 60)
+        minutes_display = f"{hours}h {mins}m"
+    else:
+        minutes_display = f"{int(total_minutes)}m"
+
     page_summary = {
         "total": total,
         "with_summary": with_summary,
@@ -398,6 +441,12 @@ async def index(request: Request, group_by: str = "date", show_completed: bool =
         "failed": failed,
         "new_since_last_visit": new_since_last_visit,
         "embedding_count": embedding_count,
+        "videos_engaged": engagement["videos_engaged"],
+        "articles_engaged": engagement["articles_engaged"],
+        "total_minutes_watched": total_minutes,
+        "minutes_watched_display": minutes_display,
+        "total_words_read": engagement["total_words_read"],
+        "total_skipped": engagement["videos_skipped"] + engagement["articles_skipped"],
     }
 
     # Search bar only appears when there are embeddings to search
@@ -416,6 +465,7 @@ async def index(request: Request, group_by: str = "date", show_completed: bool =
             "category_groups": category_groups,
             "bookmarklet_origin": f"{request.url.scheme}://{request.url.netloc}",
             "search_enabled": search_enabled,
+            "view": view,
         }
     )
 
@@ -489,25 +539,9 @@ async def api_add_video(request: Request):
             await update_transcript_status(video_id, "fetched")
 
             # Generate summary
-            summary = summarize_video(
-                video_id=video_id,
-                title=video.title,
-                channel=video.channel_name,
-                transcript=transcript.content,
+            await summarize_and_save_video(
+                video_id, video.title, video.channel_name, transcript.content
             )
-            if summary:
-                await save_summary(summary)
-
-                # Auto-embed for semantic search
-                if embedder.is_available():
-                    try:
-                        text = summary.summary
-                        if summary.topics:
-                            text += f"\n\nTopics: {','.join(summary.topics)}"
-                        await embedder.embed_item(video_id, "video", text)
-                        await embedder.embed_item_chunks(video_id, "video", transcript.content)
-                    except Exception:
-                        pass  # non-critical
         else:
             status = failure_reason or "failed"
             await update_transcript_status(video_id, status)
@@ -551,7 +585,6 @@ async def api_refresh():
 
         # Count pending transcripts for user feedback
         pending_transcripts = await get_videos_without_transcripts(
-            days=app_config.digest.max_age_days,
             limit=100
         )
 
@@ -574,9 +607,9 @@ async def api_refresh():
 @app.post("/api/videos/{video_id}/complete")
 async def api_complete_video(video_id: str, sentiment: str):
     """Mark a video as completed with the given sentiment (like, neutral, dislike)."""
-    if sentiment not in ("like", "neutral", "dislike"):
+    if sentiment not in ("like", "neutral", "dislike", "skip"):
         return JSONResponse(
-            content={"error": "Invalid sentiment. Must be: like, neutral, dislike"},
+            content={"error": "Invalid sentiment. Must be: like, neutral, dislike, skip"},
             status_code=400
         )
 
@@ -586,6 +619,21 @@ async def api_complete_video(video_id: str, sentiment: str):
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
         logger.error(f"Error marking video complete: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500
+        )
+
+
+@app.post("/api/videos/{video_id}/uncomplete")
+async def api_uncomplete_video(video_id: str):
+    """Un-complete a video, restoring it to active status."""
+    try:
+        await uncomplete_video(video_id)
+        return JSONResponse(content={"success": True})
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error un-completing video: {error_msg}")
         return JSONResponse(
             content={"error": error_msg},
             status_code=500
@@ -621,7 +669,7 @@ async def api_backfill_categories():
                 errors += 1
                 continue
 
-            category = classify_existing_summary(summary.summary, summary.topics)
+            category = classify_existing_summary(summary.summary, summary.topics, model=app_config.digest.summarization_model)
             if category:
                 await update_summary_category(video_id, category)
                 updated += 1
@@ -786,6 +834,7 @@ async def api_add_article(request: Request):
             domain=article.domain,
             content=article.content,
             author=article.author,
+            model=app_config.digest.summarization_model,
         )
         if summary:
             await save_article_summary(summary)
@@ -823,9 +872,9 @@ async def api_add_article(request: Request):
 @app.post("/api/articles/{article_id}/complete")
 async def api_complete_article(article_id: str, sentiment: str):
     """Mark an article as completed with the given sentiment."""
-    if sentiment not in ("like", "neutral", "dislike"):
+    if sentiment not in ("like", "neutral", "dislike", "skip"):
         return JSONResponse(
-            content={"error": "Invalid sentiment. Must be: like, neutral, dislike"},
+            content={"error": "Invalid sentiment. Must be: like, neutral, dislike, skip"},
             status_code=400,
         )
 
@@ -835,6 +884,165 @@ async def api_complete_article(article_id: str, sentiment: str):
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
         logger.error(f"Error marking article complete: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500,
+        )
+
+
+@app.post("/api/articles/{article_id}/uncomplete")
+async def api_uncomplete_article(article_id: str):
+    """Un-complete an article, restoring it to active status."""
+    try:
+        await uncomplete_article(article_id)
+        return JSONResponse(content={"success": True})
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error un-completing article: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500,
+        )
+
+
+@app.post("/api/chat")
+async def api_chat(request: Request):
+    """Multi-turn chat about a video transcript or article content."""
+    try:
+        body = await request.json()
+        item_id = body.get("item_id")
+        item_type = body.get("item_type")
+        messages = body.get("messages")
+
+        # Validate required fields
+        if not item_id or not item_type:
+            return JSONResponse(
+                content={"error": "item_id and item_type are required"},
+                status_code=400,
+            )
+        if item_type not in ("video", "article"):
+            return JSONResponse(
+                content={"error": "item_type must be 'video' or 'article'"},
+                status_code=400,
+            )
+        if not messages or not isinstance(messages, list) or messages[-1].get("role") != "user":
+            return JSONResponse(
+                content={"error": "messages must be a list ending with a user message"},
+                status_code=400,
+            )
+
+        # Load content based on type
+        if item_type == "video":
+            transcript = await get_transcript(item_id)
+            if not transcript:
+                return JSONResponse(
+                    content={"error": "No transcript available for this video"},
+                    status_code=404,
+                )
+            video = await get_video(item_id)
+            if not video:
+                return JSONResponse(
+                    content={"error": "Video not found"},
+                    status_code=404,
+                )
+            content = transcript.content
+            title = video.title
+            source_name = video.channel_name
+        else:
+            article = await get_article(item_id)
+            if not article:
+                return JSONResponse(
+                    content={"error": "Article not found"},
+                    status_code=404,
+                )
+            content = article.content
+            title = article.title
+            source_name = article.domain
+
+        response_text = chat_with_content(
+            content=content,
+            title=title,
+            source_name=source_name,
+            content_type=item_type,
+            messages=messages,
+            model=app_config.digest.summarization_model,
+        )
+
+        if response_text is None:
+            return JSONResponse(
+                content={"error": "Failed to get a response from Claude"},
+                status_code=500,
+            )
+
+        return JSONResponse(content={"success": True, "response": response_text})
+
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error during chat: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500,
+        )
+
+
+@app.post("/api/videos/{video_id}/favorite")
+async def api_favorite_video(video_id: str):
+    """Toggle the favorite status of a video."""
+    try:
+        new_state = await toggle_video_favorite(video_id)
+        return JSONResponse(content={"success": True, "is_favorited": new_state})
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error toggling video favorite: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500,
+        )
+
+
+@app.post("/api/articles/{article_id}/favorite")
+async def api_favorite_article(article_id: str):
+    """Toggle the favorite status of an article."""
+    try:
+        new_state = await toggle_article_favorite(article_id)
+        return JSONResponse(content={"success": True, "is_favorited": new_state})
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error toggling article favorite: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500,
+        )
+
+
+@app.post("/api/videos/{video_id}/notes")
+async def api_save_video_notes(video_id: str, request: Request):
+    """Save notes for a video."""
+    try:
+        body = await request.json()
+        notes = body.get("notes", "")
+        await save_video_notes(video_id, notes)
+        return JSONResponse(content={"success": True})
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error saving video notes: {error_msg}")
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500,
+        )
+
+
+@app.post("/api/articles/{article_id}/notes")
+async def api_save_article_notes(article_id: str, request: Request):
+    """Save notes for an article."""
+    try:
+        body = await request.json()
+        notes = body.get("notes", "")
+        await save_article_notes(article_id, notes)
+        return JSONResponse(content={"success": True})
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Error saving article notes: {error_msg}")
         return JSONResponse(
             content={"error": error_msg},
             status_code=500,
@@ -899,9 +1107,12 @@ async def get_digest_items(include_completed: bool = False) -> list[DigestItem]:
             is_completed=video.is_completed,
             sentiment=video.sentiment,
             completed_at=video.completed_at,
+            is_favorited=video.is_favorited,
+            favorited_at=video.favorited_at,
             summary=summary.summary if summary else None,
             topics=summary.topics if summary else [],
             category=summary.category if summary else None,
+            notes=video.notes,
             thumbnail_url=video.thumbnail_url,
             duration=video.duration,
             transcript_status=video.transcript_status,
@@ -922,9 +1133,12 @@ async def get_digest_items(include_completed: bool = False) -> list[DigestItem]:
             is_completed=article.is_completed,
             sentiment=article.sentiment,
             completed_at=article.completed_at,
+            is_favorited=article.is_favorited,
+            favorited_at=article.favorited_at,
             summary=summary.summary if summary else None,
             topics=summary.topics if summary else [],
             category=summary.category if summary else None,
+            notes=article.notes,
             thumbnail_url=article.thumbnail_url,
             author=article.author,
             domain=article.domain,
@@ -934,6 +1148,67 @@ async def get_digest_items(include_completed: bool = False) -> list[DigestItem]:
 
     # Sort by date added, most recent first
     items.sort(key=lambda x: x.added_at or x.published_at, reverse=True)
+    return items
+
+
+async def get_favorite_digest_items() -> list[DigestItem]:
+    """Get all favorited videos and articles as a unified list of DigestItems."""
+    items: list[DigestItem] = []
+
+    videos = await get_favorite_videos()
+    for video in videos:
+        summary = await get_summary(video.id)
+        items.append(DigestItem(
+            item_type="video",
+            id=video.id,
+            title=video.title,
+            url=video.video_url,
+            source_name=video.channel_name,
+            published_at=video.published_at,
+            added_at=video.first_seen_at,
+            is_completed=video.is_completed,
+            sentiment=video.sentiment,
+            completed_at=video.completed_at,
+            is_favorited=video.is_favorited,
+            favorited_at=video.favorited_at,
+            summary=summary.summary if summary else None,
+            topics=summary.topics if summary else [],
+            category=summary.category if summary else None,
+            notes=video.notes,
+            thumbnail_url=video.thumbnail_url,
+            duration=video.duration,
+            transcript_status=video.transcript_status,
+        ))
+
+    articles = await get_favorite_articles()
+    for article in articles:
+        summary = await get_article_summary(article.id)
+        items.append(DigestItem(
+            item_type="article",
+            id=article.id,
+            title=article.title,
+            url=article.url,
+            source_name=article.domain,
+            published_at=article.added_at,
+            added_at=article.added_at,
+            is_completed=article.is_completed,
+            sentiment=article.sentiment,
+            completed_at=article.completed_at,
+            is_favorited=article.is_favorited,
+            favorited_at=article.favorited_at,
+            summary=summary.summary if summary else None,
+            topics=summary.topics if summary else [],
+            category=summary.category if summary else None,
+            notes=article.notes,
+            thumbnail_url=article.thumbnail_url,
+            author=article.author,
+            domain=article.domain,
+            word_count=article.word_count,
+            original_published_at=article.published_at,
+        ))
+
+    # Sort by favorited_at DESC
+    items.sort(key=lambda x: x.favorited_at or x.published_at, reverse=True)
     return items
 
 

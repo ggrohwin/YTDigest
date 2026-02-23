@@ -26,6 +26,7 @@ class DigestConfig(BaseModel):
     transcript_fetch_interval: int = 180  # seconds between background fetches
     transcript_batch_size: int = 1  # transcripts to fetch per cycle
     video_refresh_interval: int = 3600  # seconds between video metadata refreshes
+    summarization_model: str = "claude-sonnet-4-20250514"
 
 
 class AppConfig(BaseModel):
@@ -47,6 +48,9 @@ class Video(BaseModel):
     is_completed: bool = False
     sentiment: Optional[str] = None  # like, neutral, dislike
     completed_at: Optional[datetime] = None
+    is_favorited: bool = False
+    favorited_at: Optional[datetime] = None
+    notes: Optional[str] = None
 
 
 class Transcript(BaseModel):
@@ -84,6 +88,9 @@ class Article(BaseModel):
     is_completed: bool = False
     sentiment: Optional[str] = None
     completed_at: Optional[datetime] = None
+    is_favorited: bool = False
+    favorited_at: Optional[datetime] = None
+    notes: Optional[str] = None
 
 
 class ArticleSummary(BaseModel):
@@ -105,10 +112,13 @@ class DigestItem(BaseModel):
     is_completed: bool = False
     sentiment: Optional[str] = None
     completed_at: Optional[datetime] = None
+    is_favorited: bool = False
+    favorited_at: Optional[datetime] = None
     # Summary fields (shared)
     summary: Optional[str] = None
     topics: list[str] = []
     category: Optional[str] = None
+    notes: Optional[str] = None
     # Video-specific
     thumbnail_url: Optional[str] = None
     duration: Optional[str] = None

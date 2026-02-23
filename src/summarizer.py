@@ -8,6 +8,9 @@ import anthropic
 
 from .models import CATEGORIES, ArticleSummary, Summary
 
+# Default chat model — cheaper/faster than summarization model
+CHAT_MODEL = "claude-sonnet-4-20250514"
+
 logger = logging.getLogger("ytdigest")
 
 MAX_TRANSCRIPT_LENGTH = 100000
@@ -26,7 +29,8 @@ def summarize_video(
     video_id: str,
     title: str,
     channel: str,
-    transcript: str
+    transcript: str,
+    model: str = "claude-sonnet-4-20250514",
 ) -> Optional[Summary]:
     """
     Generate a summary of a video using Claude.
@@ -72,7 +76,7 @@ Be concise but informative. Help the reader quickly understand if this video is 
 
     try:
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=model,
             max_tokens=1024,
             messages=[
                 {"role": "user", "content": prompt}
@@ -126,6 +130,7 @@ def summarize_article(
     domain: str,
     content: str,
     author: Optional[str] = None,
+    model: str = "claude-sonnet-4-20250514",
 ) -> Optional[ArticleSummary]:
     """Generate a summary of a web article using Claude.
 
@@ -171,7 +176,7 @@ Be concise but informative. Help the reader quickly understand if this article i
 
     try:
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=model,
             max_tokens=1024,
             messages=[
                 {"role": "user", "content": prompt}
@@ -220,7 +225,7 @@ Be concise but informative. Help the reader quickly understand if this article i
 
 
 def classify_existing_summary(
-    summary_text: str, topics: list[str]
+    summary_text: str, topics: list[str], model: str = "claude-sonnet-4-20250514",
 ) -> Optional[str]:
     """Classify an existing summary into a category using a lightweight LLM call.
 
@@ -240,7 +245,7 @@ Reply with ONLY the category name, nothing else."""
     try:
         client = get_anthropic_client()
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=model,
             max_tokens=50,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -253,3 +258,53 @@ Reply with ONLY the category name, nothing else."""
     except Exception as e:
         logger.error(f"Error classifying summary: {e}")
         return "Other"
+
+
+def chat_with_content(
+    content: str,
+    title: str,
+    source_name: str,
+    content_type: str,
+    messages: list[dict],
+    model: str = CHAT_MODEL,
+) -> Optional[str]:
+    """Have a multi-turn conversation about a video transcript or article.
+
+    The content (transcript/article text) is passed as a system message so it
+    stays constant across turns, while the conversation grows in the messages
+    array.
+
+    Returns the assistant's response text, or None on error.
+    """
+    max_len = MAX_TRANSCRIPT_LENGTH if content_type == "video" else MAX_ARTICLE_LENGTH
+    if len(content) > max_len:
+        content = content[:max_len] + "... [content truncated]"
+
+    kind = "video transcript" if content_type == "video" else "article"
+    system_prompt = (
+        f"You are a helpful assistant answering questions about a {kind}.\n\n"
+        f"Title: {title}\n"
+        f"Source: {source_name}\n\n"
+        f"--- {kind.upper()} CONTENT ---\n"
+        f"{content}\n"
+        f"--- END CONTENT ---\n\n"
+        "Be concise. When relevant, quote the source material directly. "
+        "If the content doesn't answer the user's question, say so honestly."
+    )
+
+    client = get_anthropic_client()
+
+    try:
+        response = client.messages.create(
+            model=model,
+            max_tokens=1024,
+            system=system_prompt,
+            messages=messages,
+        )
+        return response.content[0].text
+    except anthropic.APIError as e:
+        logger.error(f"Anthropic API error during chat: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Error during chat: {e}")
+        return None

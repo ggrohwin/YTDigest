@@ -1,0 +1,40 @@
+# Secrets — never bake into image
+.env
+cookies.txt
+
+# Runtime data — mounted as volumes instead
+data/
+logs/
+
+# Dev artifacts
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.coverage
+htmlcov/
+reports/
+
+# Tests — not needed in production image
+tests/
+
+# Docs and project meta
+docs/
+*.md
+.claude/
+claude-project
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Docker (prevent recursive context)
+docker-compose*.yml

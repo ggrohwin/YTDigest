@@ -1,3 +1,5 @@
+import re
+
 import aiosqlite
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -55,6 +57,22 @@ async def init_db() -> None:
         except Exception:
             pass
 
+        # Migration: add favorites tracking columns to videos
+        try:
+            await db.execute("ALTER TABLE videos ADD COLUMN is_favorited INTEGER DEFAULT 0")
+        except Exception:
+            pass
+        try:
+            await db.execute("ALTER TABLE videos ADD COLUMN favorited_at TEXT")
+        except Exception:
+            pass
+
+        # Migration: add notes column to videos
+        try:
+            await db.execute("ALTER TABLE videos ADD COLUMN notes TEXT")
+        except Exception:
+            pass
+
         await db.execute("""
             CREATE TABLE IF NOT EXISTS transcripts (
                 video_id TEXT PRIMARY KEY,
@@ -103,6 +121,22 @@ async def init_db() -> None:
             await db.execute("ALTER TABLE articles ADD COLUMN thumbnail_url TEXT")
         except Exception:
             pass  # Column already exists
+
+        # Migration: add favorites tracking columns to articles
+        try:
+            await db.execute("ALTER TABLE articles ADD COLUMN is_favorited INTEGER DEFAULT 0")
+        except Exception:
+            pass
+        try:
+            await db.execute("ALTER TABLE articles ADD COLUMN favorited_at TEXT")
+        except Exception:
+            pass
+
+        # Migration: add notes column to articles
+        try:
+            await db.execute("ALTER TABLE articles ADD COLUMN notes TEXT")
+        except Exception:
+            pass
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS article_summaries (
@@ -200,6 +234,9 @@ def _video_from_row(row) -> Video:
         is_completed=bool(row["is_completed"]),
         sentiment=row["sentiment"],
         completed_at=datetime.fromisoformat(row["completed_at"]) if row["completed_at"] else None,
+        is_favorited=bool(row["is_favorited"]),
+        favorited_at=datetime.fromisoformat(row["favorited_at"]) if row["favorited_at"] else None,
+        notes=row["notes"],
     )
 
 
@@ -241,6 +278,87 @@ async def mark_video_completed(video_id: str, sentiment: str) -> None:
             (sentiment, datetime.now(timezone.utc).isoformat(), video_id),
         )
         await db.commit()
+
+
+async def uncomplete_video(video_id: str) -> None:
+    """Un-complete a video, restoring it to active status."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """
+            UPDATE videos
+            SET is_completed = 0, sentiment = NULL, completed_at = NULL
+            WHERE id = ?
+            """,
+            (video_id,),
+        )
+        await db.commit()
+
+
+def _parse_duration_minutes(iso_duration: str | None) -> float:
+    """Parse ISO 8601 duration (e.g. 'PT5M30S') into total minutes as a float."""
+    if not iso_duration:
+        return 0.0
+    match = re.match(r"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?", iso_duration)
+    if not match:
+        return 0.0
+    hours = int(match.group(1) or 0)
+    minutes = int(match.group(2) or 0)
+    seconds = int(match.group(3) or 0)
+    return hours * 60 + minutes + seconds / 60
+
+
+async def get_engagement_stats(date_str: str | None = None) -> dict:
+    """Get engagement stats, optionally filtered to a specific date.
+
+    Returns counts of engaged vs skipped items and totals for
+    minutes watched (videos) and words read (articles).
+    """
+    stats = {
+        "videos_engaged": 0,
+        "videos_skipped": 0,
+        "articles_engaged": 0,
+        "articles_skipped": 0,
+        "total_minutes_watched": 0.0,
+        "total_words_read": 0,
+    }
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        # --- Videos ---
+        # Use DATE(completed_at, 'localtime') so UTC timestamps match the local date
+        if date_str:
+            video_query = "SELECT sentiment, duration FROM videos WHERE is_completed = 1 AND DATE(completed_at, 'localtime') = ?"
+            video_params = (date_str,)
+        else:
+            video_query = "SELECT sentiment, duration FROM videos WHERE is_completed = 1"
+            video_params = ()
+
+        async with db.execute(video_query, video_params) as cursor:
+            async for row in cursor:
+                if row["sentiment"] == "skip":
+                    stats["videos_skipped"] += 1
+                else:
+                    stats["videos_engaged"] += 1
+                    stats["total_minutes_watched"] += _parse_duration_minutes(row["duration"])
+
+        # --- Articles ---
+        if date_str:
+            article_query = "SELECT sentiment, word_count FROM articles WHERE is_completed = 1 AND DATE(completed_at, 'localtime') = ?"
+            article_params = (date_str,)
+        else:
+            article_query = "SELECT sentiment, word_count FROM articles WHERE is_completed = 1"
+            article_params = ()
+
+        async with db.execute(article_query, article_params) as cursor:
+            async for row in cursor:
+                if row["sentiment"] == "skip":
+                    stats["articles_skipped"] += 1
+                else:
+                    stats["articles_engaged"] += 1
+                    stats["total_words_read"] += row["word_count"] or 0
+
+    return stats
 
 
 async def save_transcript(transcript: Transcript) -> None:
@@ -328,23 +446,20 @@ async def update_transcript_status(video_id: str, status: str) -> None:
         await db.commit()
 
 
-async def get_videos_without_transcripts(days: int, limit: int = 1) -> list[Video]:
+async def get_videos_without_transcripts(limit: int = 1) -> list[Video]:
     """Get videos that are pending transcript fetch."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-
     async with aiosqlite.connect(DATABASE_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """
             SELECT v.* FROM videos v
-            WHERE v.published_at >= ?
-            AND (v.is_completed = 0 OR v.is_completed IS NULL)
+            WHERE (v.is_completed = 0 OR v.is_completed IS NULL)
             AND (v.transcript_status IS NULL OR v.transcript_status = 'pending' OR v.transcript_status = 'priority')
             ORDER BY CASE WHEN v.transcript_status = 'priority' THEN 0 ELSE 1 END,
                      v.published_at DESC
             LIMIT ?
             """,
-            (cutoff.isoformat(), limit),
+            (limit,),
         ) as cursor:
             rows = await cursor.fetchall()
             return [_video_from_row(row) for row in rows]
@@ -441,6 +556,9 @@ def _article_from_row(row) -> Article:
         is_completed=bool(row["is_completed"]),
         sentiment=row["sentiment"],
         completed_at=datetime.fromisoformat(row["completed_at"]) if row["completed_at"] else None,
+        is_favorited=bool(row["is_favorited"]),
+        favorited_at=datetime.fromisoformat(row["favorited_at"]) if row["favorited_at"] else None,
+        notes=row["notes"],
     )
 
 
@@ -575,6 +693,114 @@ async def mark_article_completed(article_id: str, sentiment: str) -> None:
         await db.commit()
 
 
+async def uncomplete_article(article_id: str) -> None:
+    """Un-complete an article, restoring it to active status."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """
+            UPDATE articles
+            SET is_completed = 0, sentiment = NULL, completed_at = NULL
+            WHERE id = ?
+            """,
+            (article_id,),
+        )
+        await db.commit()
+
+
+async def toggle_video_favorite(video_id: str) -> bool:
+    """Toggle the favorite status of a video. Returns the new is_favorited state."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT is_favorited FROM videos WHERE id = ?", (video_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                return False
+            currently_favorited = bool(row[0])
+
+        new_state = not currently_favorited
+        if new_state:
+            await db.execute(
+                "UPDATE videos SET is_favorited = 1, favorited_at = ? WHERE id = ?",
+                (datetime.now(timezone.utc).isoformat(), video_id),
+            )
+        else:
+            await db.execute(
+                "UPDATE videos SET is_favorited = 0, favorited_at = NULL WHERE id = ?",
+                (video_id,),
+            )
+        await db.commit()
+        return new_state
+
+
+async def toggle_article_favorite(article_id: str) -> bool:
+    """Toggle the favorite status of an article. Returns the new is_favorited state."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT is_favorited FROM articles WHERE id = ?", (article_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                return False
+            currently_favorited = bool(row[0])
+
+        new_state = not currently_favorited
+        if new_state:
+            await db.execute(
+                "UPDATE articles SET is_favorited = 1, favorited_at = ? WHERE id = ?",
+                (datetime.now(timezone.utc).isoformat(), article_id),
+            )
+        else:
+            await db.execute(
+                "UPDATE articles SET is_favorited = 0, favorited_at = NULL WHERE id = ?",
+                (article_id,),
+            )
+        await db.commit()
+        return new_state
+
+
+async def save_video_notes(video_id: str, notes: str) -> None:
+    """Save notes for a video. Empty string clears the notes."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "UPDATE videos SET notes = ? WHERE id = ?",
+            (notes or None, video_id),
+        )
+        await db.commit()
+
+
+async def save_article_notes(article_id: str, notes: str) -> None:
+    """Save notes for an article. Empty string clears the notes."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "UPDATE articles SET notes = ? WHERE id = ?",
+            (notes or None, article_id),
+        )
+        await db.commit()
+
+
+async def get_favorite_videos() -> list[Video]:
+    """Get all favorited videos, ordered by most recently favorited."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM videos WHERE is_favorited = 1 ORDER BY favorited_at DESC"
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [_video_from_row(row) for row in rows]
+
+
+async def get_favorite_articles() -> list[Article]:
+    """Get all favorited articles, ordered by most recently favorited."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM articles WHERE is_favorited = 1 ORDER BY favorited_at DESC"
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [_article_from_row(row) for row in rows]
+
+
 async def get_articles_without_summaries() -> list[Article]:
     """Get articles that have content but no summaries yet."""
     async with aiosqlite.connect(DATABASE_PATH) as db:
@@ -609,9 +835,12 @@ async def get_digest_item(item_id: str, item_type: str) -> Optional[DigestItem]:
             is_completed=video.is_completed,
             sentiment=video.sentiment,
             completed_at=video.completed_at,
+            is_favorited=video.is_favorited,
+            favorited_at=video.favorited_at,
             summary=summary.summary if summary else None,
             topics=summary.topics if summary else [],
             category=summary.category if summary else None,
+            notes=video.notes,
             thumbnail_url=video.thumbnail_url,
             duration=video.duration,
             transcript_status=video.transcript_status,
@@ -632,9 +861,12 @@ async def get_digest_item(item_id: str, item_type: str) -> Optional[DigestItem]:
             is_completed=article.is_completed,
             sentiment=article.sentiment,
             completed_at=article.completed_at,
+            is_favorited=article.is_favorited,
+            favorited_at=article.favorited_at,
             summary=summary.summary if summary else None,
             topics=summary.topics if summary else [],
             category=summary.category if summary else None,
+            notes=article.notes,
             thumbnail_url=article.thumbnail_url,
             author=article.author,
             domain=article.domain,

@@ -122,6 +122,61 @@ class TestVideoOperations:
         assert videos[1].id == "old"
 
 
+class TestGetVideosWithoutTranscripts:
+    """Tests for get_videos_without_transcripts()."""
+
+    async def test_returns_pending_video(self, test_db):
+        """A video with pending transcript status should be returned."""
+        video = Video(
+            id="pending_vid", channel_id="UC123", channel_name="Test",
+            title="Pending Video", published_at=datetime.now(timezone.utc),
+            thumbnail_url="https://example.com/thumb.jpg",
+            video_url="https://youtube.com/watch?v=pending_vid",
+        )
+        await database.save_video(video)
+
+        videos = await database.get_videos_without_transcripts(limit=10)
+        assert any(v.id == "pending_vid" for v in videos)
+
+    async def test_excludes_completed_video(self, test_db):
+        """A completed video should not be returned."""
+        video = Video(
+            id="done_vid", channel_id="UC123", channel_name="Test",
+            title="Done Video", published_at=datetime.now(timezone.utc),
+            thumbnail_url="https://example.com/thumb.jpg",
+            video_url="https://youtube.com/watch?v=done_vid",
+        )
+        await database.save_video(video)
+        await database.mark_video_completed("done_vid", "like")
+
+        videos = await database.get_videos_without_transcripts(limit=10)
+        assert not any(v.id == "done_vid" for v in videos)
+
+    async def test_priority_ordered_first(self, test_db):
+        """Prioritized videos should appear before pending ones."""
+        now = datetime.now(timezone.utc)
+        pending = Video(
+            id="pending_vid", channel_id="UC123", channel_name="Test",
+            title="Pending", published_at=now - timedelta(days=1),
+            thumbnail_url="https://example.com/thumb.jpg",
+            video_url="https://youtube.com/watch?v=pending_vid",
+        )
+        priority = Video(
+            id="priority_vid", channel_id="UC123", channel_name="Test",
+            title="Priority", published_at=now - timedelta(days=2),
+            thumbnail_url="https://example.com/thumb.jpg",
+            video_url="https://youtube.com/watch?v=priority_vid",
+        )
+        await database.save_video(pending)
+        await database.save_video(priority)
+        await database.update_transcript_status("priority_vid", "priority")
+
+        videos = await database.get_videos_without_transcripts(limit=10)
+        assert len(videos) == 2
+        assert videos[0].id == "priority_vid"
+        assert videos[1].id == "pending_vid"
+
+
 class TestTranscriptOperations:
     """Tests for transcript CRUD operations."""
 
@@ -735,3 +790,125 @@ class TestGetItemsWithoutChunkEmbeddings:
 
         items = await database.get_items_without_chunk_embeddings()
         assert ("vid2", "video") not in items
+
+
+class TestFavorites:
+    """Tests for favorite toggle and query operations."""
+
+    @pytest.fixture
+    def sample_video(self):
+        return Video(
+            id="fav_vid_1",
+            channel_id="UC123",
+            channel_name="Test Channel",
+            title="Favoritable Video",
+            published_at=datetime.now(timezone.utc),
+            thumbnail_url="https://example.com/thumb.jpg",
+            video_url="https://youtube.com/watch?v=fav_vid_1",
+            duration="PT5M",
+        )
+
+    @pytest.fixture
+    def sample_article(self):
+        return Article(
+            id="fav_art_1",
+            url="https://example.com/fav-article",
+            domain="example.com",
+            title="Favoritable Article",
+            added_at=datetime.now(timezone.utc),
+            content="Some article content.",
+            word_count=4,
+            extract_status="extracted",
+        )
+
+    async def test_toggle_video_favorite_on(self, test_db, sample_video):
+        """Toggling an unfavorited video should return True (now favorited)."""
+        await database.save_video(sample_video)
+        result = await database.toggle_video_favorite("fav_vid_1")
+        assert result is True
+
+        video = await database.get_video("fav_vid_1")
+        assert video.is_favorited is True
+        assert video.favorited_at is not None
+
+    async def test_toggle_video_favorite_off(self, test_db, sample_video):
+        """Toggling a favorited video should return False (now unfavorited)."""
+        await database.save_video(sample_video)
+        await database.toggle_video_favorite("fav_vid_1")  # on
+        result = await database.toggle_video_favorite("fav_vid_1")  # off
+        assert result is False
+
+        video = await database.get_video("fav_vid_1")
+        assert video.is_favorited is False
+        assert video.favorited_at is None
+
+    async def test_toggle_video_favorite_nonexistent(self, test_db):
+        """Toggling a nonexistent video should return False."""
+        result = await database.toggle_video_favorite("nonexistent")
+        assert result is False
+
+    async def test_toggle_article_favorite_on(self, test_db, sample_article):
+        """Toggling an unfavorited article should return True."""
+        await database.save_article(sample_article)
+        result = await database.toggle_article_favorite("fav_art_1")
+        assert result is True
+
+        article = await database.get_article("fav_art_1")
+        assert article.is_favorited is True
+        assert article.favorited_at is not None
+
+    async def test_toggle_article_favorite_off(self, test_db, sample_article):
+        """Toggling a favorited article should return False."""
+        await database.save_article(sample_article)
+        await database.toggle_article_favorite("fav_art_1")  # on
+        result = await database.toggle_article_favorite("fav_art_1")  # off
+        assert result is False
+
+        article = await database.get_article("fav_art_1")
+        assert article.is_favorited is False
+        assert article.favorited_at is None
+
+    async def test_get_favorite_videos(self, test_db):
+        """Only favorited videos should be returned."""
+        now = datetime.now(timezone.utc)
+        v1 = Video(
+            id="v1", channel_id="UC1", channel_name="C1", title="Vid 1",
+            published_at=now, thumbnail_url="https://example.com/1.jpg",
+            video_url="https://youtube.com/watch?v=v1",
+        )
+        v2 = Video(
+            id="v2", channel_id="UC1", channel_name="C1", title="Vid 2",
+            published_at=now, thumbnail_url="https://example.com/2.jpg",
+            video_url="https://youtube.com/watch?v=v2",
+        )
+        await database.save_video(v1)
+        await database.save_video(v2)
+        await database.toggle_video_favorite("v1")
+
+        favorites = await database.get_favorite_videos()
+        assert len(favorites) == 1
+        assert favorites[0].id == "v1"
+
+    async def test_get_favorite_articles(self, test_db, sample_article):
+        """Only favorited articles should be returned."""
+        await database.save_article(sample_article)
+
+        # Not favorited yet
+        favorites = await database.get_favorite_articles()
+        assert len(favorites) == 0
+
+        # Favorite it
+        await database.toggle_article_favorite("fav_art_1")
+        favorites = await database.get_favorite_articles()
+        assert len(favorites) == 1
+        assert favorites[0].id == "fav_art_1"
+
+    async def test_favorite_persists_across_completion(self, test_db, sample_video):
+        """Favoriting a video is independent of completion status."""
+        await database.save_video(sample_video)
+        await database.toggle_video_favorite("fav_vid_1")
+        await database.mark_video_completed("fav_vid_1", "like")
+
+        video = await database.get_video("fav_vid_1")
+        assert video.is_favorited is True
+        assert video.is_completed is True

@@ -52,6 +52,67 @@
             -webkit-line-clamp: unset !important;
             display: block !important;
         }
+
+        /* Chat side panel */
+        .chat-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 420px;
+            z-index: 50;
+        }
+        .chat-modal {
+            background: white;
+            border-radius: 0 0.75rem 0.75rem 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 4px 0 20px rgba(0,0,0,0.15);
+        }
+        .chat-msg-user {
+            background: #dbeafe;
+            margin-left: 3rem;
+            border-radius: 0.75rem 0.75rem 0.25rem 0.75rem;
+            padding: 0.5rem 0.75rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            white-space: pre-wrap;
+        }
+        .chat-msg-assistant {
+            background: #f3f4f6;
+            margin-right: 3rem;
+            border-radius: 0.75rem 0.75rem 0.75rem 0.25rem;
+            padding: 0.5rem 0.75rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            white-space: pre-wrap;
+        }
+        .chat-msg-error {
+            background: #fee2e2;
+            color: #991b1b;
+            margin-right: 3rem;
+            border-radius: 0.75rem;
+            padding: 0.5rem 0.75rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+        }
+        .chat-typing span {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background: #9ca3af;
+            border-radius: 50%;
+            margin: 0 2px;
+            animation: chatBounce 1.2s infinite;
+        }
+        .chat-typing span:nth-child(2) { animation-delay: 0.2s; }
+        .chat-typing span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes chatBounce {
+            0%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-6px); }
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -131,6 +192,15 @@
             <span>&bull;</span>
             <span class="text-purple-700">{{ page_summary.embedding_count }} embeddings</span>
             {% endif %}
+            <span>&bull;</span>
+            <span class="text-blue-700">
+                Today: {{ page_summary.videos_engaged }} watched ({{ page_summary.minutes_watched_display }})
+                &middot; {{ page_summary.articles_engaged }} read ({{ "{:,}".format(page_summary.total_words_read) }} words)
+            </span>
+            {% if page_summary.total_skipped > 0 %}
+            <span>&bull;</span>
+            <span class="text-gray-500">{{ page_summary.total_skipped }} skipped</span>
+            {% endif %}
         </div>
         {% endif %}
 
@@ -144,15 +214,17 @@
         <div class="mb-6 flex items-center justify-between flex-wrap gap-2">
             <div class="flex items-center gap-2">
                 <span class="text-gray-600 text-sm">Group by:</span>
-                <a href="?group_by=date{{ '&show_completed=true' if show_completed else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'date' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Date</a>
-                <a href="?group_by=channel{{ '&show_completed=true' if show_completed else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'channel' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Source</a>
-                <a href="?group_by=topic{{ '&show_completed=true' if show_completed else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'topic' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Topic</a>
+                <a href="?group_by=date{{ '&show_completed=true' if show_completed else '' }}{{ '&view=favorites' if view == 'favorites' else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'date' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Date</a>
+                <a href="?group_by=channel{{ '&show_completed=true' if show_completed else '' }}{{ '&view=favorites' if view == 'favorites' else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'channel' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Source</a>
+                <a href="?group_by=topic{{ '&show_completed=true' if show_completed else '' }}{{ '&view=favorites' if view == 'favorites' else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'topic' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Topic</a>
             </div>
+            {% if view != 'favorites' %}
             <div class="flex items-center gap-2">
                 <a href="?group_by={{ group_by }}{{ '&show_completed=true' if not show_completed else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-green-600 text-white' if show_completed else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">
                     {{ 'Showing Completed' if show_completed else 'Show Completed' }}
                 </a>
             </div>
+            {% endif %}
         </div>
 
         <!-- Search results (hidden until a search is performed) -->
@@ -171,6 +243,10 @@
             <!-- Sidebar -->
             <nav id="sidebar" class="hidden lg:block w-56 flex-shrink-0 sticky top-4 self-start max-h-[calc(100vh-2rem)] overflow-y-auto">
                 <div class="bg-white rounded-lg shadow-md p-4">
+                    <a href="?view=favorites&group_by={{ group_by }}" class="block text-sm font-medium py-1.5 px-2 rounded mb-2 transition-colors {{ 'bg-yellow-100 text-yellow-800' if view == 'favorites' else 'text-gray-600 hover:bg-yellow-50 hover:text-yellow-700' }}">
+                        <span class="text-base">&#9733;</span> Favorites
+                    </a>
+                    <hr class="mb-3">
                     <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Navigation</h3>
                     {% if grouped_items %}
                         {% if group_by == 'date' and month_groups %}
@@ -278,6 +354,12 @@
             <!-- Items list -->
             <main class="flex-1 min-w-0">
                 <div id="itemsList" class="space-y-6">
+                    {% if view == 'favorites' %}
+                    <div class="flex items-center gap-3 mb-2">
+                        <h2 class="text-xl font-semibold text-gray-800"><span class="text-yellow-500">&#9733;</span> Your Favorites</h2>
+                        <a href="?group_by={{ group_by }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; Back to digest</a>
+                    </div>
+                    {% endif %}
                     {% if grouped_items %}
                         {% for group_name, items in grouped_items %}
                         <div class="group-container" id="group-{{ group_name | slugify }}">
@@ -350,9 +432,9 @@
                                 {% if item.topics %}
                                 <div class="flex flex-wrap gap-2 mb-3">
                                     {% for topic in item.topics %}
-                                    <span class="bg-emerald-100 text-emerald-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                                    <a href="?group_by=topic#group-{{ topic | slugify }}" class="bg-emerald-100 text-emerald-800 text-xs font-medium px-2.5 py-0.5 rounded hover:bg-emerald-200 transition-colors">
                                         {{ topic }}
-                                    </span>
+                                    </a>
                                     {% endfor %}
                                 </div>
                                 {% endif %}
@@ -384,13 +466,64 @@
                                     <button onclick="markComplete('{{ item.id }}', 'dislike', 'article')" class="p-2 hover:bg-red-100 rounded transition-colors" title="Dislike">
                                         👎
                                     </button>
+                                    <button onclick="markComplete('{{ item.id }}', 'skip', 'article')" class="p-2 hover:bg-gray-200 rounded transition-colors" title="Skip">
+                                        ⏭️
+                                    </button>
+                                    {% if item.summary %}
+                                    <button onclick='openChatModal({{ item.id | tojson }}, "article", {{ item.title | tojson }})' class="p-2 hover:bg-emerald-100 rounded transition-colors" title="Chat about this article">💬</button>
+                                    {% endif %}
+                                    <button
+                                        id="notes-btn-{{ item.id }}"
+                                        onclick="toggleNotesPanel('{{ item.id }}', 'article')"
+                                        class="p-2 rounded transition-colors {{ 'bg-amber-100 hover:bg-amber-200 text-amber-700' if item.notes else 'hover:bg-gray-100 text-gray-400' }}"
+                                        title="{{ 'Edit notes' if item.notes else 'Add notes' }}"
+                                    >📝</button>
+                                    <span class="flex-1"></span>
+                                    <button
+                                        onclick="toggleFavorite('{{ item.id }}', 'article', this)"
+                                        class="p-2 hover:bg-yellow-100 rounded transition-colors text-lg {{ 'text-yellow-500' if item.is_favorited else 'text-gray-400' }}"
+                                        title="{{ 'Remove from favorites' if item.is_favorited else 'Add to favorites' }}"
+                                    >{{ '★' if item.is_favorited else '☆' }}</button>
                                 </div>
                                 {% else %}
                                 <div class="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2 text-gray-400 text-sm">
                                     <span>Completed</span>
-                                    {% if item.sentiment == 'like' %}👍{% elif item.sentiment == 'neutral' %}✔️{% elif item.sentiment == 'dislike' %}👎{% endif %}
+                                    {% if item.sentiment == 'like' %}👍{% elif item.sentiment == 'neutral' %}✔️{% elif item.sentiment == 'dislike' %}👎{% elif item.sentiment == 'skip' %}⏭️{% endif %}
+                                    <button onclick="unComplete('{{ item.id }}', 'article')" class="ml-1 px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-500 rounded transition-colors" title="Undo completion">Undo</button>
+                                    {% if item.summary %}
+                                    <button onclick='openChatModal({{ item.id | tojson }}, "article", {{ item.title | tojson }})' class="p-2 hover:bg-emerald-100 rounded transition-colors" title="Chat about this article">💬</button>
+                                    {% endif %}
+                                    <button
+                                        id="notes-btn-{{ item.id }}"
+                                        onclick="toggleNotesPanel('{{ item.id }}', 'article')"
+                                        class="p-2 rounded transition-colors {{ 'bg-amber-100 hover:bg-amber-200 text-amber-700' if item.notes else 'hover:bg-gray-100 text-gray-400' }}"
+                                        title="{{ 'Edit notes' if item.notes else 'Add notes' }}"
+                                    >📝</button>
+                                    <span class="flex-1"></span>
+                                    <button
+                                        onclick="toggleFavorite('{{ item.id }}', 'article', this)"
+                                        class="p-2 hover:bg-yellow-100 rounded transition-colors text-lg {{ 'text-yellow-500' if item.is_favorited else 'text-gray-400' }}"
+                                        title="{{ 'Remove from favorites' if item.is_favorited else 'Add to favorites' }}"
+                                    >{{ '★' if item.is_favorited else '☆' }}</button>
                                 </div>
                                 {% endif %}
+
+                                <!-- Notes panel (hidden by default) -->
+                                <div id="notes-panel-{{ item.id }}" class="hidden mt-2 pt-3 border-t border-gray-100 bg-gray-50 rounded p-3">
+                                    {% if item.notes %}
+                                    <div id="notes-display-{{ item.id }}" class="text-sm text-gray-700 mb-2 whitespace-pre-wrap">{{ item.notes }}</div>
+                                    {% endif %}
+                                    <textarea
+                                        id="notes-textarea-{{ item.id }}"
+                                        class="w-full border border-gray-300 rounded text-sm p-2 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                                        rows="3"
+                                        placeholder="Add a note..."
+                                    >{{ item.notes or '' }}</textarea>
+                                    <div class="flex gap-2 mt-2">
+                                        <button onclick="saveNotes('{{ item.id }}', 'article')" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded transition-colors">Save</button>
+                                        <button onclick="cancelNotes('{{ item.id }}')" class="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium rounded transition-colors">Cancel</button>
+                                    </div>
+                                </div>
                             </div>
                             </div>
                         </article>
@@ -438,9 +571,9 @@
                                     {% if item.topics %}
                                     <div class="flex flex-wrap gap-2 mb-3">
                                         {% for topic in item.topics %}
-                                        <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                                        <a href="?group_by=topic#group-{{ topic | slugify }}" class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded hover:bg-blue-200 transition-colors">
                                             {{ topic }}
-                                        </span>
+                                        </a>
                                         {% endfor %}
                                     </div>
                                     {% endif %}
@@ -495,13 +628,64 @@
                                         <button onclick="markComplete('{{ item.id }}', 'dislike', 'video')" class="p-2 hover:bg-red-100 rounded transition-colors" title="Dislike">
                                             👎
                                         </button>
+                                        <button onclick="markComplete('{{ item.id }}', 'skip', 'video')" class="p-2 hover:bg-gray-200 rounded transition-colors" title="Skip">
+                                            ⏭️
+                                        </button>
+                                        {% if item.summary %}
+                                        <button onclick='openChatModal({{ item.id | tojson }}, "video", {{ item.title | tojson }})' class="p-2 hover:bg-blue-100 rounded transition-colors" title="Chat about this video">💬</button>
+                                        {% endif %}
+                                        <button
+                                            id="notes-btn-{{ item.id }}"
+                                            onclick="toggleNotesPanel('{{ item.id }}', 'video')"
+                                            class="p-2 rounded transition-colors {{ 'bg-amber-100 hover:bg-amber-200 text-amber-700' if item.notes else 'hover:bg-gray-100 text-gray-400' }}"
+                                            title="{{ 'Edit notes' if item.notes else 'Add notes' }}"
+                                        >📝</button>
+                                        <span class="flex-1"></span>
+                                        <button
+                                            onclick="toggleFavorite('{{ item.id }}', 'video', this)"
+                                            class="p-2 hover:bg-yellow-100 rounded transition-colors text-lg {{ 'text-yellow-500' if item.is_favorited else 'text-gray-400' }}"
+                                            title="{{ 'Remove from favorites' if item.is_favorited else 'Add to favorites' }}"
+                                        >{{ '★' if item.is_favorited else '☆' }}</button>
                                     </div>
                                     {% else %}
                                     <div class="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2 text-gray-400 text-sm">
                                         <span>Completed</span>
-                                        {% if item.sentiment == 'like' %}👍{% elif item.sentiment == 'neutral' %}✔️{% elif item.sentiment == 'dislike' %}👎{% endif %}
+                                        {% if item.sentiment == 'like' %}👍{% elif item.sentiment == 'neutral' %}✔️{% elif item.sentiment == 'dislike' %}👎{% elif item.sentiment == 'skip' %}⏭️{% endif %}
+                                        <button onclick="unComplete('{{ item.id }}', 'video')" class="ml-1 px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-500 rounded transition-colors" title="Undo completion">Undo</button>
+                                        {% if item.summary %}
+                                        <button onclick='openChatModal({{ item.id | tojson }}, "video", {{ item.title | tojson }})' class="p-2 hover:bg-blue-100 rounded transition-colors" title="Chat about this video">💬</button>
+                                        {% endif %}
+                                        <button
+                                            id="notes-btn-{{ item.id }}"
+                                            onclick="toggleNotesPanel('{{ item.id }}', 'video')"
+                                            class="p-2 rounded transition-colors {{ 'bg-amber-100 hover:bg-amber-200 text-amber-700' if item.notes else 'hover:bg-gray-100 text-gray-400' }}"
+                                            title="{{ 'Edit notes' if item.notes else 'Add notes' }}"
+                                        >📝</button>
+                                        <span class="flex-1"></span>
+                                        <button
+                                            onclick="toggleFavorite('{{ item.id }}', 'video', this)"
+                                            class="p-2 hover:bg-yellow-100 rounded transition-colors text-lg {{ 'text-yellow-500' if item.is_favorited else 'text-gray-400' }}"
+                                            title="{{ 'Remove from favorites' if item.is_favorited else 'Add to favorites' }}"
+                                        >{{ '★' if item.is_favorited else '☆' }}</button>
                                     </div>
                                     {% endif %}
+
+                                    <!-- Notes panel (hidden by default) -->
+                                    <div id="notes-panel-{{ item.id }}" class="hidden mt-2 pt-3 border-t border-gray-100 bg-gray-50 rounded p-3">
+                                        {% if item.notes %}
+                                        <div id="notes-display-{{ item.id }}" class="text-sm text-gray-700 mb-2 whitespace-pre-wrap">{{ item.notes }}</div>
+                                        {% endif %}
+                                        <textarea
+                                            id="notes-textarea-{{ item.id }}"
+                                            class="w-full border border-gray-300 rounded text-sm p-2 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                            rows="3"
+                                            placeholder="Add a note..."
+                                        >{{ item.notes or '' }}</textarea>
+                                        <div class="flex gap-2 mt-2">
+                                            <button onclick="saveNotes('{{ item.id }}', 'video')" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors">Save</button>
+                                            <button onclick="cancelNotes('{{ item.id }}')" class="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium rounded transition-colors">Cancel</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </article>
@@ -512,8 +696,13 @@
                         {% endfor %}
                     {% else %}
                         <div class="bg-white rounded-lg shadow-md p-8 text-center">
+                            {% if view == 'favorites' %}
+                            <p class="text-gray-500 text-lg mb-4">No favorites yet</p>
+                            <p class="text-gray-400">Click <span class="text-yellow-500">&#9734;</span> on any card to add it to your favorites.</p>
+                            {% else %}
                             <p class="text-gray-500 text-lg mb-4">No items yet</p>
                             <p class="text-gray-400">Click "Get New Videos" to fetch videos, or use the bookmarklet to save articles.</p>
+                            {% endif %}
                         </div>
                     {% endif %}
                 </div>
@@ -524,6 +713,38 @@
         <footer class="mt-12 text-center text-gray-500 text-sm">
             <p>YTDigest &bull; Powered by Claude AI</p>
         </footer>
+
+        <!-- Chat modal -->
+        <div id="chatOverlay" class="chat-overlay hidden">
+            <div class="chat-modal">
+                <!-- Title bar -->
+                <div class="flex items-center gap-2 px-4 py-3 border-b border-gray-200 flex-shrink-0">
+                    <span id="chatBadge" class="text-xs font-semibold px-2 py-0.5 rounded"></span>
+                    <h3 id="chatTitle" class="text-sm font-semibold text-gray-800 truncate flex-1"></h3>
+                    <button onclick="closeChatModal()" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+                </div>
+                <!-- Messages area -->
+                <div id="chatMessages" class="flex-1 overflow-y-auto p-4"></div>
+                <!-- Input form -->
+                <form onsubmit="sendChatMessage(event)" class="flex gap-2 px-4 py-3 border-t border-gray-200 flex-shrink-0">
+                    <input
+                        id="chatInput"
+                        type="text"
+                        placeholder="Ask about this content..."
+                        class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        autocomplete="off"
+                    >
+                    <button
+                        type="submit"
+                        id="chatSendBtn"
+                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors flex items-center"
+                    >
+                        <span id="chatSendSpinner" class="spinner hidden" style="width:14px;height:14px;border-width:2px;margin-right:4px;"></span>
+                        Send
+                    </button>
+                </form>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -841,9 +1062,11 @@
                 meta += `<span class="mx-2">&bull;</span><span>${item.word_count} words</span>`;
             }
 
-            const topics = (item.topics || []).map(t =>
-                `<span class="${topicColor} text-xs font-medium px-2.5 py-0.5 rounded">${t}</span>`
-            ).join('');
+            const topics = (item.topics || []).map(t => {
+                const slug = t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                const hoverColor = isArticle ? 'hover:bg-emerald-200' : 'hover:bg-blue-200';
+                return `<a href="?group_by=topic#group-${slug}" class="${topicColor} text-xs font-medium px-2.5 py-0.5 rounded ${hoverColor} transition-colors">${t}</a>`;
+            }).join('');
 
             card.innerHTML = `
                 <div class="${item.thumbnail_url ? 'md:flex' : ''}">
@@ -891,6 +1114,48 @@
             if (groupingSelector) groupingSelector.classList.remove('hidden');
         }
 
+        async function toggleFavorite(itemId, itemType, button) {
+            const endpoint = itemType === 'article'
+                ? `/api/articles/${itemId}/favorite`
+                : `/api/videos/${itemId}/favorite`;
+
+            // Optimistic UI toggle
+            const wasFavorited = button.innerHTML.trim() === '\u2605';  // ★
+            button.innerHTML = wasFavorited ? '\u2606' : '\u2605';  // ☆ or ★
+            button.classList.toggle('text-yellow-500', !wasFavorited);
+            button.classList.toggle('text-gray-400', wasFavorited);
+            button.title = wasFavorited ? 'Add to favorites' : 'Remove from favorites';
+
+            try {
+                const response = await fetch(endpoint, { method: 'POST' });
+                const data = await response.json();
+
+                if (!data.success) {
+                    // Revert on failure
+                    button.innerHTML = wasFavorited ? '\u2605' : '\u2606';
+                    button.classList.toggle('text-yellow-500', wasFavorited);
+                    button.classList.toggle('text-gray-400', !wasFavorited);
+                    button.title = wasFavorited ? 'Remove from favorites' : 'Add to favorites';
+                    return;
+                }
+
+                // In favorites view, unfavoriting should fade out the card
+                const isFavoritesView = new URLSearchParams(window.location.search).get('view') === 'favorites';
+                if (isFavoritesView && !data.is_favorited) {
+                    const card = button.closest('article');
+                    card.style.transition = 'opacity 0.3s';
+                    card.style.opacity = '0';
+                    setTimeout(() => card.remove(), 300);
+                }
+            } catch (error) {
+                // Revert on error
+                button.innerHTML = wasFavorited ? '&#9733;' : '&#9734;';
+                button.classList.toggle('text-yellow-500', wasFavorited);
+                button.classList.toggle('text-gray-400', !wasFavorited);
+                button.title = wasFavorited ? 'Remove from favorites' : 'Add to favorites';
+            }
+        }
+
         async function markComplete(itemId, sentiment, itemType) {
             const endpoint = itemType === 'article'
                 ? `/api/articles/${itemId}/complete?sentiment=${sentiment}`
@@ -914,6 +1179,225 @@
                 alert('Error: ' + error.message);
             }
         }
+
+        async function unComplete(itemId, itemType) {
+            const endpoint = itemType === 'article'
+                ? `/api/articles/${itemId}/uncomplete`
+                : `/api/videos/${itemId}/uncomplete`;
+            try {
+                const response = await fetch(endpoint, { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // --- Notes functions ---
+
+        function toggleNotesPanel(itemId, itemType) {
+            const panel = document.getElementById('notes-panel-' + itemId);
+            if (!panel) return;
+
+            if (panel.classList.contains('hidden')) {
+                panel.classList.remove('hidden');
+                const textarea = document.getElementById('notes-textarea-' + itemId);
+                if (textarea) textarea.focus();
+            } else {
+                panel.classList.add('hidden');
+            }
+        }
+
+        async function saveNotes(itemId, itemType) {
+            const textarea = document.getElementById('notes-textarea-' + itemId);
+            if (!textarea) return;
+
+            const notes = textarea.value.trim();
+            const endpoint = itemType === 'article'
+                ? `/api/articles/${itemId}/notes`
+                : `/api/videos/${itemId}/notes`;
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ notes }),
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    // Update button style
+                    const btn = document.getElementById('notes-btn-' + itemId);
+                    if (btn) {
+                        if (notes) {
+                            btn.className = 'p-2 rounded transition-colors bg-amber-100 hover:bg-amber-200 text-amber-700';
+                            btn.title = 'Edit notes';
+                        } else {
+                            btn.className = 'p-2 rounded transition-colors hover:bg-gray-100 text-gray-400';
+                            btn.title = 'Add notes';
+                        }
+                    }
+
+                    // Update display text
+                    const display = document.getElementById('notes-display-' + itemId);
+                    if (notes) {
+                        if (display) {
+                            display.textContent = notes;
+                        } else {
+                            // Create display element
+                            const panel = document.getElementById('notes-panel-' + itemId);
+                            const newDisplay = document.createElement('div');
+                            newDisplay.id = 'notes-display-' + itemId;
+                            newDisplay.className = 'text-sm text-gray-700 mb-2 whitespace-pre-wrap';
+                            newDisplay.textContent = notes;
+                            panel.insertBefore(newDisplay, panel.firstChild);
+                        }
+                    } else if (display) {
+                        display.remove();
+                    }
+
+                    // Close panel
+                    document.getElementById('notes-panel-' + itemId).classList.add('hidden');
+                } else {
+                    alert('Error saving notes: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error saving notes: ' + error.message);
+            }
+        }
+
+        function cancelNotes(itemId) {
+            document.getElementById('notes-panel-' + itemId).classList.add('hidden');
+            // Reset textarea to display text (or empty)
+            const display = document.getElementById('notes-display-' + itemId);
+            const textarea = document.getElementById('notes-textarea-' + itemId);
+            if (textarea) {
+                textarea.value = display ? display.textContent : '';
+            }
+        }
+
+        // --- Chat modal functions ---
+
+        const chatState = { itemId: null, itemType: null, messages: [] };
+
+        function openChatModal(itemId, itemType, title) {
+            chatState.itemId = itemId;
+            chatState.itemType = itemType;
+            chatState.messages = [];
+
+            const badge = document.getElementById('chatBadge');
+            if (itemType === 'video') {
+                badge.className = 'text-xs font-semibold px-2 py-0.5 rounded bg-blue-100 text-blue-800';
+                badge.textContent = 'Video';
+            } else {
+                badge.className = 'text-xs font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800';
+                badge.textContent = 'Article';
+            }
+
+            document.getElementById('chatTitle').textContent = title;
+            document.getElementById('chatMessages').innerHTML = '';
+            document.getElementById('chatInput').value = '';
+            document.getElementById('chatOverlay').classList.remove('hidden');
+            document.getElementById('chatInput').focus();
+        }
+
+        function closeChatModal() {
+            document.getElementById('chatOverlay').classList.add('hidden');
+            chatState.itemId = null;
+            chatState.itemType = null;
+            chatState.messages = [];
+        }
+
+        function appendChatMessage(role, content) {
+            const messagesEl = document.getElementById('chatMessages');
+            const div = document.createElement('div');
+            div.className = role === 'user' ? 'chat-msg-user'
+                          : role === 'error' ? 'chat-msg-error'
+                          : 'chat-msg-assistant';
+            div.textContent = content;
+            messagesEl.appendChild(div);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        function showTypingIndicator() {
+            const messagesEl = document.getElementById('chatMessages');
+            const div = document.createElement('div');
+            div.className = 'chat-typing';
+            div.id = 'chatTyping';
+            div.innerHTML = '<span></span><span></span><span></span>';
+            messagesEl.appendChild(div);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        function removeTypingIndicator() {
+            const el = document.getElementById('chatTyping');
+            if (el) el.remove();
+        }
+
+        async function sendChatMessage(event) {
+            event.preventDefault();
+            const input = document.getElementById('chatInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const sendBtn = document.getElementById('chatSendBtn');
+            const sendSpinner = document.getElementById('chatSendSpinner');
+
+            // Add user message to UI and state
+            appendChatMessage('user', text);
+            chatState.messages.push({ role: 'user', content: text });
+            input.value = '';
+
+            // Disable input while waiting
+            sendBtn.disabled = true;
+            input.disabled = true;
+            sendSpinner.classList.remove('hidden');
+            showTypingIndicator();
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        item_id: chatState.itemId,
+                        item_type: chatState.itemType,
+                        messages: chatState.messages,
+                    }),
+                });
+                const data = await response.json();
+
+                removeTypingIndicator();
+
+                if (data.success) {
+                    appendChatMessage('assistant', data.response);
+                    chatState.messages.push({ role: 'assistant', content: data.response });
+                } else {
+                    appendChatMessage('error', data.error || 'Unknown error');
+                    // Pop the failed user message so history stays valid
+                    chatState.messages.pop();
+                }
+            } catch (error) {
+                removeTypingIndicator();
+                appendChatMessage('error', error.message);
+                chatState.messages.pop();
+            }
+
+            sendBtn.disabled = false;
+            input.disabled = false;
+            sendSpinner.classList.add('hidden');
+            input.focus();
+        }
+
+        // Close chat modal on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && !document.getElementById('chatOverlay').classList.contains('hidden')) {
+                closeChatModal();
+            }
+        });
     </script>
 </body>
 </html>
