@@ -42,9 +42,7 @@ _Empty - ready for next task_
 ## Infrastructure & DevOps
 
 ### Now
-| Item | Description | Effort |
-|------|-------------|--------|
-| CI/CD | GitHub Actions to run tests on push, build container image | Medium |
+_Empty - ready for next task_
 
 ### Next
 | Item | Description | Effort |
@@ -80,6 +78,7 @@ _Empty - ready for next task_
 ## Completed
 | Item | Date | Notes |
 |------|------|-------|
+| CI/CD with GitHub Actions | 2026-02-22 | Two-job workflow: run pytest (with artifact upload) and build Docker image on every push/PR to master |
 | Dockerize the app | 2026-02-22 | Dockerfile + Docker Compose with SQLite volume mount, non-root user, config editable without rebuilding |
 | Add notes to digest entries | 2026-02-16 | Personal notes on any video or article card; stored in DB, displayed on card with amber indicator |
 | Chat with transcript | 2026-02-16 | Multi-turn chat modal to ask Claude questions about any video transcript or article content; system-prompt architecture keeps content constant across turns |
