@@ -9,6 +9,21 @@
 
 ---
 
+## Epics
+
+### Publish to Public Internet
+_Status: Later_
+
+Deploy YTDigest to a public URL so it's accessible from anywhere, not just localhost.
+
+| Step | Description | Effort | Status |
+|------|-------------|--------|--------|
+| Migrate SQLite to Postgres | Swap `aiosqlite` for `asyncpg`, add Postgres container to Docker Compose, replace ad-hoc ALTER TABLE with Alembic migrations | Medium | Pending |
+| User authentication | Per-user auth with env-var toggle (`AUTH_ENABLED`). Disabled locally, enforced in cloud. Hashed passwords, session management. | Medium | Pending |
+| Cloud deployment | Push container to Fly.io or similar; persistent volume for DB, platform secrets for API keys, HTTPS | Medium | Pending |
+
+---
+
 ## Features
 
 ### Now
@@ -23,7 +38,6 @@ _Empty - ready for next task_
 ### Later
 | Item | Description | Effort |
 |------|-------------|--------|
-| Publish to public internet | Deploy to a public URL with auth, DB migration (SQLite→Postgres), secrets management, HTTPS | Large |
 | Mobile-friendly UI | Responsive design improvements | Medium |
 | Progress dashboard | Visualize engagement metrics (videos watched, articles read, minutes, words) broken down by day/week/month with yesterday comparison | Medium |
 | Search across transcripts | Keyword search across all saved transcripts | Medium |
@@ -47,16 +61,11 @@ _Empty - ready for next task_
 ### Next
 | Item | Description | Effort |
 |------|-------------|--------|
-| Basic auth middleware | Environment-variable-toggled auth (`AUTH_ENABLED`, `AUTH_USERNAME`, `AUTH_PASSWORD`). Off locally, on in cloud. | Quick |
-| Migrate SQLite to Postgres | Swap `aiosqlite` for `asyncpg`, add Postgres container to Docker Compose, replace ad-hoc ALTER TABLE with Alembic migrations | Medium |
-| Code formatting | Set up black + ruff for consistent style | Quick |
-| Pre-commit hooks | Run formatter, linter, tests before commit | Quick |
 | Dependency pinning | Lock versions in requirements.txt | Quick |
 
 ### Later
 | Item | Description | Effort |
 |------|-------------|--------|
-| Cloud deployment | Push container to Fly.io or similar; persistent volume for DB, platform secrets for API keys, HTTPS | Medium |
 | Type checking | Add mypy, fix type errors | Medium |
 | Feature branches | Adopt branch-based workflow | Quick |
 
@@ -78,6 +87,7 @@ _Empty - ready for next task_
 ## Completed
 | Item | Date | Notes |
 |------|------|-------|
+| Code formatting & pre-commit hooks | 2026-02-22 | black + ruff for formatting/linting, pre-commit hooks run both before every commit, CI lint job checks on push/PR |
 | CI/CD with GitHub Actions | 2026-02-22 | Two-job workflow: run pytest (with artifact upload) and build Docker image on every push/PR to master |
 | Dockerize the app | 2026-02-22 | Dockerfile + Docker Compose with SQLite volume mount, non-root user, config editable without rebuilding |
 | Add notes to digest entries | 2026-02-16 | Personal notes on any video or article card; stored in DB, displayed on card with amber indicator |
@@ -125,3 +135,4 @@ _Empty - ready for next task_
 2. **Prioritize**: Move items up to "Later" → "Next" → "Now" as needed
 3. **Track completion**: Move finished items to "Completed" with date
 4. **Estimate effort**: Quick (<1 hour), Medium (1-4 hours), Large (4+ hours)
+5. **Epics**: Multi-step initiatives that span several commits. Each epic has its own step table with per-step effort and status. Individual steps move through Pending → In Progress → Done. The epic's overall status (Now/Next/Later) is shown below its heading.
