@@ -1,7 +1,6 @@
 import logging
 import os
-import re
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional
 from urllib.parse import parse_qs, urlparse
 
@@ -24,10 +23,9 @@ def get_youtube_client():
 def get_channel_uploads_playlist_id(youtube, channel_id: str) -> Optional[str]:
     """Get the uploads playlist ID for a channel."""
     try:
-        response = youtube.channels().list(
-            part="contentDetails",
-            id=channel_id
-        ).execute()
+        response = (
+            youtube.channels().list(part="contentDetails", id=channel_id).execute()
+        )
 
         if response.get("items"):
             return response["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
@@ -40,7 +38,7 @@ def get_channel_uploads(
     channel_id: str,
     channel_name: str,
     max_results: int = 5,
-    published_after: Optional[datetime] = None
+    published_after: Optional[datetime] = None,
 ) -> list[Video]:
     """Fetch recent videos from a channel's uploads playlist."""
     youtube = get_youtube_client()
@@ -51,11 +49,13 @@ def get_channel_uploads(
         return []
 
     try:
-        response = youtube.playlistItems().list(
-            part="snippet",
-            playlistId=uploads_playlist_id,
-            maxResults=max_results
-        ).execute()
+        response = (
+            youtube.playlistItems()
+            .list(
+                part="snippet", playlistId=uploads_playlist_id, maxResults=max_results
+            )
+            .execute()
+        )
 
         # Collect video data first
         video_data = []
@@ -69,18 +69,22 @@ def get_channel_uploads(
             if published_after and published_at < published_after:
                 continue
 
-            thumbnail_url = snippet["thumbnails"].get(
-                "high", snippet["thumbnails"].get("default", {})
-            ).get("url", "")
+            thumbnail_url = (
+                snippet["thumbnails"]
+                .get("high", snippet["thumbnails"].get("default", {}))
+                .get("url", "")
+            )
 
-            video_data.append({
-                "id": video_id,
-                "channel_id": channel_id,
-                "channel_name": channel_name,
-                "title": snippet["title"],
-                "published_at": published_at,
-                "thumbnail_url": thumbnail_url,
-            })
+            video_data.append(
+                {
+                    "id": video_id,
+                    "channel_id": channel_id,
+                    "channel_name": channel_name,
+                    "title": snippet["title"],
+                    "published_at": published_at,
+                    "thumbnail_url": thumbnail_url,
+                }
+            )
 
         # Fetch durations for all videos in one API call
         video_ids = [v["id"] for v in video_data]
@@ -90,16 +94,18 @@ def get_channel_uploads(
         videos = []
         for v in video_data:
             duration = details.get(v["id"], {}).get("duration")
-            videos.append(Video(
-                id=v["id"],
-                channel_id=v["channel_id"],
-                channel_name=v["channel_name"],
-                title=v["title"],
-                published_at=v["published_at"],
-                thumbnail_url=v["thumbnail_url"],
-                video_url=f"https://www.youtube.com/watch?v={v['id']}",
-                duration=duration,
-            ))
+            videos.append(
+                Video(
+                    id=v["id"],
+                    channel_id=v["channel_id"],
+                    channel_name=v["channel_name"],
+                    title=v["title"],
+                    published_at=v["published_at"],
+                    thumbnail_url=v["thumbnail_url"],
+                    video_url=f"https://www.youtube.com/watch?v={v['id']}",
+                    duration=duration,
+                )
+            )
 
         return videos
 
@@ -116,10 +122,11 @@ def get_video_details(video_ids: list[str]) -> dict:
     youtube = get_youtube_client()
 
     try:
-        response = youtube.videos().list(
-            part="snippet,contentDetails,statistics",
-            id=",".join(video_ids)
-        ).execute()
+        response = (
+            youtube.videos()
+            .list(part="snippet,contentDetails,statistics", id=",".join(video_ids))
+            .execute()
+        )
 
         return {
             item["id"]: {
@@ -174,7 +181,7 @@ def parse_video_id(url: str) -> Optional[str]:
         # /embed/VIDEO_ID, /v/VIDEO_ID, /shorts/VIDEO_ID
         for prefix in ("/embed/", "/v/", "/shorts/"):
             if parsed.path.startswith(prefix):
-                video_id = parsed.path[len(prefix):].split("/")[0]
+                video_id = parsed.path[len(prefix) :].split("/")[0]
                 return video_id if video_id else None
 
     return None
@@ -193,10 +200,14 @@ def get_video_by_id(video_id: str) -> Optional[Video]:
     youtube = get_youtube_client()
 
     try:
-        response = youtube.videos().list(
-            part="snippet,contentDetails",
-            id=video_id,
-        ).execute()
+        response = (
+            youtube.videos()
+            .list(
+                part="snippet,contentDetails",
+                id=video_id,
+            )
+            .execute()
+        )
 
         items = response.get("items", [])
         if not items:
@@ -207,9 +218,11 @@ def get_video_by_id(video_id: str) -> Optional[Video]:
         published_at = datetime.fromisoformat(
             snippet["publishedAt"].replace("Z", "+00:00")
         )
-        thumbnail_url = snippet["thumbnails"].get(
-            "high", snippet["thumbnails"].get("default", {})
-        ).get("url", "")
+        thumbnail_url = (
+            snippet["thumbnails"]
+            .get("high", snippet["thumbnails"].get("default", {}))
+            .get("url", "")
+        )
         duration = item["contentDetails"].get("duration")
 
         return Video(

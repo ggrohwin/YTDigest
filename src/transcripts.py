@@ -47,17 +47,18 @@ def fetch_transcript(video_id: str) -> tuple[Optional[Transcript], Optional[str]
     try:
         transcript_list = _ytt_api.fetch(video_id)
 
-        full_text = " ".join(
-            snippet.text for snippet in transcript_list
-        )
+        full_text = " ".join(snippet.text for snippet in transcript_list)
 
         full_text = " ".join(full_text.split())
 
-        return Transcript(
-            video_id=video_id,
-            content=full_text,
-            fetched_at=datetime.now(timezone.utc)
-        ), None
+        return (
+            Transcript(
+                video_id=video_id,
+                content=full_text,
+                fetched_at=datetime.now(timezone.utc),
+            ),
+            None,
+        )
 
     except NoTranscriptFound:
         logger.warning(f"No transcript found for video {video_id}")
@@ -77,7 +78,8 @@ def fetch_transcript_with_timestamps(video_id: str) -> Optional[list]:
     """
     Fetch the transcript with timestamps for a YouTube video.
 
-    Returns list of FetchedTranscriptSnippet objects with text, start time, and duration.
+    Returns list of FetchedTranscriptSnippet objects with text,
+    start time, and duration.
     """
     try:
         return _ytt_api.fetch(video_id)

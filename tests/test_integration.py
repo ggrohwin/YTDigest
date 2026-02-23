@@ -5,13 +5,13 @@ Run them explicitly with:  pytest -m integration
 """
 
 import os
-import pytest
-from datetime import datetime, timezone
 
-from src.articles import fetch_article
-from src.summarizer import summarize_article
-from src.models import Article, ArticleSummary, CATEGORIES
+import pytest
+
 from src import database
+from src.articles import fetch_article
+from src.models import CATEGORIES, Article, ArticleSummary
+from src.summarizer import summarize_article
 
 pytestmark = pytest.mark.integration
 

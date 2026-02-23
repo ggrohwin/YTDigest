@@ -1,22 +1,29 @@
 """Tests for YouTube URL parsing and video fetching."""
 
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from src.youtube import parse_video_id, is_youtube_url, get_video_by_id
+from src.youtube import get_video_by_id, is_youtube_url, parse_video_id
 
 
 class TestParseVideoId:
     """Tests for parse_video_id() — extracting video IDs from URLs."""
 
     def test_standard_watch_url(self):
-        assert parse_video_id("https://www.youtube.com/watch?v=dQw4w9WgXcQ") == "dQw4w9WgXcQ"
+        assert (
+            parse_video_id("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+            == "dQw4w9WgXcQ"
+        )
 
     def test_watch_url_without_www(self):
-        assert parse_video_id("https://youtube.com/watch?v=dQw4w9WgXcQ") == "dQw4w9WgXcQ"
+        assert (
+            parse_video_id("https://youtube.com/watch?v=dQw4w9WgXcQ") == "dQw4w9WgXcQ"
+        )
 
     def test_watch_url_with_extra_params(self):
-        assert parse_video_id("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=120") == "dQw4w9WgXcQ"
+        assert (
+            parse_video_id("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=120")
+            == "dQw4w9WgXcQ"
+        )
 
     def test_short_url(self):
         assert parse_video_id("https://youtu.be/dQw4w9WgXcQ") == "dQw4w9WgXcQ"
@@ -25,7 +32,9 @@ class TestParseVideoId:
         assert parse_video_id("https://youtu.be/dQw4w9WgXcQ?t=30") == "dQw4w9WgXcQ"
 
     def test_embed_url(self):
-        assert parse_video_id("https://www.youtube.com/embed/dQw4w9WgXcQ") == "dQw4w9WgXcQ"
+        assert (
+            parse_video_id("https://www.youtube.com/embed/dQw4w9WgXcQ") == "dQw4w9WgXcQ"
+        )
 
     def test_v_url(self):
         assert parse_video_id("https://www.youtube.com/v/dQw4w9WgXcQ") == "dQw4w9WgXcQ"
@@ -34,10 +43,15 @@ class TestParseVideoId:
         assert parse_video_id("https://youtube.com/shorts/dQw4w9WgXcQ") == "dQw4w9WgXcQ"
 
     def test_mobile_url(self):
-        assert parse_video_id("https://m.youtube.com/watch?v=dQw4w9WgXcQ") == "dQw4w9WgXcQ"
+        assert (
+            parse_video_id("https://m.youtube.com/watch?v=dQw4w9WgXcQ") == "dQw4w9WgXcQ"
+        )
 
     def test_http_url(self):
-        assert parse_video_id("http://www.youtube.com/watch?v=dQw4w9WgXcQ") == "dQw4w9WgXcQ"
+        assert (
+            parse_video_id("http://www.youtube.com/watch?v=dQw4w9WgXcQ")
+            == "dQw4w9WgXcQ"
+        )
 
     def test_non_youtube_url(self):
         assert parse_video_id("https://example.com/watch?v=abc123") is None
@@ -81,21 +95,25 @@ class TestGetVideoById:
         mock_get_client.return_value = mock_youtube
 
         mock_youtube.videos().list().execute.return_value = {
-            "items": [{
-                "id": "abc123",
-                "snippet": {
-                    "title": "Test Video",
-                    "channelId": "UCxyz",
-                    "channelTitle": "Test Channel",
-                    "publishedAt": "2026-01-15T12:00:00Z",
-                    "thumbnails": {
-                        "high": {"url": "https://i.ytimg.com/vi/abc123/hqdefault.jpg"},
+            "items": [
+                {
+                    "id": "abc123",
+                    "snippet": {
+                        "title": "Test Video",
+                        "channelId": "UCxyz",
+                        "channelTitle": "Test Channel",
+                        "publishedAt": "2026-01-15T12:00:00Z",
+                        "thumbnails": {
+                            "high": {
+                                "url": "https://i.ytimg.com/vi/abc123/hqdefault.jpg"
+                            },
+                        },
                     },
-                },
-                "contentDetails": {
-                    "duration": "PT15M33S",
-                },
-            }],
+                    "contentDetails": {
+                        "duration": "PT15M33S",
+                    },
+                }
+            ],
         }
 
         video = get_video_by_id("abc123")

@@ -1,11 +1,9 @@
 """Tests for article utility functions."""
 
-import pytest
-from datetime import datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-from src.articles import generate_article_id, extract_domain, fetch_article
+from src.articles import extract_domain, fetch_article, generate_article_id
 from src.models import Article
 
 

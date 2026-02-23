@@ -46,7 +46,8 @@ def summarize_video(
     client = get_anthropic_client()
 
     categories_str = json.dumps(CATEGORIES)
-    prompt = f"""You are analyzing a YouTube video to help someone decide if it's worth watching.
+    prompt = f"""You are analyzing a YouTube video to help someone
+decide if it's worth watching.
 
 Video Title: {title}
 Channel: {channel}
@@ -57,7 +58,8 @@ Transcript:
 Please provide:
 1. A concise summary (2-3 paragraphs) that captures the key points and main takeaways
 2. A list of 3-5 topic tags that describe what the video covers
-3. A single category from this predefined list that best fits the video: {categories_str}
+3. A single category from this predefined list that best
+fits the video: {categories_str}
 
 Format your response as JSON with this structure:
 {{
@@ -72,15 +74,14 @@ Focus on:
 - Who would benefit from watching this video
 - Any notable conclusions or recommendations
 
-Be concise but informative. Help the reader quickly understand if this video is relevant to their interests."""
+Be concise but informative. Help the reader quickly understand
+if this video is relevant to their interests."""
 
     try:
         response = client.messages.create(
             model=model,
             max_tokens=1024,
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
+            messages=[{"role": "user", "content": prompt}],
         )
 
         response_text = response.content[0].text.strip()
@@ -103,7 +104,7 @@ Be concise but informative. Help the reader quickly understand if this video is 
             summary=result["summary"],
             topics=result.get("topics", []),
             category=category,
-            generated_at=datetime.now(timezone.utc)
+            generated_at=datetime.now(timezone.utc),
         )
 
     except json.JSONDecodeError as e:
@@ -114,7 +115,7 @@ Be concise but informative. Help the reader quickly understand if this video is 
             summary=response_text,
             topics=[],
             category=None,
-            generated_at=datetime.now(timezone.utc)
+            generated_at=datetime.now(timezone.utc),
         )
     except anthropic.APIError as e:
         logger.error(f"Anthropic API error for {video_id}: {e}")
@@ -146,7 +147,8 @@ def summarize_article(
 
     author_line = f"\nAuthor: {author}" if author else ""
     categories_str = json.dumps(CATEGORIES)
-    prompt = f"""You are analyzing a web article to help someone decide if it's worth reading.
+    prompt = f"""You are analyzing a web article to help someone
+decide if it's worth reading.
 
 Article Title: {title}
 Source: {domain}{author_line}
@@ -157,7 +159,8 @@ Article Content:
 Please provide:
 1. A concise summary (2-3 paragraphs) that captures the key points and main takeaways
 2. A list of 3-5 topic tags that describe what the article covers
-3. A single category from this predefined list that best fits the article: {categories_str}
+3. A single category from this predefined list that best
+fits the article: {categories_str}
 
 Format your response as JSON with this structure:
 {{
@@ -172,15 +175,14 @@ Focus on:
 - Who would benefit from reading this article
 - Any notable conclusions or recommendations
 
-Be concise but informative. Help the reader quickly understand if this article is relevant to their interests."""
+Be concise but informative. Help the reader quickly understand
+if this article is relevant to their interests."""
 
     try:
         response = client.messages.create(
             model=model,
             max_tokens=1024,
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
+            messages=[{"role": "user", "content": prompt}],
         )
 
         response_text = response.content[0].text.strip()
@@ -203,7 +205,7 @@ Be concise but informative. Help the reader quickly understand if this article i
             summary=result["summary"],
             topics=result.get("topics", []),
             category=category,
-            generated_at=datetime.now(timezone.utc)
+            generated_at=datetime.now(timezone.utc),
         )
 
     except json.JSONDecodeError as e:
@@ -214,7 +216,7 @@ Be concise but informative. Help the reader quickly understand if this article i
             summary=response_text,
             topics=[],
             category=None,
-            generated_at=datetime.now(timezone.utc)
+            generated_at=datetime.now(timezone.utc),
         )
     except anthropic.APIError as e:
         logger.error(f"Anthropic API error for article {article_id}: {e}")
@@ -225,7 +227,9 @@ Be concise but informative. Help the reader quickly understand if this article i
 
 
 def classify_existing_summary(
-    summary_text: str, topics: list[str], model: str = "claude-sonnet-4-20250514",
+    summary_text: str,
+    topics: list[str],
+    model: str = "claude-sonnet-4-20250514",
 ) -> Optional[str]:
     """Classify an existing summary into a category using a lightweight LLM call.
 
@@ -235,7 +239,8 @@ def classify_existing_summary(
     categories_str = json.dumps(CATEGORIES)
     topics_str = ", ".join(topics) if topics else "none"
 
-    prompt = f"""Given this video summary and topics, pick the single best category from this list: {categories_str}
+    prompt = f"""Given this video summary and topics, pick the
+single best category from this list: {categories_str}
 
 Summary: {summary_text[:500]}
 Topics: {topics_str}

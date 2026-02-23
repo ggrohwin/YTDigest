@@ -6,7 +6,6 @@ in SQLite, and provides cosine-similarity-based search.
 
 import logging
 import os
-from typing import Optional
 
 import numpy as np
 import voyageai

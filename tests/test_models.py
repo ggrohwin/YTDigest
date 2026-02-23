@@ -1,7 +1,8 @@
 """Tests for Pydantic models."""
 
-import pytest
 from datetime import datetime, timezone
+
+import pytest
 from pydantic import ValidationError
 
 from src.models import (
@@ -12,10 +13,9 @@ from src.models import (
     DigestItem,
     Embedding,
     SearchResult,
-    AppConfig,
-    Video,
-    Transcript,
     Summary,
+    Transcript,
+    Video,
     VideoWithDetails,
 )
 

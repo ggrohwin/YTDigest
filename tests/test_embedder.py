@@ -1,23 +1,24 @@
 """Tests for embedding generation and search utilities."""
 
-import pytest
-import numpy as np
-from unittest.mock import patch, MagicMock
 from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
+import numpy as np
+import pytest
+
+from src import database
 from src.embedder import (
-    is_available,
-    generate_embeddings,
+    bytes_to_embedding,
+    chunk_text,
+    cosine_similarity,
     embed_item,
     embed_item_chunks,
-    chunk_text,
     embedding_to_bytes,
-    bytes_to_embedding,
-    cosine_similarity,
+    generate_embeddings,
+    is_available,
     search,
 )
 from src.models import Embedding
-from src import database
 
 
 class TestIsAvailable:
@@ -202,8 +203,10 @@ class TestSearch:
     async def _store_embedding(self, item_id, item_type, content_type, vector):
         """Helper to store an embedding directly in the database."""
         emb = Embedding(
-            item_id=item_id, item_type=item_type,
-            content_type=content_type, vector=vector,
+            item_id=item_id,
+            item_type=item_type,
+            content_type=content_type,
+            vector=vector,
         )
         await database.save_embedding(emb, embedding_to_bytes(vector))
 
@@ -211,12 +214,8 @@ class TestSearch:
     async def test_search_returns_ranked_results(self, mock_gen, test_db):
         """Search should return items ranked by similarity to the query."""
         # Store two embeddings: both with decent similarity to the query
-        await self._store_embedding(
-            "vid1", "video", "video_summary", [1.0, 0.0, 0.0]
-        )
-        await self._store_embedding(
-            "vid2", "video", "video_summary", [0.8, 0.6, 0.0]
-        )
+        await self._store_embedding("vid1", "video", "video_summary", [1.0, 0.0, 0.0])
+        await self._store_embedding("vid2", "video", "video_summary", [0.8, 0.6, 0.0])
 
         # Mock the query embedding to be close to vid1
         mock_gen.return_value = [[0.9, 0.1, 0.0]]
@@ -234,12 +233,8 @@ class TestSearch:
     async def test_search_filters_low_similarity(self, mock_gen, test_db):
         """Search should exclude results below the MIN_SIMILARITY threshold."""
         # vid1 is close to query, vid2 is orthogonal (low similarity)
-        await self._store_embedding(
-            "vid1", "video", "video_summary", [1.0, 0.0, 0.0]
-        )
-        await self._store_embedding(
-            "vid2", "video", "video_summary", [0.0, 1.0, 0.0]
-        )
+        await self._store_embedding("vid1", "video", "video_summary", [1.0, 0.0, 0.0])
+        await self._store_embedding("vid2", "video", "video_summary", [0.0, 1.0, 0.0])
 
         # Query is close to vid1, orthogonal to vid2 (similarity ~0.11)
         mock_gen.return_value = [[0.9, 0.1, 0.0]]
@@ -274,12 +269,8 @@ class TestSearch:
     async def test_search_deduplicates_by_item(self, mock_gen, test_db):
         """Multiple embeddings for the same item should be deduplicated."""
         # Same item, two embeddings (summary and chunk)
-        await self._store_embedding(
-            "vid1", "video", "video_summary", [1.0, 0.0, 0.0]
-        )
-        await self._store_embedding(
-            "vid1", "video", "video_chunk", [0.9, 0.1, 0.0]
-        )
+        await self._store_embedding("vid1", "video", "video_summary", [1.0, 0.0, 0.0])
+        await self._store_embedding("vid1", "video", "video_chunk", [0.9, 0.1, 0.0])
 
         mock_gen.return_value = [[1.0, 0.0, 0.0]]
         results = await search("test")

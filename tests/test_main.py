@@ -1,6 +1,5 @@
 """Tests for main.py utilities."""
 
-import pytest
 from src.main import format_duration
 
 

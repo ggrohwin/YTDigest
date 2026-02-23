@@ -1,15 +1,13 @@
 """Tests for database operations."""
 
-import pytest
-from datetime import datetime, timezone, timedelta
-from pathlib import Path
-import tempfile
+from datetime import datetime, timedelta, timezone
+
 import aiosqlite
-
 import numpy as np
+import pytest
 
-from src.models import Article, ArticleSummary, Embedding, Video, Transcript, Summary
 from src import database
+from src.models import Article, ArticleSummary, Embedding, Summary, Transcript, Video
 
 
 @pytest.fixture
@@ -128,8 +126,11 @@ class TestGetVideosWithoutTranscripts:
     async def test_returns_pending_video(self, test_db):
         """A video with pending transcript status should be returned."""
         video = Video(
-            id="pending_vid", channel_id="UC123", channel_name="Test",
-            title="Pending Video", published_at=datetime.now(timezone.utc),
+            id="pending_vid",
+            channel_id="UC123",
+            channel_name="Test",
+            title="Pending Video",
+            published_at=datetime.now(timezone.utc),
             thumbnail_url="https://example.com/thumb.jpg",
             video_url="https://youtube.com/watch?v=pending_vid",
         )
@@ -141,8 +142,11 @@ class TestGetVideosWithoutTranscripts:
     async def test_excludes_completed_video(self, test_db):
         """A completed video should not be returned."""
         video = Video(
-            id="done_vid", channel_id="UC123", channel_name="Test",
-            title="Done Video", published_at=datetime.now(timezone.utc),
+            id="done_vid",
+            channel_id="UC123",
+            channel_name="Test",
+            title="Done Video",
+            published_at=datetime.now(timezone.utc),
             thumbnail_url="https://example.com/thumb.jpg",
             video_url="https://youtube.com/watch?v=done_vid",
         )
@@ -156,14 +160,20 @@ class TestGetVideosWithoutTranscripts:
         """Prioritized videos should appear before pending ones."""
         now = datetime.now(timezone.utc)
         pending = Video(
-            id="pending_vid", channel_id="UC123", channel_name="Test",
-            title="Pending", published_at=now - timedelta(days=1),
+            id="pending_vid",
+            channel_id="UC123",
+            channel_name="Test",
+            title="Pending",
+            published_at=now - timedelta(days=1),
             thumbnail_url="https://example.com/thumb.jpg",
             video_url="https://youtube.com/watch?v=pending_vid",
         )
         priority = Video(
-            id="priority_vid", channel_id="UC123", channel_name="Test",
-            title="Priority", published_at=now - timedelta(days=2),
+            id="priority_vid",
+            channel_id="UC123",
+            channel_name="Test",
+            title="Priority",
+            published_at=now - timedelta(days=2),
             thumbnail_url="https://example.com/thumb.jpg",
             video_url="https://youtube.com/watch?v=priority_vid",
         )
@@ -436,9 +446,7 @@ class TestEmbeddingOperations:
 
         # Verify the bytes round-trip correctly
         recovered = np.frombuffer(raw_bytes, dtype=np.float32)
-        np.testing.assert_array_almost_equal(
-            recovered, [0.1, -0.2, 0.3, 0.4]
-        )
+        np.testing.assert_array_almost_equal(recovered, [0.1, -0.2, 0.3, 0.4])
 
     async def test_get_nonexistent_embedding(self, test_db):
         """Test retrieving an embedding that doesn't exist."""
@@ -448,12 +456,16 @@ class TestEmbeddingOperations:
     async def test_get_all_embeddings(self, test_db):
         """Test retrieving all embeddings."""
         emb1 = Embedding(
-            item_id="vid1", item_type="video",
-            content_type="video_summary", vector=[0.1, 0.2],
+            item_id="vid1",
+            item_type="video",
+            content_type="video_summary",
+            vector=[0.1, 0.2],
         )
         emb2 = Embedding(
-            item_id="art1", item_type="article",
-            content_type="article_summary", vector=[0.3, 0.4],
+            item_id="art1",
+            item_type="article",
+            content_type="article_summary",
+            vector=[0.3, 0.4],
         )
 
         await database.save_embedding(emb1, self._to_bytes(emb1.vector))
@@ -472,12 +484,12 @@ class TestEmbeddingOperations:
 
         # Save again with different vector
         updated = Embedding(
-            item_id="vid123", item_type="video",
-            content_type="video_summary", vector=[0.9, 0.8, 0.7, 0.6],
+            item_id="vid123",
+            item_type="video",
+            content_type="video_summary",
+            vector=[0.9, 0.8, 0.7, 0.6],
         )
-        await database.save_embedding(
-            updated, self._to_bytes([0.9, 0.8, 0.7, 0.6])
-        )
+        await database.save_embedding(updated, self._to_bytes([0.9, 0.8, 0.7, 0.6]))
 
         all_embs = await database.get_all_embeddings()
         assert len(all_embs) == 1
@@ -520,16 +532,23 @@ class TestGetItemsWithoutEmbeddings:
     async def test_returns_video_with_summary_but_no_embedding(self, test_db):
         """A video that has a summary but no embedding should be returned."""
         video = Video(
-            id="vid1", channel_id="UC1", channel_name="Chan",
-            title="Vid", published_at=datetime.now(timezone.utc),
+            id="vid1",
+            channel_id="UC1",
+            channel_name="Chan",
+            title="Vid",
+            published_at=datetime.now(timezone.utc),
             thumbnail_url="https://x.com/t.jpg",
             video_url="https://youtube.com/watch?v=vid1",
         )
         await database.save_video(video)
-        await database.save_summary(Summary(
-            video_id="vid1", summary="A summary", topics=["ai"],
-            generated_at=datetime.now(timezone.utc),
-        ))
+        await database.save_summary(
+            Summary(
+                video_id="vid1",
+                summary="A summary",
+                topics=["ai"],
+                generated_at=datetime.now(timezone.utc),
+            )
+        )
 
         items = await database.get_items_without_embeddings()
         assert len(items) == 1
@@ -538,15 +557,24 @@ class TestGetItemsWithoutEmbeddings:
     async def test_returns_article_with_summary_but_no_embedding(self, test_db):
         """An article that has a summary but no embedding should be returned."""
         article = Article(
-            id="art1", url="https://example.com/a", domain="example.com",
-            title="Art", added_at=datetime.now(timezone.utc),
-            content="Content.", word_count=1, extract_status="extracted",
+            id="art1",
+            url="https://example.com/a",
+            domain="example.com",
+            title="Art",
+            added_at=datetime.now(timezone.utc),
+            content="Content.",
+            word_count=1,
+            extract_status="extracted",
         )
         await database.save_article(article)
-        await database.save_article_summary(ArticleSummary(
-            article_id="art1", summary="A summary", topics=["web"],
-            generated_at=datetime.now(timezone.utc),
-        ))
+        await database.save_article_summary(
+            ArticleSummary(
+                article_id="art1",
+                summary="A summary",
+                topics=["web"],
+                generated_at=datetime.now(timezone.utc),
+            )
+        )
 
         items = await database.get_items_without_embeddings()
         assert len(items) == 1
@@ -555,20 +583,29 @@ class TestGetItemsWithoutEmbeddings:
     async def test_excludes_items_that_already_have_embeddings(self, test_db):
         """Items with existing embeddings should not be returned."""
         video = Video(
-            id="vid2", channel_id="UC1", channel_name="Chan",
-            title="Vid2", published_at=datetime.now(timezone.utc),
+            id="vid2",
+            channel_id="UC1",
+            channel_name="Chan",
+            title="Vid2",
+            published_at=datetime.now(timezone.utc),
             thumbnail_url="https://x.com/t.jpg",
             video_url="https://youtube.com/watch?v=vid2",
         )
         await database.save_video(video)
-        await database.save_summary(Summary(
-            video_id="vid2", summary="Summary", topics=["ai"],
-            generated_at=datetime.now(timezone.utc),
-        ))
+        await database.save_summary(
+            Summary(
+                video_id="vid2",
+                summary="Summary",
+                topics=["ai"],
+                generated_at=datetime.now(timezone.utc),
+            )
+        )
         # Also save an embedding for this item
         emb = Embedding(
-            item_id="vid2", item_type="video",
-            content_type="video_summary", vector=[0.1, 0.2],
+            item_id="vid2",
+            item_type="video",
+            content_type="video_summary",
+            vector=[0.1, 0.2],
         )
         vector_bytes = np.array([0.1, 0.2], dtype=np.float32).tobytes()
         await database.save_embedding(emb, vector_bytes)
@@ -587,11 +624,14 @@ class TestGetSummaryTextForEmbedding:
 
     async def test_video_summary_with_topics(self, test_db):
         """Video summary text should include topics."""
-        await database.save_summary(Summary(
-            video_id="vid1", summary="Great video about testing.",
-            topics=["testing", "python"],
-            generated_at=datetime.now(timezone.utc),
-        ))
+        await database.save_summary(
+            Summary(
+                video_id="vid1",
+                summary="Great video about testing.",
+                topics=["testing", "python"],
+                generated_at=datetime.now(timezone.utc),
+            )
+        )
         text = await database.get_summary_text_for_embedding("vid1", "video")
         assert "Great video about testing." in text
         assert "Topics:" in text
@@ -600,15 +640,24 @@ class TestGetSummaryTextForEmbedding:
     async def test_article_summary(self, test_db):
         """Article summary text should work similarly."""
         article = Article(
-            id="art1", url="https://example.com/a", domain="example.com",
-            title="Art", added_at=datetime.now(timezone.utc),
-            content="Content.", word_count=1, extract_status="extracted",
+            id="art1",
+            url="https://example.com/a",
+            domain="example.com",
+            title="Art",
+            added_at=datetime.now(timezone.utc),
+            content="Content.",
+            word_count=1,
+            extract_status="extracted",
         )
         await database.save_article(article)
-        await database.save_article_summary(ArticleSummary(
-            article_id="art1", summary="Article about web dev.",
-            topics=["web"], generated_at=datetime.now(timezone.utc),
-        ))
+        await database.save_article_summary(
+            ArticleSummary(
+                article_id="art1",
+                summary="Article about web dev.",
+                topics=["web"],
+                generated_at=datetime.now(timezone.utc),
+            )
+        )
         text = await database.get_summary_text_for_embedding("art1", "article")
         assert "Article about web dev." in text
 
@@ -624,18 +673,25 @@ class TestGetDigestItem:
     async def test_load_video_as_digest_item(self, test_db):
         """A video with a summary should load as a complete DigestItem."""
         video = Video(
-            id="vid1", channel_id="UC1", channel_name="Test Channel",
-            title="Test Video", published_at=datetime.now(timezone.utc),
+            id="vid1",
+            channel_id="UC1",
+            channel_name="Test Channel",
+            title="Test Video",
+            published_at=datetime.now(timezone.utc),
             thumbnail_url="https://x.com/t.jpg",
             video_url="https://youtube.com/watch?v=vid1",
             duration="PT10M",
         )
         await database.save_video(video)
-        await database.save_summary(Summary(
-            video_id="vid1", summary="A great summary", topics=["ai", "ml"],
-            category="AI & Machine Learning",
-            generated_at=datetime.now(timezone.utc),
-        ))
+        await database.save_summary(
+            Summary(
+                video_id="vid1",
+                summary="A great summary",
+                topics=["ai", "ml"],
+                category="AI & Machine Learning",
+                generated_at=datetime.now(timezone.utc),
+            )
+        )
 
         item = await database.get_digest_item("vid1", "video")
         assert item is not None
@@ -651,16 +707,25 @@ class TestGetDigestItem:
     async def test_load_article_as_digest_item(self, test_db):
         """An article with a summary should load as a complete DigestItem."""
         article = Article(
-            id="art1", url="https://example.com/post", domain="example.com",
-            title="Test Article", author="Jane",
+            id="art1",
+            url="https://example.com/post",
+            domain="example.com",
+            title="Test Article",
+            author="Jane",
             added_at=datetime.now(timezone.utc),
-            content="Content.", word_count=1, extract_status="extracted",
+            content="Content.",
+            word_count=1,
+            extract_status="extracted",
         )
         await database.save_article(article)
-        await database.save_article_summary(ArticleSummary(
-            article_id="art1", summary="Article summary", topics=["web"],
-            generated_at=datetime.now(timezone.utc),
-        ))
+        await database.save_article_summary(
+            ArticleSummary(
+                article_id="art1",
+                summary="Article summary",
+                topics=["web"],
+                generated_at=datetime.now(timezone.utc),
+            )
+        )
 
         item = await database.get_digest_item("art1", "article")
         assert item is not None
@@ -687,8 +752,10 @@ class TestSaveEmbeddingsBatch:
         embs = []
         for i in range(3):
             emb = Embedding(
-                item_id="vid1", item_type="video",
-                content_type="video_chunk", vector=[float(i)],
+                item_id="vid1",
+                item_type="video",
+                content_type="video_chunk",
+                vector=[float(i)],
                 chunk_index=i,
             )
             embs.append((emb, self._to_bytes([float(i)])))
@@ -705,8 +772,10 @@ class TestSaveEmbeddingsBatch:
         embs1 = []
         for i in range(2):
             emb = Embedding(
-                item_id="vid1", item_type="video",
-                content_type="video_chunk", vector=[float(i)],
+                item_id="vid1",
+                item_type="video",
+                content_type="video_chunk",
+                vector=[float(i)],
                 chunk_index=i,
             )
             embs1.append((emb, self._to_bytes([float(i)])))
@@ -716,8 +785,10 @@ class TestSaveEmbeddingsBatch:
         embs2 = []
         for i in range(3):
             emb = Embedding(
-                item_id="vid1", item_type="video",
-                content_type="video_chunk", vector=[float(i + 10)],
+                item_id="vid1",
+                item_type="video",
+                content_type="video_chunk",
+                vector=[float(i + 10)],
                 chunk_index=i,
             )
             embs2.append((emb, self._to_bytes([float(i + 10)])))
@@ -738,16 +809,22 @@ class TestGetItemsWithoutChunkEmbeddings:
     async def test_video_with_transcript_but_no_chunks(self, test_db):
         """A video with a transcript but no chunk embeddings should be returned."""
         video = Video(
-            id="vid1", channel_id="UC1", channel_name="Chan",
-            title="Vid", published_at=datetime.now(timezone.utc),
+            id="vid1",
+            channel_id="UC1",
+            channel_name="Chan",
+            title="Vid",
+            published_at=datetime.now(timezone.utc),
             thumbnail_url="https://x.com/t.jpg",
             video_url="https://youtube.com/watch?v=vid1",
         )
         await database.save_video(video)
-        await database.save_transcript(Transcript(
-            video_id="vid1", content="A long transcript...",
-            fetched_at=datetime.now(timezone.utc),
-        ))
+        await database.save_transcript(
+            Transcript(
+                video_id="vid1",
+                content="A long transcript...",
+                fetched_at=datetime.now(timezone.utc),
+            )
+        )
 
         items = await database.get_items_without_chunk_embeddings()
         assert ("vid1", "video") in items
@@ -755,9 +832,13 @@ class TestGetItemsWithoutChunkEmbeddings:
     async def test_article_with_content_but_no_chunks(self, test_db):
         """An article with content but no chunk embeddings should be returned."""
         article = Article(
-            id="art1", url="https://example.com/a", domain="example.com",
-            title="Art", added_at=datetime.now(timezone.utc),
-            content="Full article content here.", word_count=5,
+            id="art1",
+            url="https://example.com/a",
+            domain="example.com",
+            title="Art",
+            added_at=datetime.now(timezone.utc),
+            content="Full article content here.",
+            word_count=5,
             extract_status="extracted",
         )
         await database.save_article(article)
@@ -768,25 +849,31 @@ class TestGetItemsWithoutChunkEmbeddings:
     async def test_excludes_items_with_chunk_embeddings(self, test_db):
         """Items that already have chunk embeddings should not be returned."""
         video = Video(
-            id="vid2", channel_id="UC1", channel_name="Chan",
-            title="Vid2", published_at=datetime.now(timezone.utc),
+            id="vid2",
+            channel_id="UC1",
+            channel_name="Chan",
+            title="Vid2",
+            published_at=datetime.now(timezone.utc),
             thumbnail_url="https://x.com/t.jpg",
             video_url="https://youtube.com/watch?v=vid2",
         )
         await database.save_video(video)
-        await database.save_transcript(Transcript(
-            video_id="vid2", content="Transcript content.",
-            fetched_at=datetime.now(timezone.utc),
-        ))
+        await database.save_transcript(
+            Transcript(
+                video_id="vid2",
+                content="Transcript content.",
+                fetched_at=datetime.now(timezone.utc),
+            )
+        )
         # Save a chunk embedding
         emb = Embedding(
-            item_id="vid2", item_type="video",
-            content_type="video_chunk", vector=[0.1],
+            item_id="vid2",
+            item_type="video",
+            content_type="video_chunk",
+            vector=[0.1],
             chunk_index=0,
         )
-        await database.save_embedding(
-            emb, np.array([0.1], dtype=np.float32).tobytes()
-        )
+        await database.save_embedding(emb, np.array([0.1], dtype=np.float32).tobytes())
 
         items = await database.get_items_without_chunk_embeddings()
         assert ("vid2", "video") not in items
@@ -872,13 +959,21 @@ class TestFavorites:
         """Only favorited videos should be returned."""
         now = datetime.now(timezone.utc)
         v1 = Video(
-            id="v1", channel_id="UC1", channel_name="C1", title="Vid 1",
-            published_at=now, thumbnail_url="https://example.com/1.jpg",
+            id="v1",
+            channel_id="UC1",
+            channel_name="C1",
+            title="Vid 1",
+            published_at=now,
+            thumbnail_url="https://example.com/1.jpg",
             video_url="https://youtube.com/watch?v=v1",
         )
         v2 = Video(
-            id="v2", channel_id="UC1", channel_name="C1", title="Vid 2",
-            published_at=now, thumbnail_url="https://example.com/2.jpg",
+            id="v2",
+            channel_id="UC1",
+            channel_name="C1",
+            title="Vid 2",
+            published_at=now,
+            thumbnail_url="https://example.com/2.jpg",
             video_url="https://youtube.com/watch?v=v2",
         )
         await database.save_video(v1)

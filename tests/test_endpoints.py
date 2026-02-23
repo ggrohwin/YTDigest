@@ -4,16 +4,11 @@ Uses httpx.AsyncClient + ASGITransport to send real HTTP requests through
 FastAPI's routing stack — without starting a server or touching the network.
 """
 
-import pytest
-
 from src import database
-from src.models import ArticleSummary, Summary
-from datetime import datetime, timezone
-
 from tests.conftest import seed_article, seed_video, seed_video_summary
 
-
 # ── POST /api/videos/{video_id}/complete ───────────────────────────────
+
 
 class TestCompleteVideo:
 
@@ -61,6 +56,7 @@ class TestCompleteVideo:
 
 # ── POST /api/videos/{video_id}/prioritize ─────────────────────────────
 
+
 class TestPrioritizeVideo:
 
     async def test_prioritize(self, test_client):
@@ -75,6 +71,7 @@ class TestPrioritizeVideo:
 
 
 # ── POST /api/videos/{video_id}/favorite ───────────────────────────────
+
 
 class TestFavoriteVideo:
 
@@ -98,6 +95,7 @@ class TestFavoriteVideo:
 
 # ── POST /api/articles/{article_id}/complete ───────────────────────────
 
+
 class TestCompleteArticle:
 
     async def test_like(self, test_client):
@@ -116,6 +114,7 @@ class TestCompleteArticle:
 
 
 # ── POST /api/articles/{article_id}/favorite ───────────────────────────
+
 
 class TestFavoriteArticle:
 
@@ -138,6 +137,7 @@ class TestFavoriteArticle:
 
 
 # ── GET /api/videos ────────────────────────────────────────────────────
+
 
 class TestGetVideos:
 
@@ -175,6 +175,7 @@ class TestGetVideos:
 
 # ── GET /api/articles ──────────────────────────────────────────────────
 
+
 class TestGetArticles:
 
     async def test_empty(self, test_client):
@@ -210,6 +211,7 @@ class TestGetArticles:
 
 
 # ── GET / (index page) ────────────────────────────────────────────────
+
 
 class TestIndex:
 
