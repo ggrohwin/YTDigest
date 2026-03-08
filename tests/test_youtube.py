@@ -2,7 +2,13 @@
 
 from unittest.mock import MagicMock, patch
 
-from src.youtube import get_video_by_id, is_youtube_url, parse_video_id
+from src.youtube import (
+    get_channel_uploads,
+    get_video_by_id,
+    is_youtube_url,
+    parse_iso8601_duration,
+    parse_video_id,
+)
 
 
 class TestParseVideoId:
@@ -135,3 +141,132 @@ class TestGetVideoById:
 
         video = get_video_by_id("nonexistent")
         assert video is None
+
+
+class TestParseIso8601Duration:
+    """Tests for parse_iso8601_duration() — converting ISO 8601 durations to seconds."""
+
+    def test_minutes_and_seconds(self):
+        assert parse_iso8601_duration("PT15M33S") == 933
+
+    def test_hours_minutes_seconds(self):
+        assert parse_iso8601_duration("PT1H2M30S") == 3750
+
+    def test_seconds_only(self):
+        assert parse_iso8601_duration("PT45S") == 45
+
+    def test_minutes_only(self):
+        assert parse_iso8601_duration("PT2M") == 120
+
+    def test_hours_only(self):
+        assert parse_iso8601_duration("PT1H") == 3600
+
+    def test_zero_seconds(self):
+        assert parse_iso8601_duration("PT0S") == 0
+
+    def test_invalid_format(self):
+        assert parse_iso8601_duration("not a duration") is None
+
+    def test_empty_string(self):
+        assert parse_iso8601_duration("") is None
+
+    def test_case_insensitive(self):
+        assert parse_iso8601_duration("pt15m33s") == 933
+
+
+class TestShortsFiltering:
+    """Tests for filtering shorts from channel uploads."""
+
+    def _make_api_responses(self, video_durations):
+        """Helper to build mock API responses for playlist + video details.
+
+        video_durations: dict of video_id -> ISO 8601 duration string
+        """
+        playlist_items = []
+        video_details = []
+        for vid_id, duration in video_durations.items():
+            playlist_items.append(
+                {
+                    "snippet": {
+                        "resourceId": {"videoId": vid_id},
+                        "publishedAt": "2026-03-01T12:00:00Z",
+                        "title": f"Video {vid_id}",
+                        "thumbnails": {
+                            "high": {"url": "https://example.com/thumb.jpg"}
+                        },
+                    }
+                }
+            )
+            video_details.append(
+                {
+                    "id": vid_id,
+                    "snippet": {
+                        "title": f"Video {vid_id}",
+                        "description": "",
+                    },
+                    "contentDetails": {"duration": duration},
+                    "statistics": {"viewCount": "100"},
+                }
+            )
+        return playlist_items, video_details
+
+    @patch("src.youtube.get_youtube_client")
+    def test_shorts_filtered_when_enabled(self, mock_get_client):
+        """Videos at or below shorts_max_duration are skipped."""
+        mock_youtube = MagicMock()
+        mock_get_client.return_value = mock_youtube
+
+        playlist_items, video_details = self._make_api_responses(
+            {"long1": "PT10M0S", "short1": "PT45S", "short2": "PT2M0S"}
+        )
+
+        # Mock channel -> uploads playlist
+        mock_youtube.channels().list().execute.return_value = {
+            "items": [{"contentDetails": {"relatedPlaylists": {"uploads": "UU_test"}}}]
+        }
+        # Mock playlist items
+        mock_youtube.playlistItems().list().execute.return_value = {
+            "items": playlist_items
+        }
+        # Mock video details
+        mock_youtube.videos().list().execute.return_value = {"items": video_details}
+
+        videos = get_channel_uploads(
+            channel_id="UC_test",
+            channel_name="Test Channel",
+            filter_shorts=True,
+            shorts_max_duration=120,
+        )
+
+        video_ids = [v.id for v in videos]
+        assert "long1" in video_ids
+        assert "short1" not in video_ids  # 45s <= 120s, filtered
+        assert "short2" not in video_ids  # 120s <= 120s, filtered
+
+    @patch("src.youtube.get_youtube_client")
+    def test_shorts_not_filtered_when_disabled(self, mock_get_client):
+        """All videos should be returned when filter_shorts=False (default)."""
+        mock_youtube = MagicMock()
+        mock_get_client.return_value = mock_youtube
+
+        playlist_items, video_details = self._make_api_responses(
+            {"long1": "PT10M0S", "short1": "PT45S"}
+        )
+
+        mock_youtube.channels().list().execute.return_value = {
+            "items": [{"contentDetails": {"relatedPlaylists": {"uploads": "UU_test"}}}]
+        }
+        mock_youtube.playlistItems().list().execute.return_value = {
+            "items": playlist_items
+        }
+        mock_youtube.videos().list().execute.return_value = {"items": video_details}
+
+        videos = get_channel_uploads(
+            channel_id="UC_test",
+            channel_name="Test Channel",
+            filter_shorts=False,
+        )
+
+        video_ids = [v.id for v in videos]
+        assert "long1" in video_ids
+        assert "short1" in video_ids  # not filtered

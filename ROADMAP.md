@@ -87,6 +87,7 @@ _Empty - ready for next task_
 ## Completed
 | Item | Date | Notes |
 |------|------|-------|
+| Filter YouTube Shorts from selected channels | 2026-03-07 | Per-channel `filter_shorts` flag + configurable `shorts_max_duration` threshold (default 120s); skips short videos during fetch |
 | Code formatting & pre-commit hooks | 2026-02-22 | black + ruff for formatting/linting, pre-commit hooks run both before every commit, CI lint job checks on push/PR |
 | CI/CD with GitHub Actions | 2026-02-22 | Two-job workflow: run pytest (with artifact upload) and build Docker image on every push/PR to master |
 | Dockerize the app | 2026-02-22 | Dockerfile + Docker Compose with SQLite volume mount, non-root user, config editable without rebuilding |

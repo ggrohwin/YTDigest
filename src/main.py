@@ -332,6 +332,8 @@ async def refresh_video_metadata() -> tuple[int, int]:
             channel_name=channel.name,
             max_results=app_config.digest.max_videos_per_channel,
             published_after=published_after,
+            filter_shorts=channel.filter_shorts,
+            shorts_max_duration=app_config.digest.shorts_max_duration,
         )
         new_count = 0
         for video in videos:

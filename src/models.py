@@ -19,6 +19,7 @@ CATEGORIES: list[str] = [
 class ChannelConfig(BaseModel):
     id: str
     name: str
+    filter_shorts: bool = False
 
 
 class DigestConfig(BaseModel):
@@ -28,6 +29,9 @@ class DigestConfig(BaseModel):
     transcript_batch_size: int = 1  # transcripts to fetch per cycle
     video_refresh_interval: int = 3600  # seconds between video metadata refreshes
     summarization_model: str = "claude-sonnet-4-20250514"
+    shorts_max_duration: int = (
+        120  # seconds; videos at or below this from filter_shorts channels are skipped
+    )
 
 
 class AppConfig(BaseModel):

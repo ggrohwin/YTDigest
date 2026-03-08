@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 from datetime import datetime
 from typing import Optional
 from urllib.parse import parse_qs, urlparse
@@ -10,6 +11,24 @@ from googleapiclient.errors import HttpError
 from .models import Video
 
 logger = logging.getLogger("ytdigest")
+
+_ISO8601_DURATION_RE = re.compile(
+    r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$", re.IGNORECASE
+)
+
+
+def parse_iso8601_duration(duration: str) -> Optional[int]:
+    """Convert an ISO 8601 duration (e.g. 'PT15M33S') to total seconds.
+
+    Returns None if the string doesn't match the expected format.
+    """
+    match = _ISO8601_DURATION_RE.match(duration)
+    if not match:
+        return None
+    hours = int(match.group(1) or 0)
+    minutes = int(match.group(2) or 0)
+    seconds = int(match.group(3) or 0)
+    return hours * 3600 + minutes * 60 + seconds
 
 
 def get_youtube_client():
@@ -39,6 +58,8 @@ def get_channel_uploads(
     channel_name: str,
     max_results: int = 5,
     published_after: Optional[datetime] = None,
+    filter_shorts: bool = False,
+    shorts_max_duration: int = 120,
 ) -> list[Video]:
     """Fetch recent videos from a channel's uploads playlist."""
     youtube = get_youtube_client()
@@ -94,6 +115,17 @@ def get_channel_uploads(
         videos = []
         for v in video_data:
             duration = details.get(v["id"], {}).get("duration")
+
+            # Skip shorts from flagged channels
+            if filter_shorts and duration:
+                duration_secs = parse_iso8601_duration(duration)
+                if duration_secs is not None and duration_secs <= shorts_max_duration:
+                    logger.info(
+                        f"Filtering short ({duration_secs}s): "
+                        f"{v['title']} from {channel_name}"
+                    )
+                    continue
+
             videos.append(
                 Video(
                     id=v["id"],
