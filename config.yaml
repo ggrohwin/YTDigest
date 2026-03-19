@@ -29,6 +29,7 @@ channels:
     name: "Eric Before"
   - id: "UC1E1SVcVyU3ntWMSQEp38Yw"
     name: "Pivot with Kara Swisher"
+    filter_shorts: true
   - id: "UC8ENHE5xdFSwx71u3fDH5Xw"
     name: "The PrimeTime"
   - id: "UCyhpw4-Etc79Sq77Swre5KA"
@@ -47,4 +48,4 @@ digest:
   transcript_batch_size: 1        # transcripts to fetch per cycle
   video_refresh_interval: 3600    # seconds between video metadata refreshes (1 hour)
   summarization_model: claude-sonnet-4-20250514
-  shorts_max_duration: 120  # seconds; videos at or below this from filter_shorts channels are skipped
+  shorts_max_duration: 150  # seconds; videos at or below this from filter_shorts channels are skipped

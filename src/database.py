@@ -23,7 +23,8 @@ async def init_db() -> None:
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     async with aiosqlite.connect(DATABASE_PATH) as db:
-        await db.execute("""
+        await db.execute(
+            """
             CREATE TABLE IF NOT EXISTS videos (
                 id TEXT PRIMARY KEY,
                 channel_id TEXT NOT NULL,
@@ -34,7 +35,8 @@ async def init_db() -> None:
                 video_url TEXT NOT NULL,
                 duration TEXT
             )
-        """)
+        """
+        )
 
         # Migration: add duration column if it doesn't exist
         try:
@@ -87,16 +89,19 @@ async def init_db() -> None:
         except Exception:
             pass
 
-        await db.execute("""
+        await db.execute(
+            """
             CREATE TABLE IF NOT EXISTS transcripts (
                 video_id TEXT PRIMARY KEY,
                 content TEXT NOT NULL,
                 fetched_at TEXT NOT NULL,
                 FOREIGN KEY (video_id) REFERENCES videos(id)
             )
-        """)
+        """
+        )
 
-        await db.execute("""
+        await db.execute(
+            """
             CREATE TABLE IF NOT EXISTS summaries (
                 video_id TEXT PRIMARY KEY,
                 summary TEXT NOT NULL,
@@ -104,7 +109,8 @@ async def init_db() -> None:
                 generated_at TEXT NOT NULL,
                 FOREIGN KEY (video_id) REFERENCES videos(id)
             )
-        """)
+        """
+        )
 
         # Migration: add category column to summaries
         try:
@@ -112,7 +118,8 @@ async def init_db() -> None:
         except Exception:
             pass
 
-        await db.execute("""
+        await db.execute(
+            """
             CREATE TABLE IF NOT EXISTS articles (
                 id TEXT PRIMARY KEY,
                 url TEXT NOT NULL UNIQUE,
@@ -128,7 +135,8 @@ async def init_db() -> None:
                 sentiment TEXT,
                 completed_at TEXT
             )
-        """)
+        """
+        )
 
         # Migration: add thumbnail_url column to articles
         try:
@@ -154,7 +162,8 @@ async def init_db() -> None:
         except Exception:
             pass
 
-        await db.execute("""
+        await db.execute(
+            """
             CREATE TABLE IF NOT EXISTS article_summaries (
                 article_id TEXT PRIMARY KEY,
                 summary TEXT NOT NULL,
@@ -163,14 +172,17 @@ async def init_db() -> None:
                 generated_at TEXT NOT NULL,
                 FOREIGN KEY (article_id) REFERENCES articles(id)
             )
-        """)
+        """
+        )
 
-        await db.execute("""
+        await db.execute(
+            """
             CREATE TABLE IF NOT EXISTS settings (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             )
-        """)
+        """
+        )
 
         # Migration: add first_seen_at column
         try:
@@ -178,7 +190,8 @@ async def init_db() -> None:
         except Exception:
             pass
 
-        await db.execute("""
+        await db.execute(
+            """
             CREATE TABLE IF NOT EXISTS embeddings (
                 item_id TEXT NOT NULL,
                 item_type TEXT NOT NULL,
@@ -187,7 +200,8 @@ async def init_db() -> None:
                 chunk_index INTEGER,
                 UNIQUE(item_id, content_type, chunk_index)
             )
-        """)
+        """
+        )
 
         await db.commit()
 
@@ -880,12 +894,14 @@ async def get_articles_without_summaries() -> list[Article]:
     """Get articles that have content but no summaries yet."""
     async with aiosqlite.connect(DATABASE_PATH) as db:
         db.row_factory = aiosqlite.Row
-        async with db.execute("""
+        async with db.execute(
+            """
             SELECT a.* FROM articles a
             LEFT JOIN article_summaries s ON a.id = s.article_id
             WHERE s.article_id IS NULL AND a.extract_status = 'extracted'
             ORDER BY a.added_at DESC
-            """) as cursor:
+            """
+        ) as cursor:
             rows = await cursor.fetchall()
             return [_article_from_row(row) for row in rows]
 
@@ -1056,6 +1072,34 @@ async def get_all_embeddings() -> list[tuple[Embedding, bytes]]:
     return results
 
 
+async def get_all_tags_with_counts() -> list[tuple[str, int]]:
+    """Return all distinct tags sorted most-frequent first.
+
+    Used to initialize the TagNormalizer cache at app startup.
+    """
+    from collections import Counter
+
+    counts: Counter = Counter()
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT topics FROM summaries WHERE topics != ''"
+        ) as cursor:
+            async for row in cursor:
+                for t in row[0].split(","):
+                    t = t.strip().title()
+                    if t:
+                        counts[t] += 1
+        async with db.execute(
+            "SELECT topics FROM article_summaries WHERE topics != ''"
+        ) as cursor:
+            async for row in cursor:
+                for t in row[0].split(","):
+                    t = t.strip().title()
+                    if t:
+                        counts[t] += 1
+    return counts.most_common()
+
+
 async def has_embeddings() -> bool:
     """Check whether any embeddings exist in the database."""
     async with aiosqlite.connect(DATABASE_PATH) as db:
@@ -1082,22 +1126,26 @@ async def get_items_without_embeddings() -> list[tuple[str, str]]:
     results = []
     async with aiosqlite.connect(DATABASE_PATH) as db:
         # Videos with summaries but no summary embedding
-        async with db.execute("""
+        async with db.execute(
+            """
             SELECT s.video_id FROM summaries s
             LEFT JOIN embeddings e
                 ON s.video_id = e.item_id AND e.content_type = 'video_summary'
             WHERE e.item_id IS NULL
-            """) as cursor:
+            """
+        ) as cursor:
             for row in await cursor.fetchall():
                 results.append((row[0], "video"))
 
         # Articles with summaries but no summary embedding
-        async with db.execute("""
+        async with db.execute(
+            """
             SELECT s.article_id FROM article_summaries s
             LEFT JOIN embeddings e
                 ON s.article_id = e.item_id AND e.content_type = 'article_summary'
             WHERE e.item_id IS NULL
-            """) as cursor:
+            """
+        ) as cursor:
             for row in await cursor.fetchall():
                 results.append((row[0], "article"))
 
@@ -1180,22 +1228,26 @@ async def get_items_without_chunk_embeddings() -> list[tuple[str, str]]:
     results = []
     async with aiosqlite.connect(DATABASE_PATH) as db:
         # Videos with transcripts but no chunk embeddings
-        async with db.execute("""
+        async with db.execute(
+            """
             SELECT t.video_id FROM transcripts t
             LEFT JOIN embeddings e
                 ON t.video_id = e.item_id AND e.content_type = 'video_chunk'
             WHERE e.item_id IS NULL
-            """) as cursor:
+            """
+        ) as cursor:
             for row in await cursor.fetchall():
                 results.append((row[0], "video"))
 
         # Articles with content but no chunk embeddings
-        async with db.execute("""
+        async with db.execute(
+            """
             SELECT a.id FROM articles a
             LEFT JOIN embeddings e
                 ON a.id = e.item_id AND e.content_type = 'article_chunk'
             WHERE e.item_id IS NULL AND a.extract_status = 'extracted'
-            """) as cursor:
+            """
+        ) as cursor:
             for row in await cursor.fetchall():
                 results.append((row[0], "article"))
 

@@ -7,11 +7,35 @@ from typing import Optional
 import anthropic
 
 from .models import CATEGORIES, ArticleSummary, Summary
+from .tag_normalizer import TagNormalizer
 
 # Default chat model — cheaper/faster than summarization model
 CHAT_MODEL = "claude-sonnet-4-20250514"
 
 logger = logging.getLogger("ytdigest")
+
+# Module-level singleton — initialized at app startup via initialize_tag_normalizer()
+_tag_normalizer: TagNormalizer | None = None
+
+
+def initialize_tag_normalizer(tags_with_counts: list[tuple[str, int]]) -> None:
+    """Populate the tag normalizer cache from existing DB tags.
+
+    Call once at app startup after the database is ready.
+    tags_with_counts: list of (tag, count) sorted by count descending.
+    """
+    global _tag_normalizer
+    _tag_normalizer = TagNormalizer()
+    _tag_normalizer.build_from_tags(tags_with_counts)
+    logger.info(f"TagNormalizer ready: {_tag_normalizer.size()} canonical tags.")
+
+
+def _normalize_tags(tags: list[str]) -> list[str]:
+    """Normalize tags if the normalizer is initialized, otherwise pass through."""
+    if _tag_normalizer is None:
+        return tags
+    return _tag_normalizer.normalize(tags)
+
 
 MAX_TRANSCRIPT_LENGTH = 100000
 MAX_ARTICLE_LENGTH = 100000
@@ -57,7 +81,21 @@ Transcript:
 
 Please provide:
 1. A concise summary (2-3 paragraphs) that captures the key points and main takeaways
-2. A list of 3-5 topic tags that describe what the video covers
+2. A list of 3-5 topic tags for navigation. Tags are used for navigation — a reader
+   clicks a tag to find all related content. Follow these rules:
+   - Tag the TOPIC, not the angle. Ask: "what would a reader search for?"
+   - Tag every named tool, product, company, or event individually. If a video
+     compares two tools, BOTH get their own tag — never combine them into one tag.
+   - Use broad, stable concept tags — prefer the shortest accurate noun phrase.
+   - Do not prefix concept tags with "AI" — use the concept itself.
+     Bad: "AI Governance", "AI Coding Tools". Good: "Governance", "Coding Tools".
+     OK: "AI Agents", "AI Safety" (where AI is the essential subject).
+   - Do not add qualifier suffixes like "Challenges", "Updates", "Analysis", "News".
+     Bad: "AI Implementation Challenges". Good: "AI Implementation".
+   - Do not use sentiment/opinion framings or "X vs Y" compound tags.
+     Bad: "AI Hype Vs Reality". Good: "AI Hype".
+   - Do not tag sub-concepts of a topic — tag the topic itself.
+     Bad: "Agent Coordination", "Agent Loops". Good: "AI Agents".
 3. A single category from this predefined list that best
 fits the video: {categories_str}
 
@@ -102,7 +140,7 @@ if this video is relevant to their interests."""
         return Summary(
             video_id=video_id,
             summary=result["summary"],
-            topics=result.get("topics", []),
+            topics=_normalize_tags(result.get("topics", [])),
             category=category,
             generated_at=datetime.now(timezone.utc),
         )
@@ -158,7 +196,21 @@ Article Content:
 
 Please provide:
 1. A concise summary (2-3 paragraphs) that captures the key points and main takeaways
-2. A list of 3-5 topic tags that describe what the article covers
+2. A list of 3-5 topic tags for navigation. Tags are used for navigation — a reader
+   clicks a tag to find all related content. Follow these rules:
+   - Tag the TOPIC, not the angle. Ask: "what would a reader search for?"
+   - Tag every named tool, product, company, or event individually. If an article
+     compares two tools, BOTH get their own tag — never combine them into one tag.
+   - Use broad, stable concept tags — prefer the shortest accurate noun phrase.
+   - Do not prefix concept tags with "AI" — use the concept itself.
+     Bad: "AI Governance", "AI Coding Tools". Good: "Governance", "Coding Tools".
+     OK: "AI Agents", "AI Safety" (where AI is the essential subject).
+   - Do not add qualifier suffixes like "Challenges", "Updates", "Analysis", "News".
+     Bad: "AI Implementation Challenges". Good: "AI Implementation".
+   - Do not use sentiment/opinion framings or "X vs Y" compound tags.
+     Bad: "AI Hype Vs Reality". Good: "AI Hype".
+   - Do not tag sub-concepts of a topic — tag the topic itself.
+     Bad: "Agent Coordination", "Agent Loops". Good: "AI Agents".
 3. A single category from this predefined list that best
 fits the article: {categories_str}
 
@@ -203,7 +255,7 @@ if this article is relevant to their interests."""
         return ArticleSummary(
             article_id=article_id,
             summary=result["summary"],
-            topics=result.get("topics", []),
+            topics=_normalize_tags(result.get("topics", [])),
             category=category,
             generated_at=datetime.now(timezone.utc),
         )

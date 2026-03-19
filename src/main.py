@@ -57,6 +57,7 @@ from .database import (
     count_embeddings,
     count_new_videos_since,
     get_all_articles,
+    get_all_tags_with_counts,
     get_all_videos,
     get_article,
     get_article_by_url,
@@ -99,6 +100,7 @@ from .models import CATEGORIES, AppConfig, DigestItem, VideoWithDetails
 from .summarizer import (
     chat_with_content,
     classify_existing_summary,
+    initialize_tag_normalizer,
     summarize_article,
     summarize_video,
 )
@@ -397,6 +399,10 @@ async def lifespan(app: FastAPI):
     await init_db()
     app_config = load_config()
     logger.info(f"Loaded {len(app_config.channels)} channels from config")
+
+    # Initialize tag normalizer from existing DB tags
+    tags_with_counts = await get_all_tags_with_counts()
+    initialize_tag_normalizer(tags_with_counts)
 
     # Fetch latest videos on startup
     logger.info("Fetching videos on startup...")
@@ -1320,7 +1326,7 @@ def group_items(
         for item in items:
             if item.topics:
                 for topic in item.topics:
-                    groups[topic].append(item)
+                    groups[topic.title()].append(item)
             else:
                 groups["No topics"].append(item)
         # Sort groups alphabetically, "No topics" last
