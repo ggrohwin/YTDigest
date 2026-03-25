@@ -82,7 +82,6 @@ _No active sprint. Next sprint to be planned from the backlog._
 ### Next
 | Story | Type | Description | Effort |
 |-------|------|-------------|--------|
-| Pin dependencies | Infra | As a developer, I want pinned versions in requirements.txt so installs are reproducible | Quick |
 
 ### Later
 | Story | Type | Description | Effort |
@@ -108,6 +107,7 @@ _No active sprint. Next sprint to be planned from the backlog._
 
 | Item | Date | Notes |
 |------|------|-------|
+| Pin dependencies for reproducible builds | 2026-03-25 | Exact versions in requirements.txt; full lock file for Docker/CI |
 | Tag validation & cleanup (Sprint 2) | 2026-03-24 | Consolidated tagging rules into shared module; validated tags in browser; concluded structural normalization has diminishing returns — needs rethinking |
 | Filter YouTube Shorts from selected channels | 2026-03-07 | Per-channel `filter_shorts` flag + configurable `shorts_max_duration` threshold (default 120s) |
 | Code formatting & pre-commit hooks | 2026-02-22 | black + ruff for formatting/linting, pre-commit hooks run both before every commit |

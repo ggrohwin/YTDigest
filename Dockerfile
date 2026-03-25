@@ -3,9 +3,9 @@ FROM python:3.11-slim AS base
 
 WORKDIR /app
 
-# Install dependencies first (cached unless requirements.txt changes)
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install dependencies first (cached unless lock file changes)
+COPY requirements-lock.txt .
+RUN pip install --no-cache-dir -r requirements-lock.txt
 
 # Copy application code
 COPY src/ src/
