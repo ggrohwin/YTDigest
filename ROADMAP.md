@@ -9,7 +9,7 @@ This project uses a lightweight Agile approach. Key concepts:
 - **Spike** — a time-boxed investigation story. The deliverable is a *decision* backed by evidence, not working software. Use spikes when an approach has significant uncertainty — try it cheaply on a small sample before committing to a full implementation. Spikes have a hard time limit; when it expires, stop and report what you learned.
 - **Backlog** — the prioritized list of stories below. Items flow: **Now → Next → Later → Maybe → Completed**.
 - **Sprint** — a time-boxed commitment (typically one session). Has a goal, a set of stories, and a status. A sprint is a unit of execution — it may produce code, a decision, a process change, or an evaluation. The active sprint is documented in its own section below. When a sprint ends, its stories move to Completed and a new sprint is started.
-- **Sprint planning** — at the start of each sprint, review the backlog and pick a goal. If a story has significant uncertainty ("I'm not sure this will work"), make it a spike first rather than committing to full implementation. Define exit criteria upfront for exploratory work.
+- **Sprint planning** — at the start of each sprint, review the backlog and pick a goal. If a story has significant uncertainty ("I'm not sure this will work"), make it a spike first rather than committing to full implementation. Define exit criteria upfront for exploratory work. **No execution begins until both sides explicitly agree on the sprint contents.**
 - **Sprint discipline** — new ideas or issues discovered mid-sprint go into the backlog, not into the current sprint, unless they block the sprint goal.
 - **Retrospective** — at the end of each sprint, reflect on what went well, what didn't, and what to change. This is how the process improves over time.
 - **Definition of Done** — a story is done when it's implemented, manually verified in the app, and committed. A spike is done when the timebox expires and the decision is documented.
@@ -56,6 +56,21 @@ Make topic-based navigation actually useful by reducing tag bloat and improving 
 
 ---
 
+### 3. Content Discovery
+_Status: Next_
+
+Help users find content that matches their interests across the entire digest, whether they know exactly what they're looking for or not.
+
+| Step | Story | Effort | Status |
+|------|-------|--------|--------|
+| 1 | As a user, I want page controls always accessible so I don't lose them when scrolling | Quick | Pending |
+| 2 | As a user, I want tags on cards to link to related content so I can discover connections while reading | Quick | Pending |
+| 3 | As a user, I want to ask questions across all my summaries so I can find and explore content conversationally | Medium | Pending |
+
+**Learning angles:** RAG, context engineering, prompt design for retrieval, chunking strategies.
+
+---
+
 ## Active Sprint
 
 _No active sprint. Next sprint to be planned from the backlog._
@@ -67,7 +82,6 @@ _No active sprint. Next sprint to be planned from the backlog._
 ### Next
 | Story | Type | Description | Effort |
 |-------|------|-------------|--------|
-| Filter/sort videos | Feature | As a user, I want to filter by topic/channel/date rather than rearranging the entire page, so I can drill into what I care about | Medium |
 | Pin dependencies | Infra | As a developer, I want pinned versions in requirements.txt so installs are reproducible | Quick |
 
 ### Later
