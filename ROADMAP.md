@@ -4,11 +4,15 @@
 
 This project uses a lightweight Agile approach. Key concepts:
 
-- **Epic** — a large initiative spanning multiple sessions (e.g. "Deploy to the public internet"). Epics contain ordered steps; each step is a story.
+- **Epic** — a large initiative spanning multiple sessions (e.g. "Deploy to the public internet"). Epics contain ordered steps; each step is a story. Backlog items may be promoted to epics during sprint planning when they turn out to have multiple independently deliverable pieces.
 - **Story** — one unit of deliverable work, framed from the user's perspective: *"As a user, I want X so that Y."* Keeps focus on value, not just tasks.
+- **Spike** — a time-boxed investigation story. The deliverable is a *decision* backed by evidence, not working software. Use spikes when an approach has significant uncertainty — try it cheaply on a small sample before committing to a full implementation. Spikes have a hard time limit; when it expires, stop and report what you learned.
 - **Backlog** — the prioritized list of stories below. Items flow: **Now → Next → Later → Maybe → Completed**.
-- **Sprint** — what we commit to finishing in a session or week. The **Now** column is the active sprint.
-- **Definition of Done** — a story is done when it's implemented, manually verified in the app, and committed.
+- **Sprint** — a time-boxed commitment (typically one session). Has a goal, a set of stories, and a status. A sprint is a unit of execution — it may produce code, a decision, a process change, or an evaluation. The active sprint is documented in its own section below. When a sprint ends, its stories move to Completed and a new sprint is started.
+- **Sprint planning** — at the start of each sprint, review the backlog and pick a goal. If a story has significant uncertainty ("I'm not sure this will work"), make it a spike first rather than committing to full implementation. Define exit criteria upfront for exploratory work.
+- **Sprint discipline** — new ideas or issues discovered mid-sprint go into the backlog, not into the current sprint, unless they block the sprint goal.
+- **Retrospective** — at the end of each sprint, reflect on what went well, what didn't, and what to change. This is how the process improves over time.
+- **Definition of Done** — a story is done when it's implemented, manually verified in the app, and committed. A spike is done when the timebox expires and the decision is documented.
 
 I (Claude) will suggest new stories and learning angles based on where the project is heading. You decide what goes into the sprint.
 
@@ -46,16 +50,23 @@ Make topic-based navigation actually useful by reducing tag bloat and improving 
 | 4 | As a user, I want a display threshold that hides single-occurrence tags from navigation so the sidebar isn't overwhelming | Quick | Deferred to Issue #6 |
 | 5 | As a developer, I want tagging principles encoded in the summarizer prompt so Claude generates better tags going forward | Quick | Done |
 
-**Known limitations (Issue #6):** directional merge bug (more-specific tag can win over more-general); `topics_retag` column needed to preserve retag output across normalize runs; display threshold not yet implemented.
+**Known limitations (Issue #6):** 71% singletons despite structural normalization + prompt retagging; directional merge bug; `topics_retag` column needed; display threshold not implemented. Tagging approach needs fundamental rethinking (constrained vocab, embeddings, or different strategy entirely).
 
 **Learning angles:** embedding similarity, cosine distance, semantic search, prompt engineering for structured output, evaluation-driven development, specification gaming.
 
 ---
 
-## Feature Backlog
+## Active Sprint
 
-### Now
-_Empty — finish Epic 2 first_
+_No active sprint. Next sprint to be planned from the backlog._
+
+### Previous Sprint: Tag validation & cleanup (Sprint 2)
+**Completed:** 2026-03-24
+**Outcome:** Validation complete. Tags improved (2,201 → 1,728 unique, 80% → 71% singletons) but still too granular. Structural normalization and prompt-based retagging have diminishing returns — the tagging approach needs fundamental rethinking before further investment. Deferred to backlog.
+
+---
+
+## Feature Backlog
 
 ### Next
 | Story | Description | Effort |
@@ -73,6 +84,7 @@ _Empty — finish Epic 2 first_
 ### Maybe
 | Story | Description | Effort |
 |-------|-------------|--------|
+| Evaluate project management tooling | As a developer learning Agile, I want to try a visual tool (Plane, GitHub Projects) so sprints and backlogs are easier to manage than a markdown file | Quick |
 | Local timezone support | As a user, I want dates in my local timezone so "added yesterday" is accurate | Quick |
 | Live updates via SSE | As a user, I want the page to update automatically when new summaries arrive so I don't have to refresh | Medium |
 | MCP server: video database | As a Claude Code user, I want to query my video library conversationally via MCP so I can explore content without opening the browser | Medium |
@@ -91,6 +103,7 @@ _Empty — finish Epic 2 first_
 ### Later
 | Story | Description | Effort |
 |-------|-------------|--------|
+| Populate GitHub Projects board | As a developer, I want epics and stories visible on a kanban board so I can track work visually | Quick |
 | Type checking | As a developer, I want mypy enforced so type errors are caught before runtime | Medium |
 | Feature branches | As a developer, I want a branch-based Git workflow so experiments don't touch master | Quick |
 
@@ -154,6 +167,7 @@ Topics to explore for deeper understanding. Claude will proactively suggest new 
 
 | Item | Date | Notes |
 |------|------|-------|
+| Tag validation & cleanup (Sprint 2) | 2026-03-24 | Consolidated tagging rules into shared module; validated tags in browser; concluded structural normalization has diminishing returns — needs rethinking |
 | Filter YouTube Shorts from selected channels | 2026-03-07 | Per-channel `filter_shorts` flag + configurable `shorts_max_duration` threshold (default 120s) |
 | Code formatting & pre-commit hooks | 2026-02-22 | black + ruff for formatting/linting, pre-commit hooks run both before every commit |
 | CI/CD with GitHub Actions | 2026-02-22 | Two-job workflow: run pytest and build Docker image on every push/PR to master |
