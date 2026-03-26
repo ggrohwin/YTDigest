@@ -57,7 +57,7 @@ Make topic-based navigation actually useful by reducing tag bloat and improving 
 ---
 
 ### 3. Content Discovery
-_Status: Next_
+_Status: Done (v1) — follow-up items in backlog_
 
 Help users find content that matches their interests across the entire digest, whether they know exactly what they're looking for or not.
 
@@ -84,6 +84,7 @@ _No active sprint. Next sprint to be planned from the backlog._
 |-------|------|-------------|--------|
 | Clear question input | Feature | As a user, I want a button to clear the Ask input so I can quickly ask a new question | Quick |
 | Source card actions | Feature | As a user, I want feedback controls (thumbs up/down, etc.) on source cards so I can interact without returning to the digest | Quick |
+| Answer markdown formatting | Feature | As a user, I want section headers in conversational search answers to render as proper headers, not bold text | Quick |
 
 ### Later
 | Story | Type | Description | Effort |
@@ -109,6 +110,7 @@ _No active sprint. Next sprint to be planned from the backlog._
 
 | Item | Date | Notes |
 |------|------|-------|
+| Clickable tags on cards (Content Discovery Story 2) | 2026-03-25 | Already implemented; confirmed working — links to topic group view |
 | Sticky page controls (Content Discovery Story 1) | 2026-03-25 | Header, search, grouping controls stay visible when scrolling |
 | Conversational search / RAG (Content Discovery Story 3) | 2026-03-25 | Ask questions across library; Claude synthesizes answers from retrieved content with source cards |
 | Pin dependencies for reproducible builds | 2026-03-25 | Exact versions in requirements.txt; full lock file for Docker/CI |
