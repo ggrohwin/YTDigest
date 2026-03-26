@@ -365,3 +365,63 @@ def chat_with_content(
     except Exception as e:
         logger.error(f"Error during chat: {e}")
         return None
+
+
+def answer_question(
+    question: str,
+    sources: list[dict],
+    model: str = CHAT_MODEL,
+) -> Optional[str]:
+    """Answer a question using retrieved content from multiple sources (RAG).
+
+    sources: list of dicts with keys: title, source_name, item_type, content, summary
+    Returns the assistant's response text, or None on error.
+    """
+    # Build context blocks from retrieved sources
+    context_blocks = []
+    for i, src in enumerate(sources, 1):
+        kind = "Video Transcript" if src["item_type"] == "video" else "Article"
+        block = f"[Source {i}] {kind}: {src['title']}\n" f"By: {src['source_name']}\n"
+        if src.get("summary"):
+            block += f"Summary: {src['summary']}\n"
+        if src.get("content"):
+            # Include full content, truncated if very long
+            content = src["content"]
+            max_len = MAX_TRANSCRIPT_LENGTH
+            if len(content) > max_len:
+                content = content[:max_len] + "... [truncated]"
+            block += f"Full Content:\n{content}\n"
+        context_blocks.append(block)
+
+    context = "\n---\n\n".join(context_blocks)
+
+    system_prompt = (
+        "You are a helpful assistant answering questions about the user's "
+        "video and article library. You have been given the most relevant "
+        "sources from their collection.\n\n"
+        f"--- SOURCES ---\n{context}\n--- END SOURCES ---\n\n"
+        "Instructions:\n"
+        "- Answer the question based on the sources provided.\n"
+        "- Cite sources by referencing the title in your answer "
+        '(e.g. "According to [Title]...").\n'
+        "- If the sources don't contain enough information to answer, "
+        "say so honestly.\n"
+        "- Be concise but thorough."
+    )
+
+    client = get_anthropic_client()
+
+    try:
+        response = client.messages.create(
+            model=model,
+            max_tokens=2048,
+            system=system_prompt,
+            messages=[{"role": "user", "content": question}],
+        )
+        return response.content[0].text
+    except anthropic.APIError as e:
+        logger.error(f"Anthropic API error during answer_question: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Error during answer_question: {e}")
+        return None

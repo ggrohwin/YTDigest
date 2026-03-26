@@ -98,6 +98,7 @@ from .database import (
 )
 from .models import CATEGORIES, AppConfig, DigestItem, VideoWithDetails
 from .summarizer import (
+    answer_question,
     chat_with_content,
     classify_existing_summary,
     initialize_tag_normalizer,
@@ -821,45 +822,100 @@ async def api_embed_all():
         )
 
 
-@app.get("/api/search")
-async def api_search(q: str = "", limit: int = 10):
-    """Search for items by semantic similarity to the query."""
-    if not q.strip():
-        return JSONResponse(
-            content={"error": "Query parameter 'q' is required"},
-            status_code=400,
-        )
-
-    if not embedder.is_available():
-        return JSONResponse(
-            content={"error": "VOYAGE_API_KEY is not set"},
-            status_code=400,
-        )
-
+@app.post("/api/ask")
+async def api_ask(request: Request):
+    """Answer a question using RAG over the video/article library."""
     try:
-        results = await embedder.search(q.strip(), limit=limit)
+        body = await request.json()
+        question = body.get("question", "").strip()
+        if not question:
+            return JSONResponse(
+                content={"error": "question is required"},
+                status_code=400,
+            )
 
-        # Load full DigestItem for each result
-        search_results = []
+        if not embedder.is_available():
+            return JSONResponse(
+                content={"error": "VOYAGE_API_KEY is not set"},
+                status_code=400,
+            )
+
+        # Retrieve relevant items via embeddings
+        results = await embedder.search(question, limit=5)
+
+        if not results:
+            return JSONResponse(
+                content={
+                    "question": question,
+                    "answer": (
+                        "I couldn't find any relevant content "
+                        "in your library for that question."
+                    ),
+                    "sources": [],
+                }
+            )
+
+        # Load full content for each retrieved item
+        sources = []
+        source_items = []
         for item_id, item_type, score in results:
             item = await get_digest_item(item_id, item_type)
-            if item:
-                search_results.append(
-                    {
-                        "score": round(score, 4),
-                        "item": item.model_dump(mode="json"),
-                    }
-                )
+            if not item:
+                continue
+
+            # Load full text content
+            content = None
+            source_name = ""
+            if item_type == "video":
+                transcript = await get_transcript(item_id)
+                content = transcript.content if transcript else None
+                video = await get_video(item_id)
+                source_name = video.channel_name if video else ""
+            else:
+                article = await get_article(item_id)
+                content = article.content if article else None
+                source_name = article.domain if article else ""
+
+            sources.append(
+                {
+                    "title": item.title,
+                    "source_name": source_name,
+                    "item_type": item_type,
+                    "content": content,
+                    "summary": item.summary,
+                }
+            )
+            source_items.append(
+                {
+                    "score": round(score, 4),
+                    "item": item.model_dump(mode="json"),
+                }
+            )
+
+        # Generate answer via Claude
+        answer_text = answer_question(
+            question=question,
+            sources=sources,
+            model=app_config.digest.summarization_model,
+        )
+
+        if answer_text is None:
+            return JSONResponse(
+                content={"error": "Failed to get a response from Claude"},
+                status_code=500,
+            )
 
         return JSONResponse(
             content={
-                "query": q.strip(),
-                "results": search_results,
+                "question": question,
+                "answer": answer_text,
+                "sources": source_items,
             }
         )
+
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
-        logger.error(f"Error during search: {error_msg}")
+        logger.error(f"Error during ask: {error_msg}")
         return JSONResponse(
             content={"error": error_msg},
             status_code=500,
