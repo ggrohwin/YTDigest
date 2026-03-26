@@ -28,7 +28,7 @@
             100% { transform: rotate(360deg); }
         }
         .group-container {
-            scroll-margin-top: 1rem;
+            scroll-margin-top: 12rem;
         }
         #sidebar {
             scrollbar-width: thin;
@@ -117,9 +117,9 @@
 </head>
 <body class="bg-gray-100 min-h-screen">
     <div class="container mx-auto px-4 py-8 max-w-6xl">
-        <!-- Header -->
-        <header class="mb-8">
-            <div class="flex justify-between items-center">
+        <!-- Sticky header: controls always visible when scrolling -->
+        <header class="sticky top-0 z-10 bg-gray-100 pb-3 -mx-4 px-4">
+            <div class="flex justify-between items-center pt-8">
                 <div>
                     <h1 class="text-3xl font-bold text-gray-800">YTDigest</h1>
                     <p class="text-gray-600">Your daily video &amp; article summaries</p>
@@ -168,6 +168,23 @@
                 </form>
             </div>
             {% endif %}
+
+            <!-- Grouping selector and filters -->
+            <div class="mt-3 flex items-center justify-between flex-wrap gap-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-gray-600 text-sm">Group by:</span>
+                    <a href="?group_by=date{{ '&show_completed=true' if show_completed else '' }}{{ '&view=favorites' if view == 'favorites' else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'date' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Date</a>
+                    <a href="?group_by=channel{{ '&show_completed=true' if show_completed else '' }}{{ '&view=favorites' if view == 'favorites' else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'channel' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Source</a>
+                    <a href="?group_by=topic{{ '&show_completed=true' if show_completed else '' }}{{ '&view=favorites' if view == 'favorites' else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'topic' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Topic</a>
+                </div>
+                {% if view != 'favorites' %}
+                <div class="flex items-center gap-2">
+                    <a href="?group_by={{ group_by }}{{ '&show_completed=true' if not show_completed else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-green-600 text-white' if show_completed else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">
+                        {{ 'Showing Completed' if show_completed else 'Show Completed' }}
+                    </a>
+                </div>
+                {% endif %}
+            </div>
         </header>
 
         <!-- Page summary -->
@@ -210,23 +227,6 @@
             <button onclick="closeStatus()" class="ml-4 font-bold hover:opacity-70">&times;</button>
         </div>
 
-        <!-- Grouping selector and filters -->
-        <div class="mb-6 flex items-center justify-between flex-wrap gap-2">
-            <div class="flex items-center gap-2">
-                <span class="text-gray-600 text-sm">Group by:</span>
-                <a href="?group_by=date{{ '&show_completed=true' if show_completed else '' }}{{ '&view=favorites' if view == 'favorites' else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'date' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Date</a>
-                <a href="?group_by=channel{{ '&show_completed=true' if show_completed else '' }}{{ '&view=favorites' if view == 'favorites' else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'channel' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Source</a>
-                <a href="?group_by=topic{{ '&show_completed=true' if show_completed else '' }}{{ '&view=favorites' if view == 'favorites' else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-blue-600 text-white' if group_by == 'topic' else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">Topic</a>
-            </div>
-            {% if view != 'favorites' %}
-            <div class="flex items-center gap-2">
-                <a href="?group_by={{ group_by }}{{ '&show_completed=true' if not show_completed else '' }}" class="px-3 py-1 rounded text-sm {{ 'bg-green-600 text-white' if show_completed else 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">
-                    {{ 'Showing Completed' if show_completed else 'Show Completed' }}
-                </a>
-            </div>
-            {% endif %}
-        </div>
-
         <!-- Search results (hidden until a search is performed) -->
         <div id="searchResults" class="hidden mb-6">
             <div id="searchResultsHeader" class="mb-4 flex items-center justify-between">
@@ -241,7 +241,7 @@
         <!-- Main content with sidebar -->
         <div id="digestContent" class="flex gap-6">
             <!-- Sidebar -->
-            <nav id="sidebar" class="hidden lg:block w-56 flex-shrink-0 sticky top-4 self-start max-h-[calc(100vh-2rem)] overflow-y-auto">
+            <nav id="sidebar" class="hidden lg:block w-56 flex-shrink-0 sticky top-48 self-start max-h-[calc(100vh-13rem)] overflow-y-auto">
                 <div class="bg-white rounded-lg shadow-md p-4">
                     <a href="?view=favorites&group_by={{ group_by }}" class="block text-sm font-medium py-1.5 px-2 rounded mb-2 transition-colors {{ 'bg-yellow-100 text-yellow-800' if view == 'favorites' else 'text-gray-600 hover:bg-yellow-50 hover:text-yellow-700' }}">
                         <span class="text-base">&#9733;</span> Favorites
