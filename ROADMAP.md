@@ -65,7 +65,7 @@ Help users find content that matches their interests across the entire digest, w
 |------|-------|--------|--------|
 | 1 | As a user, I want page controls always accessible so I don't lose them when scrolling | Quick | Done |
 | 2 | As a user, I want tags on cards to link to related content so I can discover connections while reading | Quick | Done (pre-existing) |
-| 3 | As a user, I want to ask questions across all my summaries so I can find and explore content conversationally | Medium | Pending |
+| 3 | As a user, I want to ask questions across all my summaries so I can find and explore content conversationally | Medium | Done (v1) |
 
 **Learning angles:** RAG, context engineering, prompt design for retrieval, chunking strategies.
 
@@ -82,6 +82,8 @@ _No active sprint. Next sprint to be planned from the backlog._
 ### Next
 | Story | Type | Description | Effort |
 |-------|------|-------------|--------|
+| Clear question input | Feature | As a user, I want a button to clear the Ask input so I can quickly ask a new question | Quick |
+| Source card actions | Feature | As a user, I want feedback controls (thumbs up/down, etc.) on source cards so I can interact without returning to the digest | Quick |
 
 ### Later
 | Story | Type | Description | Effort |
@@ -108,6 +110,7 @@ _No active sprint. Next sprint to be planned from the backlog._
 | Item | Date | Notes |
 |------|------|-------|
 | Sticky page controls (Content Discovery Story 1) | 2026-03-25 | Header, search, grouping controls stay visible when scrolling |
+| Conversational search / RAG (Content Discovery Story 3) | 2026-03-25 | Ask questions across library; Claude synthesizes answers from retrieved content with source cards |
 | Pin dependencies for reproducible builds | 2026-03-25 | Exact versions in requirements.txt; full lock file for Docker/CI |
 | Tag validation & cleanup (Sprint 2) | 2026-03-24 | Consolidated tagging rules into shared module; validated tags in browser; concluded structural normalization has diminishing returns — needs rethinking |
 | Filter YouTube Shorts from selected channels | 2026-03-07 | Per-channel `filter_shorts` flag + configurable `shorts_max_duration` threshold (default 120s) |
