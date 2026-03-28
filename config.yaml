@@ -40,10 +40,12 @@ channels:
   - id: "UC7YmAKGIRoDWT3O68Cf1aaA"
     name: "Dave Linthicum is not AI"
     filter_shorts: true
+  - id: "UCIkU9Fe0OccRmqBMXRm1Q7A"
+    name: "AI Agents Podcast"
 
 digest:
   max_videos_per_channel: 5
-  max_age_days: 14
+  max_age_days: 21
   transcript_fetch_interval: 300  # seconds between background transcript fetches
   transcript_batch_size: 1        # transcripts to fetch per cycle
   video_refresh_interval: 3600    # seconds between video metadata refreshes (1 hour)
