@@ -11,6 +11,7 @@ This project uses a lightweight Agile approach. Key concepts:
 - **Sprint** — a time-boxed commitment (typically one session). Has a goal, a set of stories, and a status. A sprint is a unit of execution — it may produce code, a decision, a process change, or an evaluation. The active sprint is documented in its own section below. When a sprint ends, its stories move to Completed and a new sprint is started.
 - **Sprint planning** — at the start of each sprint, review the backlog and pick a goal. If a story has significant uncertainty ("I'm not sure this will work"), make it a spike first rather than committing to full implementation. Define exit criteria upfront for exploratory work. **No execution begins until both sides explicitly agree on the sprint contents.**
 - **Sprint discipline** — new ideas or issues discovered mid-sprint go into the backlog, not into the current sprint, unless they block the sprint goal.
+- **GitHub Issues** — used to capture detailed context behind deferred work or known limitations. A backlog item stays concise; the linked issue holds the specifics (root causes, edge cases, open questions). Not every backlog item needs an issue — only those with enough detail to warrant one.
 - **Retrospective** — at the end of each sprint, reflect on what went well, what didn't, and what to change. This is how the process improves over time.
 - **Definition of Done** — a story is done when it's implemented, manually verified in the app, and committed. A spike is done when the timebox expires and the decision is documented.
 
@@ -82,9 +83,6 @@ _No active sprint. Next sprint to be planned from the backlog._
 ### Next
 | Story | Type | Description | Effort |
 |-------|------|-------------|--------|
-| Clear question input | Feature | As a user, I want a button to clear the Ask input so I can quickly ask a new question | Quick |
-| Source card actions | Feature | As a user, I want feedback controls (thumbs up/down, etc.) on source cards so I can interact without returning to the digest | Quick |
-| Answer markdown formatting | Feature | As a user, I want section headers in conversational search answers to render as proper headers, not bold text | Quick |
 
 ### Later
 | Story | Type | Description | Effort |
@@ -98,6 +96,7 @@ _No active sprint. Next sprint to be planned from the backlog._
 ### Maybe
 | Story | Type | Description | Effort |
 |-------|------|-------------|--------|
+| Claude Code skills & hooks | Learning | As a developer, I want to understand Claude Code's skills, hooks, and settings configuration so I can customize my workflow | Quick |
 | Local timezone support | Feature | As a user, I want dates in my local timezone so "added yesterday" is accurate | Quick |
 | Live updates via SSE | Feature | As a user, I want the page to update automatically when new summaries arrive so I don't have to refresh | Medium |
 | MCP server: video database | Feature | As a Claude Code user, I want to query my video library conversationally via MCP so I can explore content without opening the browser | Medium |
@@ -110,6 +109,9 @@ _No active sprint. Next sprint to be planned from the backlog._
 
 | Item | Date | Notes |
 |------|------|-------|
+| Clear question input | 2026-03-28 | X button in Ask input field; appears when text is present |
+| Source card actions | 2026-03-28 | Search result cards now have full digest actions: complete, chat, notes, favorite |
+| Answer markdown formatting | 2026-03-28 | Added Tailwind Typography plugin; prose classes now render headers, lists, code blocks properly |
 | Clickable tags on cards (Content Discovery Story 2) | 2026-03-25 | Already implemented; confirmed working — links to topic group view |
 | Sticky page controls (Content Discovery Story 1) | 2026-03-25 | Header, search, grouping controls stay visible when scrolling |
 | Conversational search / RAG (Content Discovery Story 3) | 2026-03-25 | Ask questions across library; Claude synthesizes answers from retrieved content with source cards |

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YTDigest - Your Daily AI Digest</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         html {
@@ -144,11 +144,22 @@
                             id="searchInput"
                             type="text"
                             placeholder="Ask a question across your library... (e.g. &quot;what did anyone say about fine-tuning?&quot;)"
-                            class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            class="w-full px-4 py-2 pl-10 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                         >
                         <svg class="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
+                        <button
+                            type="button"
+                            id="clearInputBtn"
+                            onclick="clearInput()"
+                            class="hidden absolute right-3 top-2.5 h-5 w-5 text-gray-400 hover:text-gray-600"
+                            title="Clear input"
+                        >
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
                     </div>
                     <button
                         type="submit"
@@ -1067,6 +1078,49 @@
                 return `<a href="?group_by=topic#group-${slug}" class="${topicColor} text-xs font-medium px-2.5 py-0.5 rounded ${hoverColor} transition-colors">${t}</a>`;
             }).join('');
 
+            const hoverBg = isArticle ? 'hover:bg-emerald-100' : 'hover:bg-blue-100';
+            const itemType = isArticle ? 'article' : 'video';
+            const titleJson = JSON.stringify(item.title);
+
+            // Build action bar — match digest card actions
+            let actionsHtml;
+            if (!item.is_completed) {
+                actionsHtml = `
+                    <div class="mt-4 pt-3 border-t border-gray-100 flex items-center gap-1">
+                        <span class="text-gray-400 text-xs mr-2">Mark as done:</span>
+                        <button onclick="markComplete('${item.id}', 'like', '${itemType}')" class="p-2 hover:bg-green-100 rounded transition-colors" title="Like">👍</button>
+                        <button onclick="markComplete('${item.id}', 'neutral', '${itemType}')" class="p-2 hover:bg-gray-100 rounded transition-colors" title="Neutral">✔️</button>
+                        <button onclick="markComplete('${item.id}', 'dislike', '${itemType}')" class="p-2 hover:bg-red-100 rounded transition-colors" title="Dislike">👎</button>
+                        <button onclick="markComplete('${item.id}', 'skip', '${itemType}')" class="p-2 hover:bg-gray-200 rounded transition-colors" title="Skip">⏭️</button>
+                        ${item.summary ? `<button onclick='openChatModal(${JSON.stringify(item.id)}, "${itemType}", ${titleJson})' class="p-2 ${hoverBg} rounded transition-colors" title="Chat about this ${itemType}">💬</button>` : ''}
+                        <button id="notes-btn-${item.id}" onclick="toggleNotesPanel('${item.id}', '${itemType}')" class="p-2 rounded transition-colors ${item.notes ? 'bg-amber-100 hover:bg-amber-200 text-amber-700' : 'hover:bg-gray-100 text-gray-400'}" title="${item.notes ? 'Edit notes' : 'Add notes'}">📝</button>
+                        <span class="flex-1"></span>
+                        <button onclick="toggleFavorite('${item.id}', '${itemType}', this)" class="p-2 hover:bg-yellow-100 rounded transition-colors text-lg ${item.is_favorited ? 'text-yellow-500' : 'text-gray-400'}" title="${item.is_favorited ? 'Remove from favorites' : 'Add to favorites'}">${item.is_favorited ? '★' : '☆'}</button>
+                    </div>`;
+            } else {
+                const sentimentEmoji = {like: '👍', neutral: '✔️', dislike: '👎', skip: '⏭️'}[item.sentiment] || '';
+                actionsHtml = `
+                    <div class="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2 text-gray-400 text-sm">
+                        <span>Completed</span> ${sentimentEmoji}
+                        <button onclick="unComplete('${item.id}', '${itemType}')" class="ml-1 px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-500 rounded transition-colors" title="Undo completion">Undo</button>
+                        ${item.summary ? `<button onclick='openChatModal(${JSON.stringify(item.id)}, "${itemType}", ${titleJson})' class="p-2 ${hoverBg} rounded transition-colors" title="Chat about this ${itemType}">💬</button>` : ''}
+                        <button id="notes-btn-${item.id}" onclick="toggleNotesPanel('${item.id}', '${itemType}')" class="p-2 rounded transition-colors ${item.notes ? 'bg-amber-100 hover:bg-amber-200 text-amber-700' : 'hover:bg-gray-100 text-gray-400'}" title="${item.notes ? 'Edit notes' : 'Add notes'}">📝</button>
+                        <span class="flex-1"></span>
+                        <button onclick="toggleFavorite('${item.id}', '${itemType}', this)" class="p-2 hover:bg-yellow-100 rounded transition-colors text-lg ${item.is_favorited ? 'text-yellow-500' : 'text-gray-400'}" title="${item.is_favorited ? 'Remove from favorites' : 'Add to favorites'}">${item.is_favorited ? '★' : '☆'}</button>
+                    </div>`;
+            }
+
+            // Notes panel
+            const notesHtml = `
+                <div id="notes-panel-${item.id}" class="hidden mt-2 pt-3 border-t border-gray-100 bg-gray-50 rounded p-3">
+                    ${item.notes ? `<div id="notes-display-${item.id}" class="text-sm text-gray-700 mb-2 whitespace-pre-wrap">${item.notes}</div>` : ''}
+                    <textarea id="notes-textarea-${item.id}" class="w-full border border-gray-300 rounded text-sm p-2 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" rows="3" placeholder="Add a note...">${item.notes || ''}</textarea>
+                    <div class="flex gap-2 mt-2">
+                        <button onclick="saveNotes('${item.id}', '${itemType}')" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors">Save</button>
+                        <button onclick="cancelNotes('${item.id}')" class="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium rounded transition-colors">Cancel</button>
+                    </div>
+                </div>`;
+
             card.innerHTML = `
                 <div class="${item.thumbnail_url ? 'md:flex' : ''}">
                     ${thumbnailHtml}
@@ -1083,6 +1137,8 @@
                         <div class="flex items-center text-sm text-gray-500 mb-3">${meta}</div>
                         ${topics ? `<div class="flex flex-wrap gap-2 mb-3">${topics}</div>` : ''}
                         ${item.summary ? `<div class="text-gray-600 text-sm leading-relaxed">${item.summary}</div>` : ''}
+                        ${actionsHtml}
+                        ${notesHtml}
                     </div>
                 </div>
             `;
@@ -1107,7 +1163,20 @@
             document.getElementById('searchResults').classList.add('hidden');
             document.getElementById('clearSearchBtn').classList.add('hidden');
             document.getElementById('searchInput').value = '';
+            document.getElementById('clearInputBtn').classList.add('hidden');
         }
+
+        function clearInput() {
+            const input = document.getElementById('searchInput');
+            input.value = '';
+            input.focus();
+            document.getElementById('clearInputBtn').classList.add('hidden');
+        }
+
+        // Show/hide clear button based on input content
+        document.getElementById('searchInput').addEventListener('input', function() {
+            document.getElementById('clearInputBtn').classList.toggle('hidden', !this.value);
+        });
 
         async function toggleFavorite(itemId, itemType, button) {
             const endpoint = itemType === 'article'
