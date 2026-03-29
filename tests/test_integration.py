@@ -11,7 +11,7 @@ import pytest
 from src import database
 from src.articles import fetch_article
 from src.models import CATEGORIES, Article, ArticleSummary
-from src.summarizer import summarize_article
+from src.summarizer import summarize_content
 
 pytestmark = pytest.mark.integration
 
@@ -115,11 +115,12 @@ class TestArticleSummarize:
         article, error = fetch_article(TEST_URL)
         assert error is None
 
-        summary = summarize_article(
-            article_id=article.id,
+        summary = summarize_content(
+            item_id=article.id,
             title=article.title,
-            domain=article.domain,
+            source_name=article.domain,
             content=article.content,
+            content_type="article",
             author=article.author,
         )
 
@@ -150,11 +151,12 @@ class TestFullPipeline:
         await database.save_article(article)
 
         # 3. Summarize
-        summary = summarize_article(
-            article_id=article.id,
+        summary = summarize_content(
+            item_id=article.id,
             title=article.title,
-            domain=article.domain,
+            source_name=article.domain,
             content=article.content,
+            content_type="article",
             author=article.author,
         )
         assert summary is not None

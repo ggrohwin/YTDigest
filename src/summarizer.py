@@ -2,12 +2,13 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Literal, Optional
 
 import anthropic
 
 from .models import CATEGORIES, ArticleSummary, Summary
 from .tag_normalizer import TagNormalizer
+from .tagging_rules import TAGGING_PRINCIPLES
 
 # Default chat model — cheaper/faster than summarization model
 CHAT_MODEL = "claude-sonnet-4-20250514"
@@ -49,170 +50,57 @@ def get_anthropic_client() -> anthropic.Anthropic:
     return anthropic.Anthropic(api_key=api_key)
 
 
-def summarize_video(
-    video_id: str,
+def summarize_content(
+    item_id: str,
     title: str,
-    channel: str,
-    transcript: str,
-    model: str = "claude-sonnet-4-20250514",
-) -> Optional[Summary]:
-    """
-    Generate a summary of a video using Claude.
-
-    Returns a Summary object with the summary text and extracted topics.
-    """
-    if not transcript:
-        return None
-
-    if len(transcript) > MAX_TRANSCRIPT_LENGTH:
-        transcript = transcript[:MAX_TRANSCRIPT_LENGTH] + "... [transcript truncated]"
-
-    client = get_anthropic_client()
-
-    categories_str = json.dumps(CATEGORIES)
-    prompt = f"""You are analyzing a YouTube video to help someone
-decide if it's worth watching.
-
-Video Title: {title}
-Channel: {channel}
-
-Transcript:
-{transcript}
-
-Please provide:
-1. A concise summary (2-3 paragraphs) that captures the key points and main takeaways
-2. A list of 3-5 topic tags for navigation. Tags are used for navigation — a reader
-   clicks a tag to find all related content. Follow these rules:
-   - Tag the TOPIC, not the angle. Ask: "what would a reader search for?"
-   - Tag every named tool, product, company, or event individually. If a video
-     compares two tools, BOTH get their own tag — never combine them into one tag.
-   - Use broad, stable concept tags — prefer the shortest accurate noun phrase.
-   - Do not prefix concept tags with "AI" — use the concept itself.
-     Bad: "AI Governance", "AI Coding Tools". Good: "Governance", "Coding Tools".
-     OK: "AI Agents", "AI Safety" (where AI is the essential subject).
-   - Do not add qualifier suffixes like "Challenges", "Updates", "Analysis", "News".
-     Bad: "AI Implementation Challenges". Good: "AI Implementation".
-   - Do not use sentiment/opinion framings or "X vs Y" compound tags.
-     Bad: "AI Hype Vs Reality". Good: "AI Hype".
-   - Do not tag sub-concepts of a topic — tag the topic itself.
-     Bad: "Agent Coordination", "Agent Loops". Good: "AI Agents".
-3. A single category from this predefined list that best
-fits the video: {categories_str}
-
-Format your response as JSON with this structure:
-{{
-    "summary": "Your summary here...",
-    "topics": ["topic1", "topic2", "topic3"],
-    "category": "one of the predefined categories"
-}}
-
-Focus on:
-- What the main topic/thesis is
-- Key insights or information shared
-- Who would benefit from watching this video
-- Any notable conclusions or recommendations
-
-Be concise but informative. Help the reader quickly understand
-if this video is relevant to their interests."""
-
-    try:
-        response = client.messages.create(
-            model=model,
-            max_tokens=1024,
-            messages=[{"role": "user", "content": prompt}],
-        )
-
-        response_text = response.content[0].text.strip()
-
-        if response_text.startswith("```json"):
-            response_text = response_text[7:]
-        if response_text.startswith("```"):
-            response_text = response_text[3:]
-        if response_text.endswith("```"):
-            response_text = response_text[:-3]
-
-        result = json.loads(response_text.strip())
-
-        category = result.get("category")
-        if category not in CATEGORIES:
-            category = "Other"
-
-        return Summary(
-            video_id=video_id,
-            summary=result["summary"],
-            topics=_normalize_tags(result.get("topics", [])),
-            category=category,
-            generated_at=datetime.now(timezone.utc),
-        )
-
-    except json.JSONDecodeError as e:
-        logger.warning(f"Error parsing Claude response for {video_id}: {e}")
-        logger.debug(f"Response was: {response_text[:500]}")
-        return Summary(
-            video_id=video_id,
-            summary=response_text,
-            topics=[],
-            category=None,
-            generated_at=datetime.now(timezone.utc),
-        )
-    except anthropic.APIError as e:
-        logger.error(f"Anthropic API error for {video_id}: {e}")
-        return None
-    except Exception as e:
-        logger.error(f"Error summarizing video {video_id}: {e}")
-        return None
-
-
-def summarize_article(
-    article_id: str,
-    title: str,
-    domain: str,
+    source_name: str,
     content: str,
+    content_type: Literal["video", "article"] = "video",
     author: Optional[str] = None,
     model: str = "claude-sonnet-4-20250514",
-) -> Optional[ArticleSummary]:
-    """Generate a summary of a web article using Claude.
+) -> Optional[Summary | ArticleSummary]:
+    """Generate a summary of a video or article using Claude.
 
-    Returns an ArticleSummary object with the summary text and extracted topics.
+    Returns a Summary (for videos) or ArticleSummary (for articles).
     """
     if not content:
         return None
 
-    if len(content) > MAX_ARTICLE_LENGTH:
-        content = content[:MAX_ARTICLE_LENGTH] + "... [content truncated]"
+    max_length = (
+        MAX_TRANSCRIPT_LENGTH if content_type == "video" else MAX_ARTICLE_LENGTH
+    )
+    if len(content) > max_length:
+        content = content[:max_length] + "... [content truncated]"
 
-    client = get_anthropic_client()
+    if content_type == "video":
+        kind = "YouTube video"
+        verb = "watching"
+        source_label = "Channel"
+        content_label = "Transcript"
+    else:
+        kind = "web article"
+        verb = "reading"
+        source_label = "Source"
+        content_label = "Article Content"
 
     author_line = f"\nAuthor: {author}" if author else ""
     categories_str = json.dumps(CATEGORIES)
-    prompt = f"""You are analyzing a web article to help someone
-decide if it's worth reading.
 
-Article Title: {title}
-Source: {domain}{author_line}
+    prompt = f"""You are analyzing a {kind} to help someone
+decide if it's worth {verb}.
 
-Article Content:
+{content_type.title()} Title: {title}
+{source_label}: {source_name}{author_line}
+
+{content_label}:
 {content}
 
 Please provide:
 1. A concise summary (2-3 paragraphs) that captures the key points and main takeaways
-2. A list of 3-5 topic tags for navigation. Tags are used for navigation — a reader
-   clicks a tag to find all related content. Follow these rules:
-   - Tag the TOPIC, not the angle. Ask: "what would a reader search for?"
-   - Tag every named tool, product, company, or event individually. If an article
-     compares two tools, BOTH get their own tag — never combine them into one tag.
-   - Use broad, stable concept tags — prefer the shortest accurate noun phrase.
-   - Do not prefix concept tags with "AI" — use the concept itself.
-     Bad: "AI Governance", "AI Coding Tools". Good: "Governance", "Coding Tools".
-     OK: "AI Agents", "AI Safety" (where AI is the essential subject).
-   - Do not add qualifier suffixes like "Challenges", "Updates", "Analysis", "News".
-     Bad: "AI Implementation Challenges". Good: "AI Implementation".
-   - Do not use sentiment/opinion framings or "X vs Y" compound tags.
-     Bad: "AI Hype Vs Reality". Good: "AI Hype".
-   - Do not tag sub-concepts of a topic — tag the topic itself.
-     Bad: "Agent Coordination", "Agent Loops". Good: "AI Agents".
+2. A list of 3-5 topic tags for navigation, following these rules:
+{TAGGING_PRINCIPLES}
 3. A single category from this predefined list that best
-fits the article: {categories_str}
+fits the {content_type}: {categories_str}
 
 Format your response as JSON with this structure:
 {{
@@ -224,11 +112,13 @@ Format your response as JSON with this structure:
 Focus on:
 - What the main topic/thesis is
 - Key insights or information shared
-- Who would benefit from reading this article
+- Who would benefit from {verb} this {content_type}
 - Any notable conclusions or recommendations
 
 Be concise but informative. Help the reader quickly understand
-if this article is relevant to their interests."""
+if this {content_type} is relevant to their interests."""
+
+    client = get_anthropic_client()
 
     try:
         response = client.messages.create(
@@ -252,29 +142,50 @@ if this article is relevant to their interests."""
         if category not in CATEGORIES:
             category = "Other"
 
+        topics = _normalize_tags(result.get("topics", []))
+        generated_at = datetime.now(timezone.utc)
+
+        if content_type == "video":
+            return Summary(
+                video_id=item_id,
+                summary=result["summary"],
+                topics=topics,
+                category=category,
+                generated_at=generated_at,
+            )
         return ArticleSummary(
-            article_id=article_id,
+            article_id=item_id,
             summary=result["summary"],
-            topics=_normalize_tags(result.get("topics", [])),
+            topics=topics,
             category=category,
-            generated_at=datetime.now(timezone.utc),
+            generated_at=generated_at,
         )
 
     except json.JSONDecodeError as e:
-        logger.warning(f"Error parsing Claude response for article {article_id}: {e}")
+        logger.warning(
+            f"Error parsing Claude response for {content_type} {item_id}: {e}"
+        )
         logger.debug(f"Response was: {response_text[:500]}")
+        if content_type == "video":
+            return Summary(
+                video_id=item_id,
+                summary=response_text,
+                topics=[],
+                category=None,
+                generated_at=datetime.now(timezone.utc),
+            )
         return ArticleSummary(
-            article_id=article_id,
+            article_id=item_id,
             summary=response_text,
             topics=[],
             category=None,
             generated_at=datetime.now(timezone.utc),
         )
     except anthropic.APIError as e:
-        logger.error(f"Anthropic API error for article {article_id}: {e}")
+        logger.error(f"Anthropic API error for {content_type} {item_id}: {e}")
         return None
     except Exception as e:
-        logger.error(f"Error summarizing article {article_id}: {e}")
+        logger.error(f"Error summarizing {content_type} {item_id}: {e}")
         return None
 
 

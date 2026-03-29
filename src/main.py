@@ -102,8 +102,7 @@ from .summarizer import (
     chat_with_content,
     classify_existing_summary,
     initialize_tag_normalizer,
-    summarize_article,
-    summarize_video,
+    summarize_content,
 )
 from .transcripts import fetch_transcript
 from .youtube import (
@@ -229,11 +228,12 @@ async def summarize_and_save_video(
 
     Returns True if a summary was saved, False otherwise.
     """
-    summary = summarize_video(
-        video_id=video_id,
+    summary = summarize_content(
+        item_id=video_id,
         title=title,
-        channel=channel,
-        transcript=transcript_content,
+        source_name=channel,
+        content=transcript_content,
+        content_type="video",
         model=app_config.digest.summarization_model,
     )
     if not summary:
@@ -960,11 +960,12 @@ async def api_add_article(request: Request):
         await save_article(article)
 
         # Generate summary
-        summary = summarize_article(
-            article_id=article.id,
+        summary = summarize_content(
+            item_id=article.id,
             title=article.title,
-            domain=article.domain,
+            source_name=article.domain,
             content=article.content,
+            content_type="article",
             author=article.author,
             model=app_config.digest.summarization_model,
         )

@@ -83,10 +83,12 @@ _No active sprint. Next sprint to be planned from the backlog._
 ### Next
 | Story | Type | Description | Effort |
 |-------|------|-------------|--------|
+_(empty)_
 
 ### Later
 | Story | Type | Description | Effort |
 |-------|------|-------------|--------|
+| Server-side chat state management | Refactor | As a developer, I want multi-turn chat state managed server-side so I can summarize older turns and reduce token costs | Medium |
 | Mobile-friendly UI | Feature | As a user on my phone, I want a responsive layout so I can read my digest anywhere | Medium |
 | Progress dashboard | Feature | As a user, I want to see engagement metrics (videos watched, articles read, minutes) so I can understand my consumption habits | Medium |
 | Proxy for transcripts | Infra | As a user, I want transcripts fetched via a rotating proxy so my account isn't at risk of being banned | Medium |
@@ -109,6 +111,7 @@ _No active sprint. Next sprint to be planned from the backlog._
 
 | Item | Date | Notes |
 |------|------|-------|
+| Summarizer single source of truth (Sprint) | 2026-03-28 | Consolidated `summarize_video`/`summarize_article` into `summarize_content`; wired up `TAGGING_PRINCIPLES` from `tagging_rules.py` into summarizer and retag script |
 | Clear question input | 2026-03-28 | X button in Ask input field; appears when text is present |
 | Source card actions | 2026-03-28 | Search result cards now have full digest actions: complete, chat, notes, favorite |
 | Answer markdown formatting | 2026-03-28 | Added Tailwind Typography plugin; prose classes now render headers, lists, code blocks properly |
