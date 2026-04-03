@@ -43,36 +43,11 @@ MAX_CONTENT_LENGTH = 100_000
 
 # Test questions — mix of broad and specific
 TEST_QUESTIONS = [
-    (
-        "I don't understand what context engineering is. Please give me a"
-        " high-level explanation, and then suggest some digest entries"
-        " that would be useful to me in understanding this topic. In"
-        " particular, I'd like to see entries that provide practical"
-        " examples of applying/implementing this concept."
-    ),
-    (
-        "I don't understand what agent orchestration is. Please give me"
-        " a high-level explanation, and then suggest some digest entries"
-        " that would be useful to me in understanding this topic. In"
-        " particular, I'd like to see entries that provide practical"
-        " examples of applying/implementing this concept."
-    ),
-    (
-        "Which creators are running freelance businesses developing"
-        " AI solutions, and what are they focused on?"
-    ),
-    (
-        "Based on the digest entries available, can someone like"
-        " myself be successful as a freelance AI application"
-        " developer at the present moment?"
-    ),
-    (
-        "Attempts to develop enterprise-wide AI solutions to"
-        " synthesize information sources from across the enterprise"
-        " have run into data quality issues. Is this correct? This"
-        " seems to create new opportunities in data engineering and"
-        " data normalization."
-    ),
+    """I don't understand what context engineering is. Please give me a high-level explanation, and then suggest some digest entries that would be useful to me in understanding this topic. In particular, I'd like to see entries that provide practical examples of applying/implementing this concept.""",  # noqa: E501
+    """I don't understand what agent orchestration is. Please give me a high-level explanation, and then suggest some digest entries that would be useful to me in understanding this topic. In particular, I'd like to see entries that provide practical examples of applying/implementing this concept.""",  # noqa: E501
+    """Which creators are running freelance businesses developing AI solutions, and what are they focused on?""",  # noqa: E501
+    """Based on the digest entries available, can someone like myself be successful as a freelance AI application developer at the present moment?""",  # noqa: E501
+    """Attempts to develop enterprise-wide AI solutions to synthesize information sources from across the enterprise have run into data quality issues. Is this correct? This seems to create new opportunities in data engineering and data normalization.""",  # noqa: E501
 ]
 
 # -- Backfill chunk_text --------------------------------------------------
