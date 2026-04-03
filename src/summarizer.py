@@ -228,6 +228,76 @@ Reply with ONLY the category name, nothing else."""
         return "Other"
 
 
+def summarize_for_question(
+    content: str,
+    question: str,
+    title: str,
+    source_name: str,
+    content_type: str = "video",
+    model: str = CHAT_MODEL,
+) -> Optional[str]:
+    """Generate a focused summary of content in response to a specific question.
+
+    Used in multi-entry RAG synthesis: retrieve relevant entries, then generate
+    question-focused summaries for each to avoid sending full transcripts to Claude.
+
+    Args:
+        content: Full transcript or article text
+        question: User's question to answer
+        title: Entry title
+        source_name: Channel/domain name
+        content_type: "video" or "article"
+        model: Claude model to use
+
+    Returns:
+        A focused summary (300-500 words), or None on error.
+    """
+    if not content or not question:
+        return None
+
+    max_len = MAX_TRANSCRIPT_LENGTH if content_type == "video" else MAX_ARTICLE_LENGTH
+    if len(content) > max_len:
+        content = content[:max_len] + "... [content truncated]"
+
+    kind = "video transcript" if content_type == "video" else "article"
+
+    prompt = f"""You are extracting relevant information from a {kind} to answer a specific question.
+
+Question: {question}
+
+{kind.title()} Title: {title}
+Source: {source_name}
+
+{kind.title()} Content:
+{content}
+
+Please provide a focused summary that:
+1. Extracts ONLY the parts of this {kind} that answer or relate to the question above
+2. Maintains coherence and narrative flow (don't just list fragments)
+3. Includes relevant details, examples, and context
+4. Omits unrelated material entirely
+5. Is self-contained (assume the reader sees only this summary, not the full {kind})
+6. Is as brief or detailed as the relevance warrants — a few sentences if only tangentially related, up to 500 words if deeply relevant
+
+Write the summary directly without preamble or metadata."""  # noqa: E501
+
+    client = get_anthropic_client()
+
+    try:
+        response = client.messages.create(
+            model=model,
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return response.content[0].text.strip()
+    except anthropic.APIError as e:
+        logger.error(f"Anthropic API error during summarize_for_question: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Error during summarize_for_question: {e}")
+        return None
+
+
 def chat_with_content(
     content: str,
     title: str,

@@ -185,9 +185,16 @@ async def init_db() -> None:
                 content_type TEXT NOT NULL,
                 vector BLOB NOT NULL,
                 chunk_index INTEGER,
+                chunk_text TEXT,
                 UNIQUE(item_id, content_type, chunk_index)
             )
         """)
+
+        # Migration: add chunk_text to embeddings
+        try:
+            await db.execute("ALTER TABLE embeddings ADD COLUMN chunk_text TEXT")
+        except Exception:
+            pass
 
         await db.commit()
 
@@ -981,8 +988,8 @@ async def save_embedding(embedding: Embedding, vector_bytes: bytes) -> None:
         await db.execute(
             """
             INSERT INTO embeddings
-            (item_id, item_type, content_type, vector, chunk_index)
-            VALUES (?, ?, ?, ?, ?)
+            (item_id, item_type, content_type, vector, chunk_index, chunk_text)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
                 embedding.item_id,
@@ -990,6 +997,7 @@ async def save_embedding(embedding: Embedding, vector_bytes: bytes) -> None:
                 embedding.content_type,
                 vector_bytes,
                 embedding.chunk_index,
+                embedding.chunk_text,
             ),
         )
         await db.commit()
@@ -1029,6 +1037,7 @@ async def get_embedding(
                     content_type=row["content_type"],
                     vector=[],  # caller will deserialize from bytes
                     chunk_index=row["chunk_index"],
+                    chunk_text=row["chunk_text"],
                 )
                 return emb, bytes(row["vector"])
     return None
@@ -1051,6 +1060,7 @@ async def get_all_embeddings() -> list[tuple[Embedding, bytes]]:
                     content_type=row["content_type"],
                     vector=[],
                     chunk_index=row["chunk_index"],
+                    chunk_text=row["chunk_text"],
                 )
                 results.append((emb, bytes(row["vector"])))
     return results
@@ -1186,8 +1196,8 @@ async def save_embeddings_batch(
             await db.execute(
                 """
                 INSERT INTO embeddings
-                (item_id, item_type, content_type, vector, chunk_index)
-                VALUES (?, ?, ?, ?, ?)
+                (item_id, item_type, content_type, vector, chunk_index, chunk_text)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (
                     emb.item_id,
@@ -1195,6 +1205,7 @@ async def save_embeddings_batch(
                     emb.content_type,
                     vector_bytes,
                     emb.chunk_index,
+                    emb.chunk_text,
                 ),
             )
         await db.commit()

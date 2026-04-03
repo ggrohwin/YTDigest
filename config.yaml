@@ -42,6 +42,7 @@ channels:
     filter_shorts: true
   - id: "UCIkU9Fe0OccRmqBMXRm1Q7A"
     name: "AI Agents Podcast"
+    filter_shorts: true
 
 digest:
   max_videos_per_channel: 5

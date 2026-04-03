@@ -1,0 +1,422 @@
+[
+  {
+    "question": "I don't understand what context engineering is. Please give me a high-level explanation, and then suggest some digest entries that would be useful to me in understanding this topic. In particular, I'd like to see entries that provide practical examples of applying/implementing this concept.",
+    "full": {
+      "answer": "## What is Context Engineering?\n\nContext engineering is the practice of designing systems that determine what information an AI model sees before it generates a response. Think of it as **managing the AI's \"working environment\"** rather than just crafting better prompts.\n\nAs explained in \"What is context engineering? And why it's the new AI architecture,\" context engineering goes beyond simple prompt writing to shape the entire information ecosystem an AI operates within - including grounding data, tools, constraints, policies, and the mechanisms that decide which pieces of information make it into the model's input at any moment.\n\nThe key insight is that **context is a finite but critical resource**. As \"Effective Context Engineering for AI Agents\" explains, even with large context windows, models degrade when given too much information - similar to how humans have limited working memory. The goal is finding \"the smallest set of high-signal tokens that maximizes the likelihood of your desired outcome.\"\n\nContext consists of multiple layers working together:\n- System prompts (persistent rules and behavior)\n- User prompts (immediate requests)  \n- Memory/conversation history\n- Retrieved information from external sources\n- Available tools and their specifications\n- Structured output requirements\n\n## Suggested Digest Entries for Practical Understanding\n\nBased on your sources, here are digest entries that would help you understand context engineering practically:\n\n### **1. \"CodeRabbit's Production Context Engineering Architecture\"**\n*From: \"How to build an AI agent that actually works\"*\n\nThis entry would detail how CodeRabbit assembles context from diffs, code graphs, static analysis, import relationships, and user configurations. It shows real-world context selection strategies - like providing function signatures vs. full implementations based on what the AI needs to accomplish at each step.\n\n### **2. \"Context Failure Modes and How to Avoid Them\"** \n*From: \"What is context engineering? And why it's the new AI architecture\"*\n\nCover the four types of context failures: poisoning (errors becoming \"truth\"), distraction (too much verbose history), confusion (irrelevant noise), and clash (conflicting information). Include practical techniques for validation, summarization, and selective retrieval.\n\n### **3. \"Progressive Context Disclosure with AI Agent Skills\"**\n*From: \"The Only Claude Skills Guide You Need\"*\n\nExplain how Claude's Skills system loads only skill names/descriptions initially, then progressively discloses full instructions when needed. This demonstrates token-efficient context management that could be applied to other systems.\n\n### **4. \"Dynamic Context Management for Long-Running Conversations\"**\n*From: \"Effective Context Engineering for AI Agents\"*\n\nFocus on practical strategies for managing context as conversations grow - including pruning message history, summarization techniques, and state-based context switching to prevent the \"turn 10 problem\" where agents forget earlier instructions.\n\n### **5. \"The Four-Layer Context Engineering Stack\"**\n*From: \"'Prompting' Just Split Into 4 Skills\"*\n\nBreak down the progression from prompt craft \u2192 context engineering \u2192 intent engineering \u2192 specification engineering, with concrete examples of how each layer builds on the previous one for autonomous agent deployment.\n\nThese entries would provide both theoretical understanding and actionable implementation strategies for context engineering in practice.",
+      "input_tokens": 28413,
+      "output_tokens": 707,
+      "latency_s": 22.0,
+      "sources": [
+        "What is context engineering? And why it\u2019s the new AI architecture (0.6740)",
+        "How to build an AI agent that actually works (0.6361)",
+        "Effective Context Engineering for AI Agents (why agents still fail in practice) (0.6219)",
+        "'Prompting' Just Split Into 4 Skills. You Only Know One. Here's Why You Need the Other 3 in 2026. (0.5746)",
+        "The Only Claude Skills Guide You Need (Beginner to Expert) (0.5659)"
+      ],
+      "num_sources": 5
+    },
+    "chunked": {
+      "answer": "## What is Context Engineering?\n\nContext engineering is the practice of designing and managing **all the information** an AI model sees when generating responses - not just the prompt you write, but the entire information environment the model operates within.\n\nThink of it this way: when you write a prompt, that might be 200 tokens. But the AI model's context window could contain a million tokens including system instructions, conversation history, retrieved documents, tool descriptions, memory, and more. Your prompt is only 0.2% of what the model actually sees - the other 99.8% is context engineering.\n\n**Key difference from prompt engineering:**\n- **Prompt engineering** = crafting good instructions \n- **Context engineering** = curating the right information from the right sources, in the right structure, at the right time\n\nThe goal is finding the smallest set of high-signal information that maximizes your desired outcome, because models actually perform worse when given too much information (like humans with limited working memory).\n\n## Recommended Digest Entries for Practical Understanding\n\nBased on your library, here are the most valuable entries for learning practical context engineering:\n\n### **Start Here (Foundational)**\n1. **Video nkJXADeI** - This appears to be a comprehensive overview that covers practical implementation patterns, including state management, RAG strategies, tool organization, and memory handling with real examples.\n\n2. **Article 905f7a33** - Provides concrete techniques like knowledge base selection, context compression, and structured approaches to avoid common failures.\n\n### **Practical Implementation Examples**\n3. **Video 421T2iWT** - Shows a real implementation of context engineering with file systems, memory management, and how agents traverse context hierarchically using CloudMD files.\n\n4. **Article ac2f4f3d** - Features CodeRabbit's case study showing how they assemble context from diffs, code graphs, static analysis, and documentation - a great real-world example.\n\n### **Advanced Concepts**\n5. **Video BpibZSMG** - Explains context engineering as a discipline and how it fits into the broader AI engineering stack, with practical implications for building production systems.\n\n6. **Video awV2kJzh** - Covers system-level thinking and evaluation strategies, crucial for implementing context engineering safely in production.\n\nStart with the first video (nkJXADeI) as it seems to provide the most comprehensive practical overview, then dive into the article (905f7a33) for specific techniques you can implement.",
+      "input_tokens": 9463,
+      "output_tokens": 551,
+      "latency_s": 15.5,
+      "num_sources": 6,
+      "num_chunks": 15
+    },
+    "focused_summaries": {
+      "answer": "## What is Context Engineering?\n\nContext engineering is **the practice of strategically curating and managing all the information that an AI model sees** before it generates a response. As explained in \"What is context engineering? And why it's the new AI architecture,\" it's fundamentally different from prompt engineering - while prompt engineering focuses on crafting good questions, context engineering is like \"designing the entire room where that conversation happens.\"\n\nThink of it this way: when you write a prompt, that might only be 0.002% of what the AI actually sees (according to \"'Prompting' Just Split Into 4 Skills\"). The other 99.98% includes system prompts, conversation history, retrieved documents, available tools, memory systems, and environmental constraints. Context engineering is about **strategically selecting what information to include and exclude** to maximize AI performance.\n\nThe core challenge is that **more context doesn't always equal better performance**. As \"How to build an AI agent that actually works\" explains, there's something called \"The Distracting Effect\" where irrelevant but related information actively misleads AI models. The art is finding \"the smallest set of high signal tokens that maximizes the likelihood of your desired outcome\" (\"Effective Context Engineering for AI Agents\").\n\n## Suggested Digest Entries for Practical Understanding\n\n### **Foundation Entries:**\n- **\"Building Your Personal Context Infrastructure\"** - Step-by-step guide to creating your own \"Claude.md\" equivalent with goals, constraints, and communication preferences that eliminate repetitive setup\n- **\"Progressive Disclosure Patterns\"** - How to structure information hierarchically so AI loads only what it needs (like Claude Skills' YAML front matter + detailed instructions)\n- **\"The Vercel Performance Rules Repository\"** - Real example of how Vercel distilled a decade of optimization knowledge into 40+ AI-queryable rules\n\n### **Implementation Examples:**\n- **\"CodeRabbit's Multi-Source Context Assembly\"** - Practical breakdown of how they combine code diffs, syntax trees, static analysis, and documentation for code reviews\n- **\"Context Window Management Strategies\"** - Token budgeting techniques, including why performance degrades at 50-60% capacity and when to reset context\n- **\"Enterprise RAG Pipeline Design\"** - Moving beyond simple document retrieval to sophisticated relevance ranking and context selection\n\n### **Advanced Applications:**\n- **\"Writing Production-Safe Evals for AI Agents\"** - Encoding institutional knowledge and safety constraints (like distinguishing production vs. test databases)\n- **\"Dynamic Context Management\"** - State machines, conversation pruning, and context injection based on user journey stage\n- **\"The Claw.md Pattern: Constraint Architecture for Coding Agents\"** - Concrete examples of context documents that specify build commands, conventions, and files that should never be modified\n\nThese entries would give you both the theoretical foundation and hands-on experience to master context engineering, moving from basic prompting to building sophisticated information environments that make AI agents genuinely useful in production scenarios.",
+      "input_tokens": 5447,
+      "output_tokens": 660,
+      "latency_s": 15.29,
+      "sources": [
+        "What is context engineering? And why it\u2019s the new AI architecture (0.6742)",
+        "How to build an AI agent that actually works (0.6358)",
+        "Effective Context Engineering for AI Agents (why agents still fail in practice) (0.6228)",
+        "'Prompting' Just Split Into 4 Skills. You Only Know One. Here's Why You Need the Other 3 in 2026. (0.5750)",
+        "The Only Claude Skills Guide You Need (Beginner to Expert) (0.5663)",
+        "Your AI Agent Fails 97.5% of Real Work. The Fix Isn't Coding. (0.5660)",
+        "Why Architecture Rots No Matter How Good Engineers Are (The Real Reason Standards Keep Drifting) (0.5457)",
+        "The 6 Levels of Claude Code Explained (0.5416)"
+      ],
+      "num_sources": 8,
+      "summary_details": [
+        {
+          "title": "What is context engineering? And why it\u2019s the new AI architecture",
+          "score": 0.6742,
+          "word_count": 415
+        },
+        {
+          "title": "How to build an AI agent that actually works",
+          "score": 0.6358,
+          "word_count": 422
+        },
+        {
+          "title": "Effective Context Engineering for AI Agents (why agents still fail in practice)",
+          "score": 0.6228,
+          "word_count": 450
+        },
+        {
+          "title": "'Prompting' Just Split Into 4 Skills. You Only Know One. Here's Why You Need the Other 3 in 2026.",
+          "score": 0.575,
+          "word_count": 449
+        },
+        {
+          "title": "The Only Claude Skills Guide You Need (Beginner to Expert)",
+          "score": 0.5663,
+          "word_count": 433
+        },
+        {
+          "title": "Your AI Agent Fails 97.5% of Real Work. The Fix Isn't Coding.",
+          "score": 0.566,
+          "word_count": 496
+        },
+        {
+          "title": "Why Architecture Rots No Matter How Good Engineers Are (The Real Reason Standards Keep Drifting)",
+          "score": 0.5457,
+          "word_count": 461
+        },
+        {
+          "title": "The 6 Levels of Claude Code Explained",
+          "score": 0.5416,
+          "word_count": 450
+        }
+      ]
+    }
+  },
+  {
+    "question": "I don't understand what agent orchestration is. Please give me a high-level explanation, and then suggest some digest entries that would be useful to me in understanding this topic. In particular, I'd like to see entries that provide practical examples of applying/implementing this concept.",
+    "full": {
+      "answer": "Based on the sources provided, I can give you a high-level explanation of agent orchestration and suggest some practical learning resources.\n\n## What is Agent Orchestration?\n\nAgent orchestration is the coordination and management of multiple AI agents working together to accomplish complex tasks. Think of it like conducting an orchestra - you have different AI agents (like different instruments) that each have specialized roles, and an orchestration system ensures they work together harmoniously toward a common goal.\n\nAs explained in \"21 agent orchestration tools for managing your AI fleet,\" orchestration platforms handle \"the clerical work of connecting data pipelines to the right models and then back to the tables where output data is stored.\" The key aspects include:\n\n1. **Workflow Management**: Coordinating which agents interact with each other and how\n2. **Task Distribution**: Breaking down complex problems into parts that different agents can handle\n3. **Data Flow**: Managing how information passes between agents\n4. **Human-in-the-Loop**: Including human oversight at key decision points\n5. **Scaling**: Automatically handling increased workload\n\n## Practical Learning Resources\n\nBased on the video sources, here are some digest entries that would be excellent for understanding agent orchestration with practical examples:\n\n### 1. **\"Build and Deploy an AI Agent in 10 Minutes (Python)\" by Pooja Dutt**\n- **Why it's useful**: Shows hands-on implementation using UiPath\n- **Practical value**: Demonstrates pre-built agent templates, automation tools, and deployment pipelines\n- **Key takeaway**: See how agents work with tools, people, and other agents in real workflows\n\n### 2. **\"5 Levels of AI Agents - From Simple LLM Calls to Multi-Agent Systems\" by Dave Ebbelaar**\n- **Why it's useful**: Provides a clear progression from simple to complex agent systems\n- **Practical value**: Shows production examples and explains when to use each level\n- **Key takeaway**: Understand that \"the best systems use a combination\" of deterministic workflows and agentic tools\n\n### 3. **\"Build a Complete End-to-End GenAI Project in 3 Hours\" by Dave Ebbelaar**\n- **Why it's useful**: Complete walkthrough of building an AI news aggregator with multiple coordinated components\n- **Practical value**: Shows real implementation of scraping agents, processing agents, and email agents working together\n- **Key takeaway**: See how to structure a multi-agent project from ideation to deployment\n\n### 4. **\"Tobi L\u00fctke Made a 20-Year-Old Codebase 53% Faster Overnight. Here's How.\" by Nate B Jones**\n- **Why it's useful**: Breaks down four distinct types of agent systems (coding harnesses, dark factories, auto research, orchestration frameworks)\n- **Practical value**: Explains when to use each type and provides a decision framework\n- **Key takeaway**: \"You have to look at the goal that you're trying to accomplish and then ask yourself, what kind of agent do I need to get that goal done?\"\n\nThe sources emphasize that successful agent orchestration isn't about building the most complex system possible, but about choosing the right level of complexity for your specific use case and combining different approaches strategically.",
+      "input_tokens": 43123,
+      "output_tokens": 726,
+      "latency_s": 19.01,
+      "sources": [
+        "21 agent orchestration tools for managing your AI fleet (0.6490)",
+        "Build and Deploy an AI Agent in 10 Minutes (Python) (0.6370)",
+        "Tobi L\u00fctke Made a 20-Year-Old Codebase 53% Faster Overnight. Here's How. (0.6336)",
+        "5 Levels of AI Agents - From Simple LLM Calls to Multi-Agent Systems (0.6299)",
+        "Build a Complete End-to-End GenAI Project in 3 Hours (0.5886)"
+      ],
+      "num_sources": 5
+    },
+    "chunked": {
+      "answer": "## Agent Orchestration: High-Level Explanation\n\nAgent orchestration is essentially **coordinating multiple AI agents to work together on complex, multi-step workflows**. Think of it like being a conductor of an orchestra - you have different specialized agents (like different instruments) that each do specific tasks well, and orchestration is the system that coordinates when each agent should act, what information they should share, and how their outputs connect together.\n\nKey aspects:\n- **Multiple specialized agents** rather than one do-everything agent\n- **Handoffs between agents** - Agent A does research, passes results to Agent B for analysis, Agent C writes the final report\n- **Workflow coordination** - Managing the sequence, timing, and data flow between agents\n- **Human oversight** at key decision points\n- **Separate context windows** for each agent to prevent information overload\n\nThe goal is to break down complex tasks that would overwhelm a single agent into manageable pieces that specialized agents can handle effectively.\n\n## Recommended Digest Entries\n\nBased on your collection, here are the most practical entries for understanding agent orchestration:\n\n### **Essential Starting Points:**\n1. **\"UiPath AI Agent Development Tutorial\"** (5erQcbYo) - Shows you how to build, deploy, and orchestrate agents in a real platform with hands-on Python examples\n2. **\"Agent Harness and Multi-Agent Systems Guide\"** (BaXTos7B) - Provides practical patterns and demonstrates orchestration with Claude's agent SDK\n\n### **Implementation Examples:**\n3. **\"Personal Assistant Agent with Make Platform\"** (kHD3M_9u) - Real-world orchestration example connecting calendar, email, research, and content creation\n4. **\"Multi-Agent News Curation System\"** (E8zpgNPx) - Shows building an orchestrator that coordinates digest creation and content ranking agents\n\n### **Scaling and Best Practices:**\n5. **\"Multi-Agent System Architecture and Scaling\"** (2EXyj_fH) - Critical insights on why simple agents with smart orchestration outperform complex individual agents\n6. **\"Enterprise Agentic Orchestration Platforms\"** (01a8469f) - Overview of 21+ platforms for managing agent teams in production\n\n### **Foundational Understanding:**\n7. **\"Four Types of AI Agents Explained\"** (YpPcDHc3) - Helps you understand when orchestration is needed vs. other agent patterns\n\nStart with the UiPath tutorial for hands-on experience, then read the scaling insights to understand the architectural principles that make orchestration work effectively.",
+      "input_tokens": 9717,
+      "output_tokens": 583,
+      "latency_s": 36.33,
+      "num_sources": 8,
+      "num_chunks": 15
+    },
+    "focused_summaries": {
+      "answer": "## High-Level Explanation\n\nAgent orchestration is the coordination and management of multiple AI agents working together in structured workflows to accomplish complex tasks. Think of it like managing a digital team where different AI agents have specialized roles and hand off work to each other, similar to an assembly line or API workflow.\n\nInstead of having one AI agent try to handle everything (which can lead to bloated context and poor performance), orchestration breaks complex tasks into smaller parts and assigns them to specialized agents. For example, one agent might research information, pass it to a writing agent, which then hands it to an editing agent. Each agent has a clean, focused context for its specific role.\n\nAs explained in **\"5 Levels of AI Agents\"**, the key advantage is context management - each sub-agent gets a fresh context window to focus on its specific task, while a master orchestrator coordinates the overall workflow. **\"Google Just Proved More Agents Can Make Things WORSE\"** emphasizes that successful orchestration requires careful architecture: simple hierarchies work better than complex team structures, and agents should be kept deliberately ignorant of tasks outside their scope to avoid conflicts.\n\n## Practical Digest Entries for Learning\n\nBased on your sources, here are the most useful entries for understanding practical implementation:\n\n### **Hands-On Implementation Examples:**\n\n**\"Build and Deploy an AI Agent in 10 Minutes\"** - Shows a real business workflow using UiPath's Maestro platform, demonstrating how agents handle patient intake, policy checking, conditional branching, and email automation with human-in-the-loop escalation.\n\n**\"Build a Complete End-to-End GenAI Project in 3 Hours\"** - Provides a concrete example of building a multi-stage AI news aggregator with scraping agents, processing agents, digest agents, and email agents working in sequence, including database coordination and error handling.\n\n### **Platform and Tool Guidance:**\n\n**\"21 agent orchestration tools for managing your AI fleet\"** - Offers practical examples using CrewAI (Python-based crews), Devin AI (autonomous software development), Kubiya (DevOps automation), Microsoft AutoGen, and LangGraph for complex workflows.\n\n**\"7 AI Skills You Need NOW for 2026\"** - Shows workflow thinking with practical examples like automated content creation pipelines, lead qualification systems, and personal assistant agents built in automation platforms like Make.\n\n### **Architecture and Best Practices:**\n\n**\"Tobi L\u00fctke Made a 20-Year-Old Codebase 53% Faster Overnight\"** - Explains when orchestration makes sense (high-volume tasks), the importance of managing handoffs between agents, and how to structure specialized agent roles.\n\n**\"The $285B Sell-Off Was Just the Beginning\"** - Demonstrates real-world orchestration through examples like agents automatically chaining Amazon product scraping, image extraction, and video generation into complete workflows.\n\nThese entries will give you both the theoretical framework and practical implementation details needed to understand and start building orchestrated agent systems.",
+      "input_tokens": 5060,
+      "output_tokens": 662,
+      "latency_s": 17.09,
+      "sources": [
+        "21 agent orchestration tools for managing your AI fleet (0.6490)",
+        "Build and Deploy an AI Agent in 10 Minutes (Python) (0.6370)",
+        "Tobi L\u00fctke Made a 20-Year-Old Codebase 53% Faster Overnight. Here's How. (0.6336)",
+        "5 Levels of AI Agents - From Simple LLM Calls to Multi-Agent Systems (0.6299)",
+        "Build a Complete End-to-End GenAI Project in 3 Hours (0.5886)",
+        "Google Just Proved More Agents Can Make Things WORSE -- Here's What Actually Does Work (0.5873)",
+        "The $285B Sell-Off Was Just the Beginning \u2014 The Infrastructure Story Is Bigger. (0.5769)",
+        "7 AI Skills You Need NOW for 2026 (0.5749)"
+      ],
+      "num_sources": 8,
+      "summary_details": [
+        {
+          "title": "21 agent orchestration tools for managing your AI fleet",
+          "score": 0.649,
+          "word_count": 427
+        },
+        {
+          "title": "Build and Deploy an AI Agent in 10 Minutes (Python)",
+          "score": 0.637,
+          "word_count": 425
+        },
+        {
+          "title": "Tobi L\u00fctke Made a 20-Year-Old Codebase 53% Faster Overnight. Here's How.",
+          "score": 0.6336,
+          "word_count": 431
+        },
+        {
+          "title": "5 Levels of AI Agents - From Simple LLM Calls to Multi-Agent Systems",
+          "score": 0.6299,
+          "word_count": 425
+        },
+        {
+          "title": "Build a Complete End-to-End GenAI Project in 3 Hours",
+          "score": 0.5886,
+          "word_count": 363
+        },
+        {
+          "title": "Google Just Proved More Agents Can Make Things WORSE -- Here's What Actually Does Work",
+          "score": 0.5873,
+          "word_count": 463
+        },
+        {
+          "title": "The $285B Sell-Off Was Just the Beginning \u2014 The Infrastructure Story Is Bigger.",
+          "score": 0.5769,
+          "word_count": 404
+        },
+        {
+          "title": "7 AI Skills You Need NOW for 2026",
+          "score": 0.5749,
+          "word_count": 369
+        }
+      ]
+    }
+  },
+  {
+    "question": "Which creators are running freelance businesses developing AI solutions, and what are they focused on?",
+    "full": {
+      "answer": "Based on the sources provided, here are the creators running freelance businesses developing AI solutions:\n\n## Dave Ebbelaar (Data Luminina)\n\nFrom **\"How I Build and Ship Custom AI Solutions for Clients\"**, Dave runs an AI development company called Data Luminina. His focus areas include:\n\n- **Core Services**: Document processing, content generation, customer support, internal knowledge assistance, and data extractions\n- **Business Model**: 2-week sprints priced at 10-20k euros per sprint\n- **Team Structure**: Small team (him + co-founder + subcontractors) deliberately avoiding scaling with headcount\n- **Technology Stack**: Python-based backend using their \"GenAI Launchpad\" architecture with FastAPI, Celery, PostgreSQL\n- **Approach**: Standardized processes across all client projects, focusing on MVP/proof-of-concept development\n\nDave emphasizes starting with simple, high-impact use cases rather than complex moonshots, and stresses the importance of setting realistic expectations about AI accuracy (typically starting at 70-80% and improving through iteration).\n\n## Kira AI Founder\n\nFrom **\"Introducing Kira\"**, an unnamed founder is building Kira, which takes a different approach:\n\n- **Focus**: Business analytics and financial reporting automation\n- **Philosophy**: \"AI factory\" approach - purpose-built, predefined workflows that run locally\n- **Cost Advantage**: Claims to generate 1 million words of business analytics for less than a cent (40x cheaper than cloud LLMs)\n- **Target**: Eliminating routine monthly reporting by making it available daily\n- **Business Stage**: Early stage, looking for 10 research partners in 2026\n\nThis founder explicitly positions their approach as an alternative to expensive, unreliable cloud-based LLM agents, focusing instead on structured, engineered workflows.\n\n## Key Differences in Approaches\n\nDave Ebbelaar focuses on traditional client services using proven cloud-based AI tools, while the Kira founder is developing proprietary technology that runs locally and avoids the hallucination/cost issues of large language models. Both emphasize practical business value over flashy AI capabilities.\n\nThe sources don't provide information about other specific freelance AI solution developers, though they reference the broader trend of developers adapting their skills for AI-driven development work.",
+      "input_tokens": 35704,
+      "output_tokens": 513,
+      "latency_s": 18.4,
+      "sources": [
+        "How I Build and Ship Custom AI Solutions for Clients (0.5794)",
+        "Why A.I. Is Making You Exhausted (0.5750)",
+        "Introducing Kiraa (0.5625)",
+        "This AI Coding Problem Is Starting To Look A Lot Like Y2K... | Microslop Chronicles (0.5523)",
+        "How to adapt your skills for AI-driven development (0.5488)"
+      ],
+      "num_sources": 5
+    },
+    "chunked": {
+      "answer": "Based on the excerpts, I can identify several creators running freelance businesses focused on AI development:\n\n## Individual Creators/Freelancers:\n\n**1. The YouTube Creator (from video Q679gH7o)**\n- Runs an AI development company alongside educational content\n- Offers programs called \"AI engineer\" and \"data freelancer\" \n- Works with clients on 2-week sprints, focusing on becoming long-term \"AI development partners\"\n- Uses AI agents to deliver faster results while maintaining traditional pricing\n- Has been working with some clients for 5+ years, generating recurring revenue\n\n**2. White from Launch Turtle**\n- Provides website and application development services\n- Initially struggled with AI-driven websites but improved through trial and error\n- Now uses AI to handle \"substantially heavier loads\" as both models and prompting skills improved\n\n## Key Focus Areas:\n\n**Technical Specializations:**\n- AI agents and automation systems\n- Website and application development\n- Data processing and analytics\n- Custom AI solutions for enterprise clients\n\n**Business Approach:**\n- Time-based pricing (hourly/day rates) rather than racing to the bottom on costs\n- Using AI speed advantages to work on more projects and over-deliver value\n- Building long-term client relationships rather than project-hopping\n- Targeting recurring revenue through ongoing maintenance and feature additions\n\n**Market Strategy:**\nThe creators emphasize they're in a \"golden era\" where AI tools are highly capable but the market hasn't adjusted pricing yet, making it very lucrative for indie developers and freelancers who can deliver much faster while maintaining traditional rates.\n\nThese freelancers seem focused on practical AI implementation rather than cutting-edge research, helping businesses integrate AI tools into their existing workflows and operations.",
+      "input_tokens": 8945,
+      "output_tokens": 382,
+      "latency_s": 47.97,
+      "num_sources": 12,
+      "num_chunks": 15
+    },
+    "focused_summaries": {
+      "answer": "Based on the sources provided, here are the key creators running freelance AI solution businesses:\n\n## Established AI Solution Developers\n\n**Dave Ebbelaar (Data Luminina Solutions)** - Featured in \"How I Build and Ship Custom AI Solutions for Clients\" - runs the most comprehensive AI freelance business mentioned. He's completed over 50 custom B2B AI solutions, focusing on:\n- Document processing pipelines\n- Content generation systems\n- Customer support automation (handling ~80% of tickets automatically)\n- Internal knowledge assistance\n- Data extraction solutions\n\nHis business operates on 2-week sprints priced at 10-20k euros each, using a standardized Python backend framework called \"GenAI Launchpad.\"\n\n## Specialized AI Business Developers\n\n**Jackson White (Launch Turtle)** - Mentioned in \"How to adapt your skills for AI-driven development\" - runs a website and application development company that has pivoted to AI-driven development. He emphasizes learning through trial and error, noting his first AI-driven website \"was terrible\" but improved as both models and his prompting became more sophisticated.\n\n**Chris Minnick (WatzThis)** - Also from the InfoWorld article - operates a software development education company that has adapted to focus on AI-related content and services. He earned AWS AI Practitioner certification and emphasizes going directly to source documentation from companies like OpenAI.\n\n## Innovative Approach Developers\n\n**The Kiraa founder** - From \"Introducing Kiraa\" - spent 8 years developing an alternative to cloud-based LLMs, focusing on \"AI factories\" for business analytics. His approach generates structured business insights locally at a fraction of the cost of traditional cloud models, specifically targeting routine business reporting.\n\n**Sabrina.dev** - Highlighted in \"A Markdown File Just Replaced Your Most Expensive Design Meeting\" - has built a complete AI-powered video production pipeline using Remotion and Claude Code, creating promotional videos from single prompts without traditional editing tools.\n\n**Alexander Liteplo** - From \"The Rise of RentAHuman\" - a crypto engineer who built an AI agent orchestration system called \"Insomnia\" that enables rapid platform development. He used his AI agents to build RentAHuman marketplace in just one day while \"literally riding around on a horse.\"\n\n## Common Focus Areas\n\nThese creators are primarily focused on:\n- **Automation workflows** that reduce manual work\n- **Document and content processing**\n- **Business analytics and reporting**\n- **Creative production pipelines**\n- **Agent orchestration systems**\n- **Cost-effective alternatives** to expensive cloud-based solutions\n\nMost emphasize building long-term client relationships and leveraging AI tools to increase output while keeping teams small.",
+      "input_tokens": 3188,
+      "output_tokens": 608,
+      "latency_s": 13.19,
+      "sources": [
+        "How I Build and Ship Custom AI Solutions for Clients (0.5794)",
+        "Why A.I. Is Making You Exhausted (0.5750)",
+        "Introducing Kiraa (0.5625)",
+        "This AI Coding Problem Is Starting To Look A Lot Like Y2K... | Microslop Chronicles (0.5523)",
+        "How to adapt your skills for AI-driven development (0.5488)",
+        "A Markdown File Just Replaced Your Most Expensive Design Meeting. (Google Stitch) (0.5486)",
+        "AI Agents for Risk & Compliance with Dror Asaf KOVANT | EP 129 (0.5484)",
+        "The Rise of RentAHuman, the Marketplace Where Bots Put People to Work (0.5443)"
+      ],
+      "num_sources": 8,
+      "summary_details": [
+        {
+          "title": "How I Build and Ship Custom AI Solutions for Clients",
+          "score": 0.5794,
+          "word_count": 348
+        },
+        {
+          "title": "Why A.I. Is Making You Exhausted",
+          "score": 0.575,
+          "word_count": 159
+        },
+        {
+          "title": "Introducing Kiraa",
+          "score": 0.5625,
+          "word_count": 336
+        },
+        {
+          "title": "This AI Coding Problem Is Starting To Look A Lot Like Y2K... | Microslop Chronicles",
+          "score": 0.5523,
+          "word_count": 115
+        },
+        {
+          "title": "How to adapt your skills for AI-driven development",
+          "score": 0.5488,
+          "word_count": 301
+        },
+        {
+          "title": "A Markdown File Just Replaced Your Most Expensive Design Meeting. (Google Stitch)",
+          "score": 0.5486,
+          "word_count": 290
+        },
+        {
+          "title": "AI Agents for Risk & Compliance with Dror Asaf KOVANT | EP 129",
+          "score": 0.5484,
+          "word_count": 190
+        },
+        {
+          "title": "The Rise of RentAHuman, the Marketplace Where Bots Put People to Work",
+          "score": 0.5443,
+          "word_count": 280
+        }
+      ]
+    }
+  },
+  {
+    "question": "Based on the digest entries available, can someone like myself be successful as a freelance AI application developer at the present moment?",
+    "full": {
+      "answer": "Based on the sources provided, **yes, someone can be successful as a freelance AI application developer right now**, but there are important nuances to consider.\n\n## The Opportunity is Real\n\nAccording to **\"How I Build and Ship Custom AI Solutions for Clients\"**, Dave Ebbelaar runs a successful AI development company that does \"over 50 custom B2B AI solutions\" with 10-20k euro pricing per two-week sprint. He emphasizes we're currently in a \"golden era\" because \"the tools are so good but the market hasn't caught up yet,\" making it \"very lucrative right now to be in the indie developer to be a freelancer.\"\n\nThe **\"Three Ways Terminal AI Has Changed How I Work\"** article reinforces this, showing how AI tools compress work that \"used to take half a day\" into \"twenty minutes,\" dramatically improving productivity and enabling more comprehensive analysis.\n\n## Key Success Factors\n\nThe sources suggest several critical requirements:\n\n**Technical Foundation**: You need existing technical skills. As noted in the Dave Ebbelaar video, \"You need a technical background. You need skills. You need to be either like a data professional with a data background or software developer.\"\n\n**Process Over Tools**: Success comes from standardized processes, not just AI tools. Ebbelaar's company uses the same stack and patterns for every project, starting from a standardized framework that lets them \"fork this repo and that's where we start from.\"\n\n**Client Education**: A major part of success involves managing expectations. As Ebbelaar notes, \"Your first build typically gets to 70 or 80% accuracy. After iteration, you can usually get to 90%.\" Many clients \"expect that you can hit this 99% kind of like from from day one.\"\n\n## Current Market Dynamics\n\nThe **\"Is AI killing technology?\"** article warns that \"Non-AI startups are struggling to raise money\" and there's significant disruption in the broader tech industry. However, the freelance AI development space appears to be an exception to this trend.\n\nThe **\"90% of People Fail at Vibe Coding\"** video emphasizes that while tools are becoming more accessible, success still requires developing \"software vision\" - the ability to \"notice when a problem is software shaped\" and specify requirements clearly.\n\n## Potential Challenges\n\nThe **\"I was a 10x engineer. Now I'm useless\"** video highlights a psychological challenge some developers face with AI dependency, though this appears to be more about personal adaptation than market viability.\n\n## Bottom Line\n\nThe sources suggest this is an opportune time for freelance AI development, particularly for those with existing technical skills who can establish standardized processes and effectively educate clients about AI development realities. The key is treating it as \"labor-saving technology\" that \"makes people faster at a given set of tasks\" rather than a complete replacement for technical expertise.",
+      "input_tokens": 25400,
+      "output_tokens": 627,
+      "latency_s": 19.99,
+      "sources": [
+        "How I Build and Ship Custom AI Solutions for Clients (0.6353)",
+        "Three Ways Terminal AI Has Changed How I Work (And Whether It's Coming for My Job) (0.6071)",
+        "Is AI killing technology? (0.5961)",
+        "90% of People Fail at Vibe Coding. Here's the Actual Reason: You're Skipping the Hard Part. (0.5888)",
+        "I was a 10x engineer. Now I'm useless. (0.5871)"
+      ],
+      "num_sources": 5
+    },
+    "chunked": {
+      "answer": "Based on the excerpts, yes - you can be very successful as a freelance AI application developer right now. In fact, multiple sources suggest this is actually an optimal time to enter this field. Here's why:\n\n## The \"Golden Era\" Opportunity\n\nAccording to one developer who runs an AI development company, **we're currently in a \"golden era\" because the tools are excellent but the market hasn't caught up yet**. This creates a lucrative window where you can:\n\n- Charge traditional software development rates while delivering much faster using AI\n- Complete work that used to take weeks in just days or hours\n- Over-deliver on client expectations due to increased speed and capabilities\n\n## Market Dynamics Working in Your Favor\n\nThe excerpts highlight several advantages:\n\n**Pricing Power**: Companies still understand and accept traditional software pricing, so you don't need to race to the bottom on rates. Instead, you can use AI's speed to work on more projects and deliver more value.\n\n**Reduced Friction**: Building software has \"stopped feeling like work and started to feel like play\" due to improved AI tools, longer context windows, and more reliable platforms.\n\n**High Demand**: Despite fears of AI replacing developers, job postings for software engineers have actually increased, and there's growing demand for developers who understand AI integration.\n\n## Practical Success Strategies\n\nThe excerpts suggest focusing on:\n\n- **Long-term partnerships** rather than one-off projects - become clients' \"AI development partner\"\n- **Just one big client** can potentially put you at six figures as a freelancer\n- **Recurring sprints** for predictable revenue\n- **Over-delivering** using AI's speed advantages rather than undercutting prices\n\n## Skills to Highlight\n\nUpdate your resume to emphasize real-world experience with AI-driven development, including \"agentic patterns, workflow design, prompt evaluation, quality control.\" Employers want developers who can articulate when and how AI adds value.\n\nThe window may not last forever - sources suggest maybe a 2-year opportunity before market dynamics shift significantly - but right now appears to be an excellent time to establish yourself in this space.",
+      "input_tokens": 8976,
+      "output_tokens": 462,
+      "latency_s": 41.56,
+      "num_sources": 12,
+      "num_chunks": 15
+    },
+    "focused_summaries": {
+      "answer": "Based on the sources in your library, **yes, someone can absolutely be successful as a freelance AI application developer right now** - but success requires understanding both the opportunities and challenges in the current market.\n\n## The Opportunity is Real and Lucrative\n\nDave Ebbelaar's experience (\"How I Build and Ship Custom AI Solutions for Clients\") demonstrates this most clearly. He describes the current moment as a \"golden era\" for AI freelancers, where developers can charge traditional software development rates (10-20k euros per two-week sprint) while delivering exponentially more value through AI-assisted development. His company has completed over 50 B2B solutions, showing sustained market demand.\n\nThe key insight from Ebbelaar is that **success comes from systematization, not technical novelty**. Focus on proven use cases like document processing, content generation, customer support automation, and data extraction, using standardized processes and technology stacks.\n\n## Market Demand is Strong Despite AI Hype\n\nMultiple sources confirm that while AI tools are powerful, they haven't replaced the need for skilled developers. Dave Linthicum (\"Everyone Is Lying About AI\") reports getting \"a call once a week from some company that laid off most of their engineering staff and they find they can't replicate them with AI.\" Companies are actively seeking to rehire developers or find alternatives.\n\nSimilarly, Pooja Dutt (\"AI Replacing Developers Has Completely Failed\") notes that an MIT report found only 5-7% of AI implementations generate significant value, meaning 93-95% of AI projects are failing. This creates opportunities for developers who can deliver actual working solutions rather than failed implementations.\n\n## Critical Success Factors\n\nSeveral sources highlight what separates successful AI developers from those who struggle:\n\n**1. Focus on Augmentation, Not Replacement**: As noted in \"Three Ways Terminal AI Has Changed How I Work,\" human expertise remains crucial for identifying questions, methodology, and drawing conclusions. Build tools that enhance professional workflows while preserving human judgment.\n\n**2. Handle Production Complexity**: Nate B Jones (\"90% of People Fail at Vibe Coding\") emphasizes that while AI can create prototypes quickly, production software requires understanding of security, scaling, and edge cases. About 10% of vibe-coded apps have vulnerabilities like exposed databases.\n\n**3. Manage Client Expectations**: Ebbelaar stresses honest client education about AI limitations - initial builds typically achieve 70-80% accuracy, improving to 90% through iteration.\n\n## Challenges to Navigate\n\nThe sources also reveal significant challenges:\n\n- **Market saturation with \"wrapper\" applications** that just put UIs on existing LLMs\n- **Consumer shift toward creating their own simple AI tools** rather than buying applications\n- **Quality control difficulties** when reviewing AI-generated code at scale\n- **Potential emotional disconnect** from AI-assisted work, as described by Mo Bitar\n\n## Bottom Line\n\nThe evidence suggests strong opportunities for freelance AI application developers who can:\n- Deliver genuine value beyond simple AI wrappers\n- Handle the production-grade requirements that separate hobby projects from professional applications\n- Focus on proven business use cases rather than experimental moonshots\n- Position themselves as ongoing AI development partners rather than one-shot project providers\n\nAs Ebbelaar notes, the current window represents a unique opportunity where AI tools dramatically increase productivity, but market pricing hasn't caught up to these capabilities, creating exceptional profit margins for skilled practitioners who can execute systematically.",
+      "input_tokens": 4661,
+      "output_tokens": 753,
+      "latency_s": 19.77,
+      "sources": [
+        "How I Build and Ship Custom AI Solutions for Clients (0.6353)",
+        "Three Ways Terminal AI Has Changed How I Work (And Whether It's Coming for My Job) (0.6071)",
+        "Is AI killing technology? (0.5961)",
+        "90% of People Fail at Vibe Coding. Here's the Actual Reason: You're Skipping the Hard Part. (0.5888)",
+        "I was a 10x engineer. Now I'm useless. (0.5871)",
+        "Everyone Is Lying About AI \u2014 And It\u2019s Not an Accident (0.5733)",
+        "Recent models are making me question my LLM skepticism (0.5660)",
+        "AI Replacing Developers Has Completely Failed (0.5638)"
+      ],
+      "num_sources": 8,
+      "summary_details": [
+        {
+          "title": "How I Build and Ship Custom AI Solutions for Clients",
+          "score": 0.6353,
+          "word_count": 451
+        },
+        {
+          "title": "Three Ways Terminal AI Has Changed How I Work (And Whether It's Coming for My Job)",
+          "score": 0.6071,
+          "word_count": 405
+        },
+        {
+          "title": "Is AI killing technology?",
+          "score": 0.5961,
+          "word_count": 325
+        },
+        {
+          "title": "90% of People Fail at Vibe Coding. Here's the Actual Reason: You're Skipping the Hard Part.",
+          "score": 0.5888,
+          "word_count": 458
+        },
+        {
+          "title": "I was a 10x engineer. Now I'm useless.",
+          "score": 0.5871,
+          "word_count": 451
+        },
+        {
+          "title": "Everyone Is Lying About AI \u2014 And It\u2019s Not an Accident",
+          "score": 0.5733,
+          "word_count": 337
+        },
+        {
+          "title": "Recent models are making me question my LLM skepticism",
+          "score": 0.566,
+          "word_count": 334
+        },
+        {
+          "title": "AI Replacing Developers Has Completely Failed",
+          "score": 0.5638,
+          "word_count": 406
+        }
+      ]
+    }
+  },
+  {
+    "question": "Attempts to develop enterprise-wide AI solutions to synthesize information sources from across the enterprise have run into data quality issues. Is this correct? This seems to create new opportunities in data engineering and data normalization.",
+    "full": {
+      "answer": "Yes, this is absolutely correct according to the sources provided. Data quality issues are identified as a major roadblock for enterprise AI implementations.\n\n**Data Quality as a Core Blocker**\n\nAccording to \"5 Unpopular AI Truths Enterprises Don't Want to Hear,\" data quality and governance are significant problems: \"The data in many of these enterprises is not in good shape... The data has to be in good hygienic shape for it to be of value as training data for an AI system.\" The source emphasizes that \"if you look at many of the enterprises out there, their data is in awful shape and it's going to take a couple of years to get their data reinvented.\"\n\nThis creates a critical dependency: \"unless you fix the data, the AI is absolutely not going to bring any value. In fact, it's going to bring confusion and cause more problems.\" The video notes that enterprises have been \"kicking that can down the road for the last 20 years\" when it comes to data hygiene.\n\n**Enterprise Synthesis Challenges**\n\n\"OpenAI Leaked GPT-5.4\" provides additional context about the complexity of enterprise-wide information synthesis. It describes how organizational knowledge is currently \"fragmented across a dozen systems\" - code in GitHub, architectural decisions in Confluence, customer context in Salesforce, project status in Jira. The challenge isn't that information doesn't exist, but that \"the synthesis layer is human brains today\" and these are \"bandwidth limited\" and \"context switching impaired.\"\n\n**Data Engineering Opportunities**\n\nThis situation does create significant opportunities in data engineering and normalization. As \"Big Consulting Keeps Selling You AI You Don't Need\" notes, \"if high quality data is unavailable or unreliable, deploying AI simply converts data debt into model failures at scale.\"\n\nThe sources suggest that before enterprises can benefit from sophisticated AI synthesis, they need to invest in fundamental data infrastructure - what one source calls getting data into \"pristine shape\" with \"not a single source of truth, hygienic information.\" This represents a substantial market opportunity for data engineering professionals who can help organizations prepare their data foundations for AI applications.",
+      "input_tokens": 14719,
+      "output_tokens": 469,
+      "latency_s": 16.02,
+      "sources": [
+        "5 Unpopular AI Truths Enterprises Don\u2019t Want to Hear (0.5593)",
+        "Big Consulting Keeps Selling You AI You Don\u2019t Need (0.5219)",
+        "OpenAI Leaked GPT-5.4. It's a Distraction. (The AI Lock-In No One Is Talking About) (0.5137)",
+        "Excel Contaminates Research (0.5053)",
+        "AI Hype vs. Reality: Jobs Cut, Budgets Burned! #shorts (0.4973)"
+      ],
+      "num_sources": 5
+    },
+    "chunked": {
+      "answer": "Yes, this is absolutely correct according to the excerpts. Enterprise-wide AI solutions are consistently running into significant data quality issues, and this is indeed creating new opportunities in data engineering and normalization.\n\n## The Data Quality Problem\n\nThe excerpts confirm that **data quality is a major roadblock** for enterprise AI initiatives:\n\n- \"The data in many of these enterprises is not in good shape\" and \"has to be in good hygienic shape for it to be of value as training data for an AI system\"\n- \"Many of the AI projects are stopping in their tracks because the enterprises are seeing that they're not working with the quality of data assets that they have\"\n- \"If high quality data is unavailable or unreliable, deploying AI simply converts data debt into model failures at scale\"\n\nThe problem is particularly acute because enterprises have been \"kicking that can down the road for the last 20 years\" when it comes to data hygiene.\n\n## The Enterprise Synthesis Challenge\n\nThe excerpts describe exactly what you're referring to - attempts to create AI systems that synthesize information across enterprise sources:\n\n- Current organizational knowledge is \"fragmented across a dozen systems\" - code in GitHub, decisions in Confluence, customer context in Salesforce, project status in Jira\n- The challenge isn't that information doesn't exist, but rather \"the fragility is in the synthesis layer\"\n- AI systems need to \"continuously ingest from every filing cabinet in the business\" and \"maintain a coherent model of the organization's knowledge\"\n\n## New Opportunities in Data Engineering\n\nThe excerpts strongly support your observation about opportunities in data engineering and normalization:\n\n1. **Data Governance Extension**: \"Data governance teams must extend data-quality practices beyond structured data sources\"\n\n2. **New Infrastructure Needs**: Companies need \"data health metrics,\" \"data quality metrics to test for accuracy, completeness, consistency, timeliness, uniqueness, and validity\"\n\n3. **Pipeline Reliability**: Organizations need to apply \"site reliability engineering (SRE) practices to data pipeline and dataops\" as \"data availability and pipeline performance expectations\" increase\n\n4. **Compliance and Governance**: New requirements for \"immutable audit logs,\" \"data bill of materials,\" and systems to ensure AI agents \"draw context from systems continuously validated as trustworthy\"\n\nThe excerpts suggest this isn't just a technical challenge but a fundamental business priority, as \"unless you fix the data, the AI is absolutely not going to bring any value.\"",
+      "input_tokens": 8838,
+      "output_tokens": 537,
+      "latency_s": 14.73,
+      "num_sources": 11,
+      "num_chunks": 15
+    },
+    "focused_summaries": {
+      "answer": "Yes, this is absolutely correct according to multiple sources in your collection. Enterprise-wide AI solutions are encountering significant data quality barriers, creating substantial new opportunities in data engineering and data normalization.\n\n## The Data Quality Crisis\n\nSeveral experts confirm this pattern. In **\"5 Unpopular AI Truths Enterprises Don't Want to Hear,\"** Dave Linthicum identifies data quality as a major barrier, noting that enterprise data is typically \"in awful shape\" and requires significant remediation before supporting AI systems. He emphasizes that many AI projects \"are stopping in their tracks\" when companies realize their data foundations are inadequate - a problem that's been \"kicked down the road for the last 20 years.\"\n\nIn **\"Big Consulting Keeps Selling You AI You Don't Need,\"** Linthicum further explains that \"if high quality data is unavailable or unreliable, deploying AI simply converts data debt into model failures at scale.\" Most organizations lack \"pristine data\" with \"a single source of truth\" and \"hygienic information,\" yet they're pushing AI solutions first with data quality as a secondary consideration.\n\n## The Scale Challenge\n\n**\"OpenAI Leaked GPT-5.4. It's a Distraction\"** reveals why enterprise-wide synthesis is particularly problematic. Organizational knowledge exists \"fragmented across a dozen systems\" - code in GitHub, decisions in Confluence, customer data in Salesforce, project status in Jira. The critical issue is that \"the fragility is in the synthesis layer\" - there's no effective way to connect and normalize data across these disparate sources at enterprise scale.\n\n**\"Excel Contaminates Research\"** provides a concrete example, showing how 30% of research publications contain Excel errors due to automatic data conversion, with these \"silent errors\" accelerating when AI is applied on top of unstable foundations.\n\n## The Opportunities Created\n\nThis crisis is generating significant opportunities in data engineering and normalization:\n\n1. **Infrastructure Rebuilding**: **\"10 essential release criteria for launching AI agents\"** notes that existing \"data pipelines that were developed to support data visualizations and small-scale machine-learning models\" lack the robustness needed for enterprise AI agents.\n\n2. **Comprehensive Normalization**: Organizations need to establish \"data health metrics\" covering \"accuracy, completeness, consistency, timeliness, uniqueness, and validity\" across structured and unstructured data sources.\n\n3. **Context Engineering**: **\"Why Architecture Rots No Matter How Good Engineers Are\"** explains that success requires \"semantic search, progressive disclosure, possibly RAG, possibly structured repository overviews\" - all data engineering solutions focused on surfacing \"the right context at the right time.\"\n\n4. **Verification Infrastructure**: **\"Stop accepting AI output that 'looks right'\"** emphasizes the need for systematic \"constraint libraries\" and verification systems that can capture and scale expert judgment about quality.\n\nThe consensus across sources is clear: while AI model intelligence becomes commoditized, the real competitive advantage lies in solving these fundamental data quality and synthesis challenges - creating substantial opportunities for data engineering expertise to become the foundation of successful enterprise AI initiatives.",
+      "input_tokens": 4203,
+      "output_tokens": 685,
+      "latency_s": 13.92,
+      "sources": [
+        "5 Unpopular AI Truths Enterprises Don\u2019t Want to Hear (0.5612)",
+        "Big Consulting Keeps Selling You AI You Don\u2019t Need (0.5233)",
+        "OpenAI Leaked GPT-5.4. It's a Distraction. (The AI Lock-In No One Is Talking About) (0.5143)",
+        "Excel Contaminates Research (0.5068)",
+        "AI Hype vs. Reality: Jobs Cut, Budgets Burned! #shorts (0.4970)",
+        "10 essential release criteria for launching AI agents (0.4925)",
+        "Why Architecture Rots No Matter How Good Engineers Are (The Real Reason Standards Keep Drifting) (0.4912)",
+        "Stop accepting AI output that \"looks right.\" The other 17% is everything and nobody is ready for it. (0.4911)"
+      ],
+      "num_sources": 8,
+      "summary_details": [
+        {
+          "title": "5 Unpopular AI Truths Enterprises Don\u2019t Want to Hear",
+          "score": 0.5612,
+          "word_count": 328
+        },
+        {
+          "title": "Big Consulting Keeps Selling You AI You Don\u2019t Need",
+          "score": 0.5233,
+          "word_count": 291
+        },
+        {
+          "title": "OpenAI Leaked GPT-5.4. It's a Distraction. (The AI Lock-In No One Is Talking About)",
+          "score": 0.5143,
+          "word_count": 362
+        },
+        {
+          "title": "Excel Contaminates Research",
+          "score": 0.5068,
+          "word_count": 360
+        },
+        {
+          "title": "AI Hype vs. Reality: Jobs Cut, Budgets Burned! #shorts",
+          "score": 0.497,
+          "word_count": 263
+        },
+        {
+          "title": "10 essential release criteria for launching AI agents",
+          "score": 0.4925,
+          "word_count": 392
+        },
+        {
+          "title": "Why Architecture Rots No Matter How Good Engineers Are (The Real Reason Standards Keep Drifting)",
+          "score": 0.4912,
+          "word_count": 456
+        },
+        {
+          "title": "Stop accepting AI output that \"looks right.\" The other 17% is everything and nobody is ready for it.",
+          "score": 0.4911,
+          "word_count": 375
+        }
+      ]
+    }
+  }
+]

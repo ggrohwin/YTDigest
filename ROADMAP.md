@@ -74,7 +74,7 @@ Help users find content that matches their interests across the entire digest, w
 
 ## Active Sprint
 
-_No active sprint. Next sprint to be planned from the backlog._
+_No active sprint._
 
 ---
 
@@ -83,7 +83,7 @@ _No active sprint. Next sprint to be planned from the backlog._
 ### Next
 | Story | Type | Description | Effort |
 |-------|------|-------------|--------|
-_(empty)_
+| Embedding & RAG strategy | Spike | As a developer, I want to evaluate: (1) chunked retrieval for generation vs full transcripts, (2) chunk size/overlap tuning, (3) whether summary embeddings are needed alongside chunks. Exit criteria: test questions compared across approaches, decisions documented with evidence. | Medium |
 
 ### Later
 | Story | Type | Description | Effort |
@@ -93,6 +93,7 @@ _(empty)_
 | Progress dashboard | Feature | As a user, I want to see engagement metrics (videos watched, articles read, minutes) so I can understand my consumption habits | Medium |
 | Proxy for transcripts | Infra | As a user, I want transcripts fetched via a rotating proxy so my account isn't at risk of being banned | Medium |
 | Retry failed transcripts | Feature | As a user, I want a one-click retry for failed transcripts so I don't lose content permanently | Quick |
+| Clickable creator/channel links | Feature | As a user, I want creator and channel names on cards to link to filtered views, just like tags do | Quick |
 | Type checking | Infra | As a developer, I want mypy enforced so type errors are caught before runtime | Medium |
 
 ### Maybe
@@ -111,6 +112,7 @@ _(empty)_
 
 | Item | Date | Notes |
 |------|------|-------|
+| Question-focused summaries spike (Issue #10) | 2026-04-02 | Decision: pursue. 84.4% token savings vs full transcript, better quality with 8 sources vs 5, proportional summary sizing. Tuning variables identified for future work. |
 | Summarizer single source of truth (Sprint) | 2026-03-28 | Consolidated `summarize_video`/`summarize_article` into `summarize_content`; wired up `TAGGING_PRINCIPLES` from `tagging_rules.py` into summarizer and retag script |
 | Clear question input | 2026-03-28 | X button in Ask input field; appears when text is present |
 | Source card actions | 2026-03-28 | Search result cards now have full digest actions: complete, chat, notes, favorite |

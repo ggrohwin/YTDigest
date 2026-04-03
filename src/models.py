@@ -156,6 +156,7 @@ class Embedding(BaseModel):
     ]
     vector: list[float]
     chunk_index: Optional[int] = None  # which chunk (None for summaries)
+    chunk_text: Optional[str] = None  # original text of this chunk
 
 
 class SearchResult(BaseModel):

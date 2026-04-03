@@ -157,6 +157,7 @@ async def embed_item_chunks(item_id: str, item_type: str, text: str) -> int:
             content_type=content_type,
             vector=vector,
             chunk_index=i,
+            chunk_text=chunk_text_str,
         )
         embeddings.append((emb, embedding_to_bytes(vector)))
 
