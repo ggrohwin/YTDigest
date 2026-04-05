@@ -112,6 +112,7 @@ _No active sprint._
 
 | Item | Date | Notes |
 |------|------|-------|
+| Per-channel shorts_max_duration override | 2026-04-04 | Add optional `shorts_max_duration` to channel config; falls back to `digest.shorts_max_duration` when not set |
 | Question-focused summaries spike (Issue #10) | 2026-04-02 | Decision: pursue. 84.4% token savings vs full transcript, better quality with 8 sources vs 5, proportional summary sizing. Tuning variables identified for future work. |
 | Summarizer single source of truth (Sprint) | 2026-03-28 | Consolidated `summarize_video`/`summarize_article` into `summarize_content`; wired up `TAGGING_PRINCIPLES` from `tagging_rules.py` into summarizer and retag script |
 | Clear question input | 2026-03-28 | X button in Ask input field; appears when text is present |

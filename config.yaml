@@ -40,6 +40,7 @@ channels:
   - id: "UC7YmAKGIRoDWT3O68Cf1aaA"
     name: "Dave Linthicum is not AI"
     filter_shorts: true
+    shorts_max_duration: 240
   - id: "UCIkU9Fe0OccRmqBMXRm1Q7A"
     name: "AI Agents Podcast"
     filter_shorts: true
@@ -52,3 +53,4 @@ digest:
   video_refresh_interval: 3600    # seconds between video metadata refreshes (1 hour)
   summarization_model: claude-sonnet-4-20250514
   shorts_max_duration: 150  # seconds; videos at or below this from filter_shorts channels are skipped
+                             # override per channel by adding shorts_max_duration: <seconds> to a channel entry

@@ -18,26 +18,20 @@ from fastapi.templating import Jinja2Templates
 LOG_FORMAT = "%(asctime)s - %(message)s"
 LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
 
+import io
 import sys
 
-logging.basicConfig(
-    level=logging.INFO,
-    format=LOG_FORMAT,
-    datefmt=LOG_DATEFMT,
-    handlers=[
-        logging.StreamHandler(
-            stream=open(
-                sys.stdout.fileno(),
-                mode="w",
-                encoding="utf-8",
-                closefd=False,
-            )
-        )
-    ],
-)
-logger = logging.getLogger("ytdigest")
+_formatter = logging.Formatter(LOG_FORMAT, datefmt=LOG_DATEFMT)
 
-# Add file handler with rotation (5 MB max, keep 3 backups)
+# Stream handler: wrap the binary stdout buffer in UTF-8 so emoji in video titles
+# don't crash on Windows cp1252 subprocesses (fileno() approach is unreliable there)
+_console = io.TextIOWrapper(
+    sys.stdout.buffer, encoding="utf-8", errors="replace", line_buffering=True
+)
+_stream_handler = logging.StreamHandler(stream=_console)
+_stream_handler.setFormatter(_formatter)
+
+# File handler with rotation (5 MB max, keep 3 backups)
 _log_dir = Path(__file__).parent.parent / "logs"
 _log_dir.mkdir(exist_ok=True)
 _file_handler = logging.handlers.RotatingFileHandler(
@@ -45,7 +39,12 @@ _file_handler = logging.handlers.RotatingFileHandler(
     maxBytes=5 * 1024 * 1024,
     backupCount=3,
 )
-_file_handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATEFMT))
+_file_handler.setFormatter(_formatter)
+
+logger = logging.getLogger("ytdigest")
+logger.setLevel(logging.INFO)
+logger.propagate = False  # don't pass to root logger (avoids uvicorn's cp1252 handler)
+logger.addHandler(_stream_handler)
 logger.addHandler(_file_handler)
 
 from collections import Counter, defaultdict
@@ -336,7 +335,11 @@ async def refresh_video_metadata() -> tuple[int, int]:
             max_results=app_config.digest.max_videos_per_channel,
             published_after=published_after,
             filter_shorts=channel.filter_shorts,
-            shorts_max_duration=app_config.digest.shorts_max_duration,
+            shorts_max_duration=(
+                channel.shorts_max_duration
+                if channel.shorts_max_duration is not None
+                else app_config.digest.shorts_max_duration
+            ),
         )
         new_count = 0
         for video in videos:

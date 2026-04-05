@@ -20,6 +20,7 @@ class ChannelConfig(BaseModel):
     id: str
     name: str
     filter_shorts: bool = False
+    shorts_max_duration: Optional[int] = None  # overrides digest.shorts_max_duration
 
 
 class DigestConfig(BaseModel):
