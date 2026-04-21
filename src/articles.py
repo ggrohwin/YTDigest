@@ -4,11 +4,20 @@ from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import urlparse
 
+import requests
 import trafilatura
 
 from .models import Article
 
 logger = logging.getLogger("ytdigest")
+
+_FETCH_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    )
+}
 
 
 def generate_article_id(url: str) -> str:
@@ -30,7 +39,11 @@ def fetch_article(url: str) -> tuple[Optional[Article], Optional[str]]:
     Returns (Article, None) on success, or (None, error_message) on failure.
     """
     try:
-        downloaded = trafilatura.fetch_url(url)
+        # Use requests directly so REQUESTS_CA_BUNDLE env var is honoured
+        # (trafilatura.fetch_url builds its own session and may bypass it).
+        response = requests.get(url, headers=_FETCH_HEADERS, timeout=30)
+        response.raise_for_status()
+        downloaded = response.text
         if not downloaded:
             return None, "Failed to download page"
 
