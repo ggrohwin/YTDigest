@@ -23,7 +23,16 @@ from src.youtube import get_channel_uploads, get_video_by_id, get_video_details
 
 load_dotenv()
 
-mcp = FastMCP("youtube")
+mcp = FastMCP(
+    "youtube",
+    dependencies=[
+        "google-api-python-client",
+        "youtube-transcript-api",
+        "python-dotenv",
+        "pyyaml",
+        "requests",
+    ],
+)
 
 
 @mcp.tool()

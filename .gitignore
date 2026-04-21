@@ -48,6 +48,9 @@ ENV/
 env/
 .venv/
 
+# uv (not used to manage this project)
+uv.lock
+
 # IDE
 .idea/
 .vscode/

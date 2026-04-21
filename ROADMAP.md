@@ -102,7 +102,6 @@ _(empty)_
 | Local timezone support | Feature | As a user, I want dates in my local timezone so "added yesterday" is accurate | Quick |
 | Live updates via SSE | Feature | As a user, I want the page to update automatically when new summaries arrive so I don't have to refresh | Medium |
 | MCP server: video database | Feature | As a Claude Code user, I want to query my video library conversationally via MCP so I can explore content without opening the browser | Medium |
-| MCP client: YouTube API | Infra | As a developer, I want YouTube querying wrapped as an MCP server so it's reusable across projects | Medium |
 | Email digest | Feature | As a user, I want a daily email summary so I can read my digest without opening the app | Medium |
 
 ---
@@ -111,6 +110,7 @@ _(empty)_
 
 | Item | Date | Notes |
 |------|------|-------|
+| MCP client: YouTube API | 2026-04-21 | FastMCP server with channel, video metadata, and transcript tools; registered in Claude Desktop config |
 | Summarizer single source of truth (Sprint) | 2026-03-28 | Consolidated `summarize_video`/`summarize_article` into `summarize_content`; wired up `TAGGING_PRINCIPLES` from `tagging_rules.py` into summarizer and retag script |
 | Clear question input | 2026-03-28 | X button in Ask input field; appears when text is present |
 | Source card actions | 2026-03-28 | Search result cards now have full digest actions: complete, chat, notes, favorite |
