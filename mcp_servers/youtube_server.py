@@ -11,9 +11,13 @@ Or register with Claude desktop via claude_desktop_config.json.
 
 import sys
 from pathlib import Path
+from typing import Optional
+
+import yaml
 
 # Make src/ importable when running this file directly
-sys.path.insert(0, str(Path(__file__).parent.parent))
+_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(_ROOT))
 
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
@@ -22,6 +26,28 @@ from src.transcripts import fetch_transcript, fetch_transcript_with_timestamps
 from src.youtube import get_channel_uploads, get_video_by_id, get_video_details
 
 load_dotenv()
+
+
+def _resolve_channel(
+    channel_name: Optional[str], channel_id: Optional[str]
+) -> tuple[str, str]:
+    """Return (channel_id, channel_name) from whichever identifier was supplied."""
+    if not channel_name and not channel_id:
+        raise ValueError("Provide either channel_name or channel_id.")
+
+    if channel_id:
+        return channel_id, channel_name or ""
+
+    config = yaml.safe_load((_ROOT / "config.yaml").read_text())
+    for ch in config.get("channels", []):
+        if ch.get("name", "").lower() == channel_name.lower():
+            return ch["id"], ch["name"]
+
+    raise ValueError(
+        f"Channel '{channel_name}' not found in config.yaml. "
+        "Try providing channel_id directly."
+    )
+
 
 mcp = FastMCP(
     "youtube",
@@ -37,8 +63,8 @@ mcp = FastMCP(
 
 @mcp.tool()
 def fetch_channel_videos(
-    channel_id: str,
-    channel_name: str,
+    channel_name: Optional[str] = None,
+    channel_id: Optional[str] = None,
     max_results: int = 5,
 ) -> list[dict]:
     """Fetch recent videos from a YouTube channel.
@@ -47,17 +73,22 @@ def fetch_channel_videos(
     wants to browse a channel's latest content, or asks for recent
     uploads from a specific creator.
 
+    Provide either channel_name (e.g. "Andrej Karpathy") or channel_id
+    (e.g. "UCPk8m_r6fkUSYmvgCBwq-sw"). If only channel_name is given,
+    it is looked up in config.yaml.
+
     Args:
-        channel_id: The YouTube channel ID (starts with UC...).
-        channel_name: Human-readable channel name, used for logging.
+        channel_name: Human-readable channel name.
+        channel_id: YouTube channel ID (starts with UC...).
         max_results: Maximum number of videos to return (default 5, max 50).
 
     Returns:
         List of videos with id, title, channel, published_at, duration, and url.
     """
+    resolved_id, resolved_name = _resolve_channel(channel_name, channel_id)
     videos = get_channel_uploads(
-        channel_id=channel_id,
-        channel_name=channel_name,
+        channel_id=resolved_id,
+        channel_name=resolved_name,
         max_results=max_results,
     )
     return [
