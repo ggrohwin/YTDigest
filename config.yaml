@@ -14,6 +14,7 @@ channels:
     name: "Mo Bitar"
   - id: "UCZcR2SVWaGWNlMqPxvQS3vw"
     name: "Hard Fork"
+    filter_shorts: true
   - id: "UC_RovKmk0OCbuZjA8f08opw"
     name: "Futurepedia"
   - id: "UCoy6cTJ7Tg0dqS-DI-_REsA"
@@ -34,6 +35,8 @@ channels:
     name: "The PrimeTime"
   - id: "UCyhpw4-Etc79Sq77Swre5KA"
     name: "TECHtalk"
+  - id: "UCPk8m_r6fkUSYmvgCBwq-sw"
+    name: "Andrej Karpathy"
   - id: "UCSFUFfVEFHQxUaGS768rB9w"
     name: "kiraa"
     filter_shorts: true
