@@ -1,10 +1,19 @@
 """Tests for article utility functions."""
 
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from src.articles import extract_domain, fetch_article, generate_article_id
 from src.models import Article
+
+
+def _mock_response(text: str, status_code: int = 200) -> MagicMock:
+    """Build a fake requests.Response."""
+    resp = MagicMock()
+    resp.text = text
+    resp.status_code = status_code
+    resp.raise_for_status.return_value = None
+    return resp
 
 
 class TestGenerateArticleId:
@@ -65,12 +74,13 @@ class TestExtractDomain:
 
 
 class TestFetchArticle:
-    """Tests for fetch_article using mocked trafilatura."""
+    """Tests for fetch_article using mocked requests and trafilatura."""
 
     @patch("src.articles.trafilatura")
-    def test_successful_fetch(self, mock_trafilatura):
+    @patch("src.articles.requests.get")
+    def test_successful_fetch(self, mock_get, mock_trafilatura):
         """Test successful article extraction."""
-        mock_trafilatura.fetch_url.return_value = "<html>downloaded content</html>"
+        mock_get.return_value = _mock_response("<html>downloaded content</html>")
         mock_trafilatura.extract.return_value = "Extracted text content"
         mock_trafilatura.bare_extraction.return_value = SimpleNamespace(
             text="This is the extracted article body text.",
@@ -94,9 +104,10 @@ class TestFetchArticle:
         assert article.published_at is not None
 
     @patch("src.articles.trafilatura")
-    def test_download_failure(self, mock_trafilatura):
-        """Test when trafilatura cannot download the page."""
-        mock_trafilatura.fetch_url.return_value = None
+    @patch("src.articles.requests.get")
+    def test_download_failure(self, mock_get, mock_trafilatura):
+        """Test when the page body is empty."""
+        mock_get.return_value = _mock_response("")
 
         article, error = fetch_article("https://example.com/broken")
 
@@ -104,9 +115,10 @@ class TestFetchArticle:
         assert error == "Failed to download page"
 
     @patch("src.articles.trafilatura")
-    def test_extract_returns_none(self, mock_trafilatura):
+    @patch("src.articles.requests.get")
+    def test_extract_returns_none(self, mock_get, mock_trafilatura):
         """Test when trafilatura downloads but cannot extract content."""
-        mock_trafilatura.fetch_url.return_value = "<html>some html</html>"
+        mock_get.return_value = _mock_response("<html>some html</html>")
         mock_trafilatura.extract.return_value = None
 
         article, error = fetch_article("https://example.com/no-content")
@@ -115,9 +127,10 @@ class TestFetchArticle:
         assert error == "Could not extract article content"
 
     @patch("src.articles.trafilatura")
-    def test_bare_extraction_returns_none(self, mock_trafilatura):
+    @patch("src.articles.requests.get")
+    def test_bare_extraction_returns_none(self, mock_get, mock_trafilatura):
         """Test when extract works but bare_extraction returns None."""
-        mock_trafilatura.fetch_url.return_value = "<html>some html</html>"
+        mock_get.return_value = _mock_response("<html>some html</html>")
         mock_trafilatura.extract.return_value = "Some text"
         mock_trafilatura.bare_extraction.return_value = None
 
@@ -127,9 +140,10 @@ class TestFetchArticle:
         assert error == "Could not extract article content"
 
     @patch("src.articles.trafilatura")
-    def test_bare_extraction_no_text(self, mock_trafilatura):
+    @patch("src.articles.requests.get")
+    def test_bare_extraction_no_text(self, mock_get, mock_trafilatura):
         """Test when bare_extraction result has no text field."""
-        mock_trafilatura.fetch_url.return_value = "<html>some html</html>"
+        mock_get.return_value = _mock_response("<html>some html</html>")
         mock_trafilatura.extract.return_value = "Some text"
         mock_trafilatura.bare_extraction.return_value = SimpleNamespace(title="A Title")
 
@@ -139,9 +153,10 @@ class TestFetchArticle:
         assert error == "Could not extract article content"
 
     @patch("src.articles.trafilatura")
-    def test_missing_title_defaults_to_untitled(self, mock_trafilatura):
+    @patch("src.articles.requests.get")
+    def test_missing_title_defaults_to_untitled(self, mock_get, mock_trafilatura):
         """Test that a missing title defaults to 'Untitled'."""
-        mock_trafilatura.fetch_url.return_value = "<html>content</html>"
+        mock_get.return_value = _mock_response("<html>content</html>")
         mock_trafilatura.extract.return_value = "text"
         mock_trafilatura.bare_extraction.return_value = SimpleNamespace(
             text="Some body text.",
@@ -155,10 +170,10 @@ class TestFetchArticle:
         assert article.author is None
         assert article.published_at is None
 
-    @patch("src.articles.trafilatura")
-    def test_exception_returns_error(self, mock_trafilatura):
+    @patch("src.articles.requests.get")
+    def test_exception_returns_error(self, mock_get):
         """Test that exceptions are caught and returned as error messages."""
-        mock_trafilatura.fetch_url.side_effect = ConnectionError("Connection refused")
+        mock_get.side_effect = ConnectionError("Connection refused")
 
         article, error = fetch_article("https://example.com/error")
 
@@ -166,9 +181,10 @@ class TestFetchArticle:
         assert "Connection refused" in error
 
     @patch("src.articles.trafilatura")
-    def test_invalid_date_ignored(self, mock_trafilatura):
+    @patch("src.articles.requests.get")
+    def test_invalid_date_ignored(self, mock_get, mock_trafilatura):
         """Test that an unparseable date does not cause failure."""
-        mock_trafilatura.fetch_url.return_value = "<html>content</html>"
+        mock_get.return_value = _mock_response("<html>content</html>")
         mock_trafilatura.extract.return_value = "text"
         mock_trafilatura.bare_extraction.return_value = SimpleNamespace(
             text="Article body.",
