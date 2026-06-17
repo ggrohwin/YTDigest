@@ -52,5 +52,5 @@ digest:
   transcript_fetch_interval: 300  # seconds between background transcript fetches
   transcript_batch_size: 1        # transcripts to fetch per cycle
   video_refresh_interval: 3600    # seconds between video metadata refreshes (1 hour)
-  summarization_model: claude-sonnet-4-20250514
+  summarization_model: claude-sonnet-4-6
   shorts_max_duration: 150  # seconds; videos at or below this from filter_shorts channels are skipped

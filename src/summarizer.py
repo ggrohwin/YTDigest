@@ -10,9 +10,6 @@ from .models import CATEGORIES, ArticleSummary, Summary
 from .tag_normalizer import TagNormalizer
 from .tagging_rules import TAGGING_PRINCIPLES
 
-# Default chat model — cheaper/faster than summarization model
-CHAT_MODEL = "claude-sonnet-4-20250514"
-
 logger = logging.getLogger("ytdigest")
 
 # Module-level singleton — initialized at app startup via initialize_tag_normalizer()
@@ -57,7 +54,8 @@ def summarize_content(
     content: str,
     content_type: Literal["video", "article"] = "video",
     author: Optional[str] = None,
-    model: str = "claude-sonnet-4-20250514",
+    *,
+    model: str,
 ) -> Optional[Summary | ArticleSummary]:
     """Generate a summary of a video or article using Claude.
 
@@ -192,7 +190,8 @@ if this {content_type} is relevant to their interests."""
 def classify_existing_summary(
     summary_text: str,
     topics: list[str],
-    model: str = "claude-sonnet-4-20250514",
+    *,
+    model: str,
 ) -> Optional[str]:
     """Classify an existing summary into a category using a lightweight LLM call.
 
@@ -234,7 +233,8 @@ def chat_with_content(
     source_name: str,
     content_type: str,
     messages: list[dict],
-    model: str = CHAT_MODEL,
+    *,
+    model: str,
 ) -> Optional[str]:
     """Have a multi-turn conversation about a video transcript or article.
 
@@ -281,7 +281,8 @@ def chat_with_content(
 def answer_question(
     question: str,
     sources: list[dict],
-    model: str = CHAT_MODEL,
+    *,
+    model: str,
 ) -> Optional[str]:
     """Answer a question using retrieved content from multiple sources (RAG).
 
