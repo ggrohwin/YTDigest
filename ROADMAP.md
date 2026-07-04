@@ -94,6 +94,7 @@ _(empty)_
 | Proxy for transcripts | Infra | As a user, I want transcripts fetched via a rotating proxy so my account isn't at risk of being banned | Medium |
 | Retry failed transcripts | Feature | As a user, I want a one-click retry for failed transcripts so I don't lose content permanently | Quick |
 | Source name link on entry cards | Feature | As a user, I want the source name on an entry card to be a hyperlink so I can click directly to that source's view | Quick |
+| Like videos via YouTube API | Feature | As a user, I want videos I rate positively to be liked on YouTube so content creators get feedback. Requires OAuth 2.0 — more complex auth than the current API key setup. | Medium |
 | Type checking | Infra | As a developer, I want mypy enforced so type errors are caught before runtime | Medium |
 
 ### Maybe
