@@ -14,6 +14,7 @@ channels:
     name: "Mo Bitar"
   - id: "UCZcR2SVWaGWNlMqPxvQS3vw"
     name: "Hard Fork"
+    filter_shorts: true
   - id: "UC_RovKmk0OCbuZjA8f08opw"
     name: "Futurepedia"
   - id: "UCoy6cTJ7Tg0dqS-DI-_REsA"
@@ -34,6 +35,8 @@ channels:
     name: "The PrimeTime"
   - id: "UCyhpw4-Etc79Sq77Swre5KA"
     name: "TECHtalk"
+  - id: "UCPk8m_r6fkUSYmvgCBwq-sw"
+    name: "Andrej Karpathy"
   - id: "UCSFUFfVEFHQxUaGS768rB9w"
     name: "kiraa"
     filter_shorts: true
@@ -42,12 +45,14 @@ channels:
     filter_shorts: true
   - id: "UCIkU9Fe0OccRmqBMXRm1Q7A"
     name: "AI Agents Podcast"
+  - id: "UCJS9pqu9BzkAMNTmzNMNhvg"
+    name: "Google Cloud Tech"
 
 digest:
   max_videos_per_channel: 5
-  max_age_days: 21
+  max_age_days: 28
   transcript_fetch_interval: 300  # seconds between background transcript fetches
   transcript_batch_size: 1        # transcripts to fetch per cycle
   video_refresh_interval: 3600    # seconds between video metadata refreshes (1 hour)
-  summarization_model: claude-sonnet-4-20250514
+  summarization_model: claude-sonnet-4-6
   shorts_max_duration: 150  # seconds; videos at or below this from filter_shorts channels are skipped

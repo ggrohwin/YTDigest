@@ -11,3 +11,5 @@ requests==2.32.3
 trafilatura==2.0.0
 voyageai==0.3.7
 numpy==2.4.3
+mcp[cli]==1.27.0
+python-certifi-win32==1.6.1

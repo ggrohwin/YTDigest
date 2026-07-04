@@ -28,7 +28,7 @@ class DigestConfig(BaseModel):
     transcript_fetch_interval: int = 180  # seconds between background fetches
     transcript_batch_size: int = 1  # transcripts to fetch per cycle
     video_refresh_interval: int = 3600  # seconds between video metadata refreshes
-    summarization_model: str = "claude-sonnet-4-20250514"
+    summarization_model: str = "claude-sonnet-4-6"
     shorts_max_duration: int = (
         120  # seconds; videos at or below this from filter_shorts channels are skipped
     )
