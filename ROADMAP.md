@@ -93,16 +93,19 @@ _(empty)_
 | Progress dashboard | Feature | As a user, I want to see engagement metrics (videos watched, articles read, minutes) so I can understand my consumption habits | Medium |
 | Proxy for transcripts | Infra | As a user, I want transcripts fetched via a rotating proxy so my account isn't at risk of being banned | Medium |
 | Retry failed transcripts | Feature | As a user, I want a one-click retry for failed transcripts so I don't lose content permanently | Quick |
+| Source name link on entry cards | Feature | As a user, I want the source name on an entry card to be a hyperlink so I can click directly to that source's view | Quick |
 | Type checking | Infra | As a developer, I want mypy enforced so type errors are caught before runtime | Medium |
 
 ### Maybe
 | Story | Type | Description | Effort |
 |-------|------|-------------|--------|
+| Unicode logging on Windows | Bug | As a developer, I want emoji in video titles to log without error on Windows. Non-fatal: Python's logging machinery catches it and the line still prints. `sys.stdout.reconfigure` doesn't take effect in PowerShell/uvicorn subprocess context — needs deeper investigation. | Quick |
 | Claude Code skills & hooks | Learning | As a developer, I want to understand Claude Code's skills, hooks, and settings configuration so I can customize my workflow | Quick |
 | Local timezone support | Feature | As a user, I want dates in my local timezone so "added yesterday" is accurate | Quick |
 | Live updates via SSE | Feature | As a user, I want the page to update automatically when new summaries arrive so I don't have to refresh | Medium |
 | MCP server: video database | Feature | As a Claude Code user, I want to query my video library conversationally via MCP so I can explore content without opening the browser | Medium |
 | Email digest | Feature | As a user, I want a daily email summary so I can read my digest without opening the app | Medium |
+| Upgrade to voyage-context-3 embeddings | Feature | As a user, I want transcript chunks embedded with full document context (voyage-context-3) so search finds specific moments more accurately. 9x price increase ($0.02 → $0.18/1M tokens) but 200M free tokens included; at YTDigest scale, effectively free. Requires passing ordered chunk list to new contextualized embeddings API instead of embedding chunks individually. | Medium |
 
 ---
 
