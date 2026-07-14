@@ -13,8 +13,8 @@ cp .env.example .env
 
 # Edit config.yaml to add your preferred YouTube channels
 
-# Run the app (venv must not be activated — use the venv binary directly)
-.venv\Scripts\uvicorn src.main:app --reload
+# Run the app (use python -m to avoid Smart App Control blocking uvicorn.exe)
+.venv\Scripts\python -m uvicorn src.main:app --reload
 ```
 
 Open http://localhost:8000 in your browser.
