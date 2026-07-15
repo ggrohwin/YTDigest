@@ -28,8 +28,6 @@ channels:
     name: "DeepLearningAI"
   - id: "UC1EbMMyEyliGYvDNYmdRbRw"
     name: "Eric Before"
-  - id: "UC1E1SVcVyU3ntWMSQEp38Yw"
-    name: "Pivot with Kara Swisher"
     filter_shorts: true
   - id: "UC8ENHE5xdFSwx71u3fDH5Xw"
     name: "The PrimeTime"

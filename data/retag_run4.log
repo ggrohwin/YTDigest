@@ -1,0 +1,44 @@
+Tags backed up to topics_backup columns.
+Loaded 663 summaries. Re-tagging with concurrency=5...
+  RATE LIMIT (gave up): pnY9ezaW2ZA
+  RATE LIMIT (gave up): OdCmZvPdr4s
+  RATE LIMIT (gave up): jtRW3i-PZVo
+  RATE LIMIT (gave up): I0CGyPdukCk
+  RATE LIMIT (gave up): OsLVjPywJ8o
+  RATE LIMIT (gave up): EeUIh-3BZA4
+  RATE LIMIT (gave up): azrYpsMoMf8
+  RATE LIMIT (gave up): b7C0DMRwgTw
+  RATE LIMIT (gave up): O7SSQfiPDXA
+  RATE LIMIT (gave up): vC35UuUkLSo
+  RATE LIMIT (gave up): _LGZ4LeLqBs
+  RATE LIMIT (gave up): 99ecf09ed031
+  RATE LIMIT (gave up): cc6930ba4122
+
+Completed 650/663 successfully in 722.2s
+
+After re-tagging:
+  Total tag occurrences : 3413
+  Unique tags           : 1683
+  Appear only once      : 1243
+
+Top 20 tags:
+   127  Ai Agents
+    67  Anthropic
+    55  Claude Code
+    50  Openai
+    48  Claude
+    44  Enterprise Ai
+    36  Ai Hype
+    35  Prompt Engineering
+    28  Ai Limitations
+    26  Software Development
+    22  Ai Adoption
+    20  Ai Safety
+    20  Workflow Automation
+    18  Chatgpt
+    17  Microsoft
+    17  Ai Implementation
+    15  Ai Infrastructure
+    15  Productivity
+    14  Career Development
+    13  Openclaw
