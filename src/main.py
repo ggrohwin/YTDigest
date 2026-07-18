@@ -1,16 +1,30 @@
+import os
+
+import sentry_sdk
+from dotenv import load_dotenv
+
+# Load env vars and initialize Sentry before importing anything else, so
+# import-time errors in our own modules are captured too.
+load_dotenv()
+
+_sentry_dsn = os.getenv("SENTRY_DSN")
+if _sentry_dsn:
+    sentry_sdk.init(
+        dsn=_sentry_dsn,
+        traces_sample_rate=1.0,
+        send_default_pii=False,
+    )
+
 import asyncio
 import logging
 import logging.handlers
-import os
 import random
 import re
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-import sentry_sdk
 import yaml
-from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -112,16 +126,6 @@ from .youtube import (
     get_video_by_id,
     parse_video_id,
 )
-
-load_dotenv()
-
-_sentry_dsn = os.getenv("SENTRY_DSN")
-if _sentry_dsn:
-    sentry_sdk.init(
-        dsn=_sentry_dsn,
-        traces_sample_rate=1.0,
-        send_default_pii=False,
-    )
 
 BASE_DIR = Path(__file__).parent.parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
