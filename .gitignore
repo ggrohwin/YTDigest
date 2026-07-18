@@ -20,6 +20,9 @@ claude-project
 # Test reports
 reports/
 
+# Local files
+local/
+
 # Python
 __pycache__/
 *.py[cod]

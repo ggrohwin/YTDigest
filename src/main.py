@@ -37,13 +37,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger("ytdigest")
 
-# Add file handler with rotation (5 MB max, keep 3 backups)
+# Add file handler with daily rotation, keep 14 days of backups
 _log_dir = Path(__file__).parent.parent / "logs"
 _log_dir.mkdir(exist_ok=True)
-_file_handler = logging.handlers.RotatingFileHandler(
+_file_handler = logging.handlers.TimedRotatingFileHandler(
     _log_dir / "ytdigest.log",
-    maxBytes=5 * 1024 * 1024,
-    backupCount=3,
+    when="midnight",
+    backupCount=14,
 )
 _file_handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATEFMT))
 logger.addHandler(_file_handler)
