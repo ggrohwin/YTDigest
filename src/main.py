@@ -13,6 +13,7 @@ if _sentry_dsn:
         dsn=_sentry_dsn,
         traces_sample_rate=1.0,
         send_default_pii=False,
+        enable_logs=True,
     )
 
 import asyncio
