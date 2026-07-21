@@ -935,7 +935,7 @@ async def api_ask(request: Request):
 
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
-        logger.error(f"Error during ask: {error_msg}")
+        logger.exception("Error during ask")
         return JSONResponse(
             content={"error": error_msg},
             status_code=500,

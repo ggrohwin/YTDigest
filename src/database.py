@@ -1,9 +1,11 @@
 import re
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
 import aiosqlite
+import sentry_sdk
 
 from .models import (
     Article,
@@ -18,11 +20,20 @@ from .models import (
 DATABASE_PATH = Path(__file__).parent.parent / "data" / "ytdigest.db"
 
 
+@asynccontextmanager
+async def traced_connect(op_name: str):
+    """Open a DB connection wrapped in a Sentry span covering the whole operation."""
+    with sentry_sdk.start_span(op="db", name=op_name) as span:
+        span.set_data("db.system", "sqlite")
+        async with aiosqlite.connect(DATABASE_PATH) as db:
+            yield db
+
+
 async def init_db() -> None:
     """Create database tables if they don't exist."""
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("init_db") as db:
         await db.execute("""
             CREATE TABLE IF NOT EXISTS videos (
                 id TEXT PRIMARY KEY,
@@ -194,7 +205,7 @@ async def init_db() -> None:
 
 async def save_video(video: Video) -> bool:
     """Save a video to the database. Returns True if the video was new."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("save_video") as db:
         # Check if video already exists
         cursor = await db.execute("SELECT id FROM videos WHERE id = ?", (video.id,))
         exists = await cursor.fetchone()
@@ -266,7 +277,7 @@ def _video_from_row(row) -> Video:
 
 async def get_video(video_id: str) -> Optional[Video]:
     """Get a video by ID."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("get_video") as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             "SELECT * FROM videos WHERE id = ?", (video_id,)
@@ -279,7 +290,7 @@ async def get_video(video_id: str) -> Optional[Video]:
 
 async def get_all_videos(include_completed: bool = False) -> list[Video]:
     """Get all videos in the database."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("get_all_videos") as db:
         db.row_factory = aiosqlite.Row
         if include_completed:
             query = (
@@ -300,7 +311,7 @@ async def get_all_videos(include_completed: bool = False) -> list[Video]:
 
 async def mark_video_completed(video_id: str, sentiment: str) -> None:
     """Mark a video as completed with the given sentiment (like, neutral, dislike)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("mark_video_completed") as db:
         await db.execute(
             """
             UPDATE videos
@@ -314,7 +325,7 @@ async def mark_video_completed(video_id: str, sentiment: str) -> None:
 
 async def uncomplete_video(video_id: str) -> None:
     """Un-complete a video, restoring it to active status."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("uncomplete_video") as db:
         await db.execute(
             """
             UPDATE videos
@@ -354,7 +365,7 @@ async def get_engagement_stats(date_str: str | None = None) -> dict:
         "total_words_read": 0,
     }
 
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("get_engagement_stats") as db:
         db.row_factory = aiosqlite.Row
 
         # --- Videos ---
@@ -409,7 +420,7 @@ async def get_engagement_stats(date_str: str | None = None) -> dict:
 
 async def save_transcript(transcript: Transcript) -> None:
     """Save a transcript to the database."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("save_transcript") as db:
         await db.execute(
             """
             INSERT OR REPLACE INTO transcripts (video_id, content, fetched_at)
@@ -426,7 +437,7 @@ async def save_transcript(transcript: Transcript) -> None:
 
 async def get_transcript(video_id: str) -> Optional[Transcript]:
     """Get a transcript by video ID."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("get_transcript") as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             "SELECT * FROM transcripts WHERE video_id = ?", (video_id,)
@@ -443,7 +454,7 @@ async def get_transcript(video_id: str) -> Optional[Transcript]:
 
 async def save_summary(summary: Summary) -> None:
     """Save a summary to the database."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("save_summary") as db:
         await db.execute(
             """
             INSERT OR REPLACE INTO summaries
@@ -464,7 +475,7 @@ async def save_summary(summary: Summary) -> None:
 
 async def get_summary(video_id: str) -> Optional[Summary]:
     """Get a summary by video ID."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("get_summary") as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             "SELECT * FROM summaries WHERE video_id = ?", (video_id,)
@@ -486,7 +497,7 @@ async def update_transcript_status(video_id: str, status: str) -> None:
 
     Status values: 'pending', 'fetched', 'failed', 'unavailable', 'priority'
     """
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("update_transcript_status") as db:
         await db.execute(
             "UPDATE videos SET transcript_status = ? WHERE id = ?",
             (status, video_id),
@@ -496,7 +507,7 @@ async def update_transcript_status(video_id: str, status: str) -> None:
 
 async def get_videos_without_transcripts(limit: int = 1) -> list[Video]:
     """Get videos that are pending transcript fetch."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("get_videos_without_transcripts") as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """
@@ -519,7 +530,7 @@ async def get_videos_with_transcripts_without_summaries(days: int) -> list[Video
     """Get videos that have transcripts but no summaries yet."""
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("get_videos_with_transcripts_without_summaries") as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """
@@ -537,7 +548,7 @@ async def get_videos_with_transcripts_without_summaries(days: int) -> list[Video
 
 async def get_setting(key: str) -> Optional[str]:
     """Get a setting value by key."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("get_setting") as db:
         async with db.execute(
             "SELECT value FROM settings WHERE key = ?", (key,)
         ) as cursor:
@@ -547,7 +558,7 @@ async def get_setting(key: str) -> Optional[str]:
 
 async def set_setting(key: str, value: str) -> None:
     """Set a setting value."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("set_setting") as db:
         await db.execute(
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
             (key, value),
@@ -557,7 +568,7 @@ async def set_setting(key: str, value: str) -> None:
 
 async def get_summaries_without_category() -> list[str]:
     """Get video IDs of summaries that don't have a category assigned."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("get_summaries_without_category") as db:
         async with db.execute(
             "SELECT video_id FROM summaries WHERE category IS NULL"
         ) as cursor:
@@ -567,7 +578,7 @@ async def get_summaries_without_category() -> list[str]:
 
 async def update_summary_category(video_id: str, category: str) -> None:
     """Update the category for an existing summary."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("update_summary_category") as db:
         await db.execute(
             "UPDATE summaries SET category = ? WHERE video_id = ?",
             (category, video_id),
@@ -577,7 +588,7 @@ async def update_summary_category(video_id: str, category: str) -> None:
 
 async def count_new_videos_since(since: str) -> int:
     """Count videos first seen after the given ISO timestamp."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("count_new_videos_since") as db:
         async with db.execute(
             "SELECT COUNT(*) FROM videos WHERE first_seen_at > ?",
             (since,),
@@ -620,7 +631,7 @@ def _article_from_row(row) -> Article:
 
 async def save_article(article: Article) -> bool:
     """Save an article to the database. Returns True if it was new."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("save_article") as db:
         cursor = await db.execute("SELECT id FROM articles WHERE id = ?", (article.id,))
         exists = await cursor.fetchone()
 
@@ -673,7 +684,7 @@ async def save_article(article: Article) -> bool:
 
 async def get_article(article_id: str) -> Optional[Article]:
     """Get an article by ID."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("get_article") as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             "SELECT * FROM articles WHERE id = ?", (article_id,)
@@ -686,7 +697,7 @@ async def get_article(article_id: str) -> Optional[Article]:
 
 async def get_article_by_url(url: str) -> Optional[Article]:
     """Get an article by its URL."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("get_article_by_url") as db:
         db.row_factory = aiosqlite.Row
         async with db.execute("SELECT * FROM articles WHERE url = ?", (url,)) as cursor:
             row = await cursor.fetchone()
@@ -697,7 +708,7 @@ async def get_article_by_url(url: str) -> Optional[Article]:
 
 async def get_all_articles(include_completed: bool = False) -> list[Article]:
     """Get all articles in the database."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("get_all_articles") as db:
         db.row_factory = aiosqlite.Row
         if include_completed:
             query = "SELECT * FROM articles ORDER BY added_at DESC"
@@ -715,7 +726,7 @@ async def get_all_articles(include_completed: bool = False) -> list[Article]:
 
 async def save_article_summary(summary: ArticleSummary) -> None:
     """Save an article summary to the database."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("save_article_summary") as db:
         await db.execute(
             """
             INSERT OR REPLACE INTO article_summaries
@@ -736,7 +747,7 @@ async def save_article_summary(summary: ArticleSummary) -> None:
 
 async def get_article_summary(article_id: str) -> Optional[ArticleSummary]:
     """Get an article summary by article ID."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("get_article_summary") as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             "SELECT * FROM article_summaries WHERE article_id = ?", (article_id,)
@@ -755,7 +766,7 @@ async def get_article_summary(article_id: str) -> Optional[ArticleSummary]:
 
 async def mark_article_completed(article_id: str, sentiment: str) -> None:
     """Mark an article as completed with the given sentiment."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("mark_article_completed") as db:
         await db.execute(
             """
             UPDATE articles
@@ -769,7 +780,7 @@ async def mark_article_completed(article_id: str, sentiment: str) -> None:
 
 async def uncomplete_article(article_id: str) -> None:
     """Un-complete an article, restoring it to active status."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("uncomplete_article") as db:
         await db.execute(
             """
             UPDATE articles
@@ -783,7 +794,7 @@ async def uncomplete_article(article_id: str) -> None:
 
 async def toggle_video_favorite(video_id: str) -> bool:
     """Toggle the favorite status of a video. Returns the new is_favorited state."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("toggle_video_favorite") as db:
         async with db.execute(
             "SELECT is_favorited FROM videos WHERE id = ?", (video_id,)
         ) as cursor:
@@ -809,7 +820,7 @@ async def toggle_video_favorite(video_id: str) -> bool:
 
 async def toggle_article_favorite(article_id: str) -> bool:
     """Toggle the favorite status of an article. Returns the new is_favorited state."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("toggle_article_favorite") as db:
         async with db.execute(
             "SELECT is_favorited FROM articles WHERE id = ?", (article_id,)
         ) as cursor:
@@ -836,7 +847,7 @@ async def toggle_article_favorite(article_id: str) -> bool:
 
 async def save_video_notes(video_id: str, notes: str) -> None:
     """Save notes for a video. Empty string clears the notes."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("save_video_notes") as db:
         await db.execute(
             "UPDATE videos SET notes = ? WHERE id = ?",
             (notes or None, video_id),
@@ -846,7 +857,7 @@ async def save_video_notes(video_id: str, notes: str) -> None:
 
 async def save_article_notes(article_id: str, notes: str) -> None:
     """Save notes for an article. Empty string clears the notes."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("save_article_notes") as db:
         await db.execute(
             "UPDATE articles SET notes = ? WHERE id = ?",
             (notes or None, article_id),
@@ -856,7 +867,7 @@ async def save_article_notes(article_id: str, notes: str) -> None:
 
 async def get_favorite_videos() -> list[Video]:
     """Get all favorited videos, ordered by most recently favorited."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("get_favorite_videos") as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             "SELECT * FROM videos WHERE is_favorited = 1 ORDER BY favorited_at DESC"
@@ -867,7 +878,7 @@ async def get_favorite_videos() -> list[Video]:
 
 async def get_favorite_articles() -> list[Article]:
     """Get all favorited articles, ordered by most recently favorited."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("get_favorite_articles") as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             "SELECT * FROM articles WHERE is_favorited = 1 ORDER BY favorited_at DESC"
@@ -878,7 +889,7 @@ async def get_favorite_articles() -> list[Article]:
 
 async def get_articles_without_summaries() -> list[Article]:
     """Get articles that have content but no summaries yet."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("get_articles_without_summaries") as db:
         db.row_factory = aiosqlite.Row
         async with db.execute("""
             SELECT a.* FROM articles a
@@ -958,7 +969,7 @@ async def save_embedding(embedding: Embedding, vector_bytes: bytes) -> None:
     We take bytes rather than doing the conversion here so that database.py
     stays free of numpy dependency.
     """
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("save_embedding") as db:
         # SQLite treats NULL != NULL for UNIQUE constraints, so
         # INSERT OR REPLACE won't match rows with chunk_index IS NULL.
         # Delete first, then insert to handle both cases.
@@ -1002,7 +1013,7 @@ async def get_embedding(
 
     Returns (Embedding, raw_vector_bytes) or None.
     """
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("get_embedding") as db:
         db.row_factory = aiosqlite.Row
         if chunk_index is not None:
             query = (
@@ -1040,7 +1051,7 @@ async def get_all_embeddings() -> list[tuple[Embedding, bytes]]:
     Returns list of (Embedding, raw_vector_bytes) tuples.
     """
     results = []
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("get_all_embeddings") as db:
         db.row_factory = aiosqlite.Row
         async with db.execute("SELECT * FROM embeddings") as cursor:
             rows = await cursor.fetchall()
@@ -1064,7 +1075,7 @@ async def get_all_tags_with_counts() -> list[tuple[str, int]]:
     from collections import Counter
 
     counts: Counter = Counter()
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("get_all_tags_with_counts") as db:
         async with db.execute(
             "SELECT topics FROM summaries WHERE topics != ''"
         ) as cursor:
@@ -1086,7 +1097,7 @@ async def get_all_tags_with_counts() -> list[tuple[str, int]]:
 
 async def has_embeddings() -> bool:
     """Check whether any embeddings exist in the database."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("has_embeddings") as db:
         async with db.execute("SELECT COUNT(*) FROM embeddings") as cursor:
             row = await cursor.fetchone()
             return row[0] > 0
@@ -1094,7 +1105,7 @@ async def has_embeddings() -> bool:
 
 async def count_embeddings() -> int:
     """Count total embeddings in the database."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("count_embeddings") as db:
         async with db.execute("SELECT COUNT(*) FROM embeddings") as cursor:
             row = await cursor.fetchone()
             return row[0]
@@ -1108,7 +1119,7 @@ async def get_items_without_embeddings() -> list[tuple[str, str]]:
     row in the embeddings table.
     """
     results = []
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("get_items_without_embeddings") as db:
         # Videos with summaries but no summary embedding
         async with db.execute("""
             SELECT s.video_id FROM summaries s
@@ -1138,7 +1149,7 @@ async def get_summary_text_for_embedding(item_id: str, item_type: str) -> Option
     Combines the summary text with topics to create a richer embedding.
     Returns None if no summary exists.
     """
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("get_summary_text_for_embedding") as db:
         db.row_factory = aiosqlite.Row
         if item_type == "video":
             async with db.execute(
@@ -1174,7 +1185,7 @@ async def save_embeddings_batch(
     if not embeddings:
         return
 
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("save_embeddings_batch") as db:
         # Delete old chunks for this item+content_type first
         first_emb = embeddings[0][0]
         await db.execute(
@@ -1206,7 +1217,7 @@ async def get_items_without_chunk_embeddings() -> list[tuple[str, str]]:
     Videos must have a transcript; articles must have content.
     """
     results = []
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("get_items_without_chunk_embeddings") as db:
         # Videos with transcripts but no chunk embeddings
         async with db.execute("""
             SELECT t.video_id FROM transcripts t
@@ -1232,7 +1243,7 @@ async def get_items_without_chunk_embeddings() -> list[tuple[str, str]]:
 
 async def get_full_text_for_embedding(item_id: str, item_type: str) -> Optional[str]:
     """Get the full text (transcript or article content) for chunk embedding."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with traced_connect("get_full_text_for_embedding") as db:
         if item_type == "video":
             async with db.execute(
                 "SELECT content FROM transcripts WHERE video_id = ?",

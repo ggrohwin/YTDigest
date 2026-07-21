@@ -96,6 +96,7 @@ _(empty)_
 | Source name link on entry cards | Feature | As a user, I want the source name on an entry card to be a hyperlink so I can click directly to that source's view | Quick |
 | Like videos via YouTube API | Feature | As a user, I want videos I rate positively to be liked on YouTube so content creators get feedback. Requires OAuth 2.0 — more complex auth than the current API key setup. | Medium |
 | Type checking | Infra | As a developer, I want mypy enforced so type errors are caught before runtime | Medium |
+| N+1 query in digest page load | Bug | As a developer, I want `get_digest_items()` (main.py) to batch-fetch summaries instead of calling `get_summary()`/`get_article_summary()` once per video/article in a loop. Found via Sentry tracing after wiring up `traced_connect` spans in `database.py` — a real N+1, not a manufactured example. **Deliberately left unfixed for now**: reproducible live in Sentry as a demo for an upcoming Sentry interview. Do not fix without checking first. | Quick |
 
 ### Maybe
 | Story | Type | Description | Effort |
@@ -107,6 +108,7 @@ _(empty)_
 | MCP server: video database | Feature | As a Claude Code user, I want to query my video library conversationally via MCP so I can explore content without opening the browser | Medium |
 | Email digest | Feature | As a user, I want a daily email summary so I can read my digest without opening the app | Medium |
 | Upgrade to voyage-context-3 embeddings | Feature | As a user, I want transcript chunks embedded with full document context (voyage-context-3) so search finds specific moments more accurately. 9x price increase ($0.02 → $0.18/1M tokens) but 200M free tokens included; at YTDigest scale, effectively free. Requires passing ordered chunk list to new contextualized embeddings API instead of embedding chunks individually. | Medium |
+| Pytest runs send real events to Sentry | Bug | As a developer, I want test runs to not hit the real Sentry project so test traffic doesn't pollute production error/trace data. Happens because `conftest.py`'s `test_client` fixture imports `src.main`, which calls `sentry_sdk.init()` at module load time whenever `SENTRY_DSN` is set in `.env`. | Quick |
 
 ---
 
