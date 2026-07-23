@@ -545,6 +545,7 @@ async def index(
             "bookmarklet_origin": f"{request.url.scheme}://{request.url.netloc}",
             "search_enabled": search_enabled,
             "view": view,
+            "sentry_dsn": _sentry_dsn,
         },
     )
 

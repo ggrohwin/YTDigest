@@ -116,6 +116,7 @@ _(empty)_
 
 | Item | Date | Notes |
 |------|------|-------|
+| Browser-side Sentry tracing | 2026-07-22 | Sentry JS SDK wired into `digest.html`; pageloads and click interactions now share a trace with the backend requests they trigger instead of the backend always starting a disconnected trace |
 | MCP server: YouTube API client | 2026-04-21 | FastMCP server with channel, video metadata, and transcript tools; registered in Claude Desktop config |
 | Summarizer single source of truth (Sprint) | 2026-03-28 | Consolidated `summarize_video`/`summarize_article` into `summarize_content`; wired up `TAGGING_PRINCIPLES` from `tagging_rules.py` into summarizer and retag script |
 | Clear question input | 2026-03-28 | X button in Ask input field; appears when text is present |
