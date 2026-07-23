@@ -1,5 +1,6 @@
 # Environment
 .env
+.sentryclirc
 cookies.txt
 
 # Database

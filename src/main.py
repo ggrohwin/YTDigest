@@ -648,7 +648,7 @@ async def api_add_video(request: Request):
 
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
-        logger.error(f"Error adding video: {error_msg}")
+        logger.exception(f"Error adding video: {error_msg}")
         return JSONResponse(
             content={"error": error_msg},
             status_code=500,

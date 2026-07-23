@@ -5,3 +5,12 @@ repos:
       - id: ruff
         args: [--fix]
       - id: ruff-format
+  - repo: local
+    hooks:
+      - id: sentry-sync-release
+        name: Sync Sentry release
+        entry: bash scripts/sentry_sync_release.sh
+        language: system
+        stages: [post-commit]
+        pass_filenames: false
+        always_run: true

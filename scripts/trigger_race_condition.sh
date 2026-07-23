@@ -5,14 +5,20 @@
 # `await asyncio.sleep(3)` in save_video() (src/database.py) that widens the
 # race window enough to hit reliably.
 #
-# Usage: scripts/trigger_race_condition.sh [video_url] [port]
+# Usage: scripts/trigger_race_condition.sh <video_id> [port]
 
 set -euo pipefail
 
-VIDEO_URL="${1:-https://www.youtube.com/watch?v=dQw4w9WgXcQ}"
+if [ -z "${1:-}" ]; then
+  echo "Usage: $0 <video_id> [port]" >&2
+  echo "  <video_id> is the id from a YouTube URL, e.g. the XXXXXXXXXXX in youtube.com/watch?v=XXXXXXXXXXX" >&2
+  exit 1
+fi
+
+VIDEO_ID="$1"
 PORT="${2:-8001}"
 ENDPOINT="http://localhost:${PORT}/api/videos"
-BODY="{\"url\":\"${VIDEO_URL}\"}"
+BODY="{\"url\":\"https://www.youtube.com/watch?v=${VIDEO_ID}\"}"
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT

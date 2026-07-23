@@ -5,15 +5,22 @@
 # `await asyncio.sleep(3)` in save_video() (src/database.py) that widens the
 # race window enough to hit reliably.
 #
-# Usage: scripts\trigger_race_condition.ps1 [-VideoUrl <url>] [-Port <port>]
+# Usage: scripts\trigger_race_condition.ps1 <video_id> [-Port <port>]
 
 param(
-    [string]$VideoUrl = "https://www.youtube.com/watch?v=6BtIQIGqGJc",
+    [string]$VideoId,
     [int]$Port = 8001
 )
 
+if (-not $VideoId) {
+    Write-Host "Usage: trigger_race_condition.ps1 <video_id> [-Port <port>]"
+    Write-Host "  <video_id> is the id from a YouTube URL, e.g. the XXXXXXXXXXX in youtube.com/watch?v=XXXXXXXXXXX"
+    exit 1
+}
+
 $endpoint = "http://localhost:$Port/api/videos"
-$body = @{ url = $VideoUrl } | ConvertTo-Json
+$videoUrl = "https://www.youtube.com/watch?v=$VideoId"
+$body = @{ url = $videoUrl } | ConvertTo-Json
 
 $requestJob = {
     param($endpoint, $body)
