@@ -225,7 +225,7 @@ async def save_video(video: Video) -> bool:
                 (video.title, video.thumbnail_url, video.duration, video.id),
             )
         else:
-            await db.execute(
+            await db.execute(  # insert new video row
                 """
                 INSERT INTO videos
                 (id, channel_id, channel_name, title,
