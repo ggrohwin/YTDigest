@@ -1,3 +1,4 @@
+import asyncio
 import re
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
@@ -209,6 +210,10 @@ async def save_video(video: Video) -> bool:
         # Check if video already exists
         cursor = await db.execute("SELECT id FROM videos WHERE id = ?", (video.id,))
         exists = await cursor.fetchone()
+
+        # Widen the check-then-act window to make the TOCTOU race with
+        # concurrent submissions of the same video reliably reproducible.
+        await asyncio.sleep(3)
 
         if exists:
             # Update metadata only, preserve status fields
