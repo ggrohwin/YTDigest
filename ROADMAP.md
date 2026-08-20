@@ -31,10 +31,10 @@ Deploy YTDigest to a public URL, accessible from anywhere. This epic teaches the
 | 1 | As a developer, I want the app in a Docker container so it runs identically anywhere | Medium | Done |
 | 2 | As a developer, I want CI/CD so that tests and builds run automatically on every push | Medium | Done |
 | 3 | As a developer, I want Postgres instead of SQLite so the database can scale and be managed properly | Medium | Pending |
-| 4 | As a user, I want basic authentication so that only I can access my public instance | Medium | Pending |
+| 4 | As a user, I want SSO login via Microsoft Entra ID or Okta (free developer tenant), with a native username/password fallback, so that only I can access my public instance and I'm not locked out if the free tenant expires | Medium | Pending |
 | 5 | As a user, I want the app deployed to a public URL with HTTPS and persistent storage | Medium | Pending |
 
-**Learning angles:** environment management, secrets handling, Alembic migrations, connection pooling, platform-as-a-service deployment.
+**Learning angles:** environment management, secrets handling, Alembic migrations, connection pooling, platform-as-a-service deployment, OAuth2/OIDC integration.
 
 ---
 

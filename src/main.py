@@ -14,6 +14,10 @@ if _sentry_dsn:
         traces_sample_rate=1.0,
         send_default_pii=False,
         enable_logs=True,
+        # Temporary: surfaces the SDK's own transport failures so we can see
+        # whether error events are being dropped at send time (e.g. during a
+        # network blip) rather than never being created. Remove once confirmed.
+        debug=True,
     )
 
 import asyncio
@@ -64,6 +68,19 @@ _file_handler = logging.handlers.TimedRotatingFileHandler(
 )
 _file_handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATEFMT))
 logger.addHandler(_file_handler)
+
+if _sentry_dsn:
+    # Temporary: sentry_sdk's debug=True diagnostics only go to stderr by
+    # default, which is lost once a terminal session ends. Persist them
+    # alongside the app logs so an intermittent failure can be caught
+    # without having to watch the console live. Remove with debug=True.
+    _sentry_debug_handler = logging.FileHandler(
+        _log_dir / "sentry-debug.log", encoding="utf-8"
+    )
+    _sentry_debug_handler.setFormatter(
+        logging.Formatter(LOG_FORMAT, datefmt=LOG_DATEFMT)
+    )
+    logging.getLogger("sentry_sdk.errors").addHandler(_sentry_debug_handler)
 
 from collections import Counter, defaultdict
 from datetime import date
