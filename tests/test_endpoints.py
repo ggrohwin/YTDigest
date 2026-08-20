@@ -11,7 +11,6 @@ from tests.conftest import seed_article, seed_video, seed_video_summary
 
 
 class TestCompleteVideo:
-
     async def test_like(self, test_client):
         await seed_video(id="v1")
         resp = await test_client.post("/api/videos/v1/complete?sentiment=like")
@@ -58,7 +57,6 @@ class TestCompleteVideo:
 
 
 class TestPrioritizeVideo:
-
     async def test_prioritize(self, test_client):
         await seed_video(id="v1")
         resp = await test_client.post("/api/videos/v1/prioritize")
@@ -74,7 +72,6 @@ class TestPrioritizeVideo:
 
 
 class TestFavoriteVideo:
-
     async def test_toggle_on(self, test_client):
         await seed_video(id="v1")
         resp = await test_client.post("/api/videos/v1/favorite")
@@ -97,7 +94,6 @@ class TestFavoriteVideo:
 
 
 class TestCompleteArticle:
-
     async def test_like(self, test_client):
         await seed_article(id="a1")
         resp = await test_client.post("/api/articles/a1/complete?sentiment=like")
@@ -117,7 +113,6 @@ class TestCompleteArticle:
 
 
 class TestFavoriteArticle:
-
     async def test_toggle_on(self, test_client):
         await seed_article(id="a1")
         resp = await test_client.post("/api/articles/a1/favorite")
@@ -140,7 +135,6 @@ class TestFavoriteArticle:
 
 
 class TestGetVideos:
-
     async def test_empty(self, test_client):
         resp = await test_client.get("/api/videos")
 
@@ -177,7 +171,6 @@ class TestGetVideos:
 
 
 class TestGetArticles:
-
     async def test_empty(self, test_client):
         resp = await test_client.get("/api/articles")
 
@@ -214,7 +207,6 @@ class TestGetArticles:
 
 
 class TestIndex:
-
     async def test_returns_html(self, test_client):
         resp = await test_client.get("/")
 

@@ -31,10 +31,10 @@ Deploy YTDigest to a public URL, accessible from anywhere. This epic teaches the
 | 1 | As a developer, I want the app in a Docker container so it runs identically anywhere | Medium | Done |
 | 2 | As a developer, I want CI/CD so that tests and builds run automatically on every push | Medium | Done |
 | 3 | As a developer, I want Postgres instead of SQLite so the database can scale and be managed properly | Medium | Pending |
-| 4 | As a user, I want basic authentication so that only I can access my public instance | Medium | Pending |
+| 4 | As a user, I want SSO login via Microsoft Entra ID or Okta (free developer tenant), with a native username/password fallback, so that only I can access my public instance and I'm not locked out if the free tenant expires | Medium | Pending |
 | 5 | As a user, I want the app deployed to a public URL with HTTPS and persistent storage | Medium | Pending |
 
-**Learning angles:** environment management, secrets handling, Alembic migrations, connection pooling, platform-as-a-service deployment.
+**Learning angles:** environment management, secrets handling, Alembic migrations, connection pooling, platform-as-a-service deployment, OAuth2/OIDC integration.
 
 ---
 
@@ -96,6 +96,9 @@ _(empty)_
 | Source name link on entry cards | Feature | As a user, I want the source name on an entry card to be a hyperlink so I can click directly to that source's view | Quick |
 | Like videos via YouTube API | Feature | As a user, I want videos I rate positively to be liked on YouTube so content creators get feedback. Requires OAuth 2.0 — more complex auth than the current API key setup. | Medium |
 | Type checking | Infra | As a developer, I want mypy enforced so type errors are caught before runtime | Medium |
+| N+1 query in digest page load | Bug | As a developer, I want `get_digest_items()` (main.py) to batch-fetch summaries instead of calling `get_summary()`/`get_article_summary()` once per video/article in a loop. Found via Sentry tracing after wiring up `traced_connect` spans in `database.py` — a real N+1, not a manufactured example. **Deliberately left unfixed for now**: reproducible live in Sentry as a demo for an upcoming Sentry interview. Do not fix without checking first. | Quick |
+| Artificial race window in `save_video` | Bug | As a developer, I want `save_video()`'s check-then-act race (SELECT then INSERT on `videos.id`) to reproduce reliably instead of needing perfect millisecond timing between two requests. Widened with `await asyncio.sleep(3)` between the check and the write ([database.py](src/database.py)) so submitting the same new video twice reliably raises a genuine `sqlite3.IntegrityError`, captured in Sentry as YTDIGEST-J. `scripts/trigger_race_condition.{sh,ps1}` fire the two concurrent requests. **Deliberately left in for now**: same rationale as the N+1 entry above — Sentry interview demo material. Do not remove without checking first. Side effect: adds 3s to every `save_video` call, so bulk `/api/refresh` runs take noticeably longer when there are many new videos. | Quick |
+| Remove contrived Sentry demo bugs | Cleanup | As a developer, I want the deliberately-introduced Sentry demo material removed from `master` once it's no longer needed, so the app reflects real behavior again: the N+1 query in `get_digest_items()`, the artificial `await asyncio.sleep(3)` race window in `save_video()` ([database.py](src/database.py)), and the `/sentry-debug` verification endpoint that raises a `ZeroDivisionError` on demand ([main.py:476](src/main.py#L476)). Merged into `master` in the meantime, knowingly, for interview-demo purposes — do this after the Sentry interview. | Quick |
 
 ### Maybe
 | Story | Type | Description | Effort |
@@ -107,6 +110,7 @@ _(empty)_
 | MCP server: video database | Feature | As a Claude Code user, I want to query my video library conversationally via MCP so I can explore content without opening the browser | Medium |
 | Email digest | Feature | As a user, I want a daily email summary so I can read my digest without opening the app | Medium |
 | Upgrade to voyage-context-3 embeddings | Feature | As a user, I want transcript chunks embedded with full document context (voyage-context-3) so search finds specific moments more accurately. 9x price increase ($0.02 → $0.18/1M tokens) but 200M free tokens included; at YTDigest scale, effectively free. Requires passing ordered chunk list to new contextualized embeddings API instead of embedding chunks individually. | Medium |
+| Pytest runs send real events to Sentry | Bug | As a developer, I want test runs to not hit the real Sentry project so test traffic doesn't pollute production error/trace data. Happens because `conftest.py`'s `test_client` fixture imports `src.main`, which calls `sentry_sdk.init()` at module load time whenever `SENTRY_DSN` is set in `.env`. | Quick |
 
 ---
 
@@ -114,6 +118,7 @@ _(empty)_
 
 | Item | Date | Notes |
 |------|------|-------|
+| Browser-side Sentry tracing | 2026-07-22 | Sentry JS SDK wired into `digest.html`; pageloads and click interactions now share a trace with the backend requests they trigger instead of the backend always starting a disconnected trace |
 | MCP server: YouTube API client | 2026-04-21 | FastMCP server with channel, video metadata, and transcript tools; registered in Claude Desktop config |
 | Summarizer single source of truth (Sprint) | 2026-03-28 | Consolidated `summarize_video`/`summarize_article` into `summarize_content`; wired up `TAGGING_PRINCIPLES` from `tagging_rules.py` into summarizer and retag script |
 | Clear question input | 2026-03-28 | X button in Ask input field; appears when text is present |

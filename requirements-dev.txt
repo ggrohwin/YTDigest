@@ -8,7 +8,10 @@ pytest-cov>=7.0.0
 httpx>=0.27.0
 
 # Formatting & linting
-ruff>=0.4.0
+# Pinned exactly (not >=) so local, pre-commit, and CI all format identically —
+# a floating version here previously drifted ahead of the pre-commit hook's
+# pinned rev and caused CI-only formatting failures.
+ruff==0.15.20
 
 # Git hooks
 pre-commit>=3.7.0

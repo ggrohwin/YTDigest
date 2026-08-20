@@ -6,6 +6,17 @@
     <title>YTDigest - Your Daily AI Digest</title>
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    {% if sentry_dsn %}
+    <script src="https://browser.sentry-cdn.com/8.55.2/bundle.tracing.min.js" crossorigin="anonymous"></script>
+    <script>
+        Sentry.init({
+            dsn: "{{ sentry_dsn }}",
+            integrations: [Sentry.browserTracingIntegration()],
+            tracesSampleRate: 1.0,
+            tracePropagationTargets: ["{{ bookmarklet_origin }}", /^\//],
+        });
+    </script>
+    {% endif %}
     <style>
         html {
             scroll-behavior: smooth;

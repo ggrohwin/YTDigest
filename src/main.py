@@ -1,3 +1,25 @@
+import os
+
+import sentry_sdk
+from dotenv import load_dotenv
+
+# Load env vars and initialize Sentry before importing anything else, so
+# import-time errors in our own modules are captured too.
+load_dotenv()
+
+_sentry_dsn = os.getenv("SENTRY_DSN")
+if _sentry_dsn:
+    sentry_sdk.init(
+        dsn=_sentry_dsn,
+        traces_sample_rate=1.0,
+        send_default_pii=False,
+        enable_logs=True,
+        # Temporary: surfaces the SDK's own transport failures so we can see
+        # whether error events are being dropped at send time (e.g. during a
+        # network blip) rather than never being created. Remove once confirmed.
+        debug=True,
+    )
+
 import asyncio
 import logging
 import logging.handlers
@@ -8,7 +30,6 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import yaml
-from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -47,6 +68,19 @@ _file_handler = logging.handlers.TimedRotatingFileHandler(
 )
 _file_handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATEFMT))
 logger.addHandler(_file_handler)
+
+if _sentry_dsn:
+    # Temporary: sentry_sdk's debug=True diagnostics only go to stderr by
+    # default, which is lost once a terminal session ends. Persist them
+    # alongside the app logs so an intermittent failure can be caught
+    # without having to watch the console live. Remove with debug=True.
+    _sentry_debug_handler = logging.FileHandler(
+        _log_dir / "sentry-debug.log", encoding="utf-8"
+    )
+    _sentry_debug_handler.setFormatter(
+        logging.Formatter(LOG_FORMAT, datefmt=LOG_DATEFMT)
+    )
+    logging.getLogger("sentry_sdk.errors").addHandler(_sentry_debug_handler)
 
 from collections import Counter, defaultdict
 from datetime import date
@@ -110,8 +144,6 @@ from .youtube import (
     get_video_by_id,
     parse_video_id,
 )
-
-load_dotenv()
 
 BASE_DIR = Path(__file__).parent.parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
@@ -441,6 +473,11 @@ app.add_middleware(
 )
 
 
+@app.get("/sentry-debug")
+async def trigger_sentry_error():
+    raise ZeroDivisionError("sentry verification")
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(
     request: Request,
@@ -525,6 +562,7 @@ async def index(
             "bookmarklet_origin": f"{request.url.scheme}://{request.url.netloc}",
             "search_enabled": search_enabled,
             "view": view,
+            "sentry_dsn": _sentry_dsn,
         },
     )
 
@@ -627,7 +665,7 @@ async def api_add_video(request: Request):
 
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
-        logger.error(f"Error adding video: {error_msg}")
+        logger.exception(f"Error adding video: {error_msg}")
         return JSONResponse(
             content={"error": error_msg},
             status_code=500,
@@ -915,7 +953,7 @@ async def api_ask(request: Request):
 
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
-        logger.error(f"Error during ask: {error_msg}")
+        logger.exception("Error during ask")
         return JSONResponse(
             content={"error": error_msg},
             status_code=500,

@@ -1,0 +1,65 @@
+[
+  {
+    "category": "age_restricted",
+    "requested_name": "Wendigoon",
+    "resolved_title": "Wendigoon",
+    "channel_id": "UC3cpN6gcJQqcCM6mxRUo_dA",
+    "videos_tested": 8,
+    "failures": 8,
+    "failure_rate": 1.0,
+    "failure_reasons": {
+      "failed": 7,
+      "unavailable": 1
+    }
+  },
+  {
+    "category": "age_restricted",
+    "requested_name": "Rotten Mango",
+    "resolved_title": "Rotten Mango",
+    "channel_id": "UC0JJtK3m8pwy6rVgnBz47Rw",
+    "videos_tested": 8,
+    "failures": 8,
+    "failure_rate": 1.0,
+    "failure_reasons": {
+      "failed": 8
+    }
+  },
+  {
+    "category": "non_english",
+    "requested_name": "Hikakin",
+    "resolved_title": "HikakinTV",
+    "channel_id": "UCZf__ehlCEBPop-_sldpBUQ",
+    "videos_tested": 8,
+    "failures": 8,
+    "failure_rate": 1.0,
+    "failure_reasons": {
+      "unavailable": 6,
+      "failed": 2
+    }
+  },
+  {
+    "category": "non_english",
+    "requested_name": "Koji Seto",
+    "resolved_title": "\u702c\u6238\u5f18\u53f8 / Koji Seto",
+    "channel_id": "UCFBjsYvwX7kWUjQoW7GcJ5A",
+    "videos_tested": 8,
+    "failures": 8,
+    "failure_rate": 1.0,
+    "failure_reasons": {
+      "unavailable": 8
+    }
+  },
+  {
+    "category": "members_only",
+    "requested_name": "H3 Podcast",
+    "resolved_title": "H3 Podcast",
+    "channel_id": "UCLtREJY21xRfCuEKvdki1Kw",
+    "videos_tested": 8,
+    "failures": 8,
+    "failure_rate": 1.0,
+    "failure_reasons": {
+      "unavailable": 2,
+      "failed": 6
+    }
+  }
+]
