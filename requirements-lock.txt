@@ -75,12 +75,12 @@ pydantic_core==2.46.4
 Pygments==2.20.0
 PyJWT==2.13.0
 pyparsing==3.3.2
-python-certifi-win32==1.6.1
+python-certifi-win32==1.6.1; sys_platform == "win32"
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
 python-multipart==0.0.32
 pytz==2026.2
-pywin32==312
+pywin32==312; sys_platform == "win32"
 PyYAML==6.0.3
 referencing==0.37.0
 regex==2026.7.10
