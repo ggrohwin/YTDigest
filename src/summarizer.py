@@ -293,7 +293,7 @@ def answer_question(
     context_blocks = []
     for i, src in enumerate(sources, 1):
         kind = "Video Transcript" if src["item_type"] == "video" else "Article"
-        block = f"[Source {i}] {kind}: {src['title']}\n" f"By: {src['source_name']}\n"
+        block = f"[Source {i}] {kind}: {src['title']}\nBy: {src['source_name']}\n"
         if src.get("summary"):
             block += f"Summary: {src['summary']}\n"
         if src.get("content"):

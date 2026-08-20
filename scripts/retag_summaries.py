@@ -106,10 +106,10 @@ async def retag_one(
 ) -> dict:
     prompt = f"""{RETAG_PROMPT}
 
-Current tags (for reference): {item['current_topics']}
+Current tags (for reference): {item["current_topics"]}
 
 Summary:
-{item['summary'][:1500]}
+{item["summary"][:1500]}
 """
     async with sem:
         for attempt in range(MAX_RETRIES):
