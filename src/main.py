@@ -59,7 +59,9 @@ logging.basicConfig(
 logger = logging.getLogger("ytdigest")
 
 # Add file handler with daily rotation, keep 14 days of backups
-_log_dir = Path(__file__).parent.parent / "logs"
+_log_dir = Path(
+    os.getenv("YTDIGEST_LOG_DIR", str(Path(__file__).parent.parent / "logs"))
+)
 _log_dir.mkdir(exist_ok=True)
 _file_handler = logging.handlers.TimedRotatingFileHandler(
     _log_dir / "ytdigest.log",
@@ -247,7 +249,7 @@ background_tasks: list[asyncio.Task] = []
 
 def load_config() -> AppConfig:
     """Load configuration from config.yaml."""
-    config_path = BASE_DIR / "config.yaml"
+    config_path = Path(os.getenv("YTDIGEST_CONFIG_PATH", str(BASE_DIR / "config.yaml")))
     with open(config_path) as f:
         data = yaml.safe_load(f)
     return AppConfig(**data)

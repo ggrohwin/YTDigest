@@ -1,0 +1,50 @@
+channels:
+  # already-tested, clean data (live news)
+  - id: "UCJg9wBPyKMNA5sRDnvzmkdg"
+    name: "LiveNOW from FOX"
+  - id: "UCeY0bbntWzzVIaj2z3QigXg"
+    name: "NBC News"
+  - id: "UCUMZ7gohGI9HcU9VNsr2FJQ"
+    name: "Bloomberg Originals"
+  - id: "UC1FbPiXx59_ltnFVx7IxWow"
+    name: "FOX Weather"
+  - id: "UCoMdktPbSTixAyNGwb-UYkQ"
+    name: "Sky News"
+  - id: "UCNye-wNBqNL5ZzHSJj3l8Bg"
+    name: "Al Jazeera English"
+  - id: "UColc6LI1pII3IywhMS0Wb9w"
+    name: "LIVE STREAM NEWS"
+  # age-restricted / horror / true-crime
+  - id: "UC3cpN6gcJQqcCM6mxRUo_dA"
+    name: "Wendigoon"
+  - id: "UC0JJtK3m8pwy6rVgnBz47Rw"
+    name: "Rotten Mango"
+  - id: "UC7dHBh9QmYF1L0TOeGIzZgw"
+    name: "Lazy Masquerade"
+  - id: "UCg3gzldyhCHJjY7AWWTNPPA"
+    name: "Sam and Colby"
+  # non-English (also exercises the Unicode logging bug from ROADMAP.md)
+  - id: "UCZf__ehlCEBPop-_sldpBUQ"
+    name: "HikakinTV"
+  - id: "UCX1xppLvuj03ubLio8jslyA"
+    name: "HikakinGames"
+  - id: "UCFBjsYvwX7kWUjQoW7GcJ5A"
+    name: "Koji Seto"
+  - id: "UC5jLzUQiTIk8CWiShdqQfDQ"
+    name: "Takomaru"
+  - id: "UC4sUMe2ZhzYiNwywoh3a1kQ"
+    name: "KingDaddyDMAC"
+  - id: "UCSHVH_AWVUc-C8-D8mh8W6A"
+    name: "buzzbean11"
+  # members-only (may not surface in the public uploads feed at all — see caveat below)
+  - id: "UCLtREJY21xRfCuEKvdki1Kw"
+    name: "H3 Podcast"
+
+digest:
+  max_videos_per_channel: 5
+  max_age_days: 28
+  transcript_fetch_interval: 300  # seconds between background transcript fetches
+  transcript_batch_size: 1        # transcripts to fetch per cycle
+  video_refresh_interval: 3600    # seconds between video metadata refreshes (1 hour)
+  summarization_model: claude-sonnet-4-6
+  shorts_max_duration: 150  # seconds; videos at or below this from filter_shorts channels are skipped

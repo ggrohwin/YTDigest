@@ -1,4 +1,5 @@
 import asyncio
+import os
 import re
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
@@ -18,7 +19,11 @@ from .models import (
     Video,
 )
 
-DATABASE_PATH = Path(__file__).parent.parent / "data" / "ytdigest.db"
+DATABASE_PATH = Path(
+    os.getenv(
+        "YTDIGEST_DB_PATH", str(Path(__file__).parent.parent / "data" / "ytdigest.db")
+    )
+)
 
 
 @asynccontextmanager
