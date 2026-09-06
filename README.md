@@ -21,11 +21,11 @@ cp .env.example .env
 
 # Edit config.yaml to add your preferred YouTube channels
 
-# Run the app
-uvicorn src.main:app --reload
+# Run the app (use python -m to avoid Smart App Control blocking uvicorn.exe)
+.venv\Scripts\python -m uvicorn src.main:app --reload --port 8001
 ```
 
-Open http://localhost:8000 in your browser.
+Open http://localhost:8001 in your browser.
 
 ## API Keys Required
 

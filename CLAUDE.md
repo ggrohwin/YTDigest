@@ -2,6 +2,61 @@
 
 A daily digest application that fetches new videos from specified YouTube channels, retrieves transcripts, generates AI summaries via Claude API, and displays them in a local web interface.
 
+## Quick Start
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Copy .env.example to .env and add your API keys
+cp .env.example .env
+
+# Edit config.yaml to add your preferred YouTube channels
+
+# Run the app (use python -m to avoid Smart App Control blocking uvicorn.exe)
+.venv\Scripts\python -m uvicorn src.main:app --reload --port 8001
+```
+
+Open http://localhost:8001 in your browser (see "Test mode: a
+channel-selection proof of concept" below — test mode uses 8002).
+
+## Project Structure
+
+- `src/main.py` - FastAPI application entry point
+- `src/youtube.py` - YouTube API client for fetching videos
+- `src/transcripts.py` - Transcript fetching using youtube-transcript-api
+- `src/summarizer.py` - Claude API integration for generating summaries and categorization
+- `src/articles.py` - Web article extraction (trafilatura)
+- `src/embedder.py` - Voyage AI embeddings and semantic search
+- `src/tagging_rules.py` / `src/tag_normalizer.py` - Tag rules and normalization for summaries
+- `src/database.py` - SQLite database operations
+- `src/models.py` - Pydantic models for type safety
+- `templates/digest.html` - Jinja2 template for the web interface
+- `config.yaml` - Channel list and digest preferences
+- `.env` - API keys (not committed to git)
+
+## API Keys Required
+
+1. **YouTube Data API v3** - Get from Google Cloud Console
+2. **Anthropic API** - Get from console.anthropic.com
+3. **Voyage AI** (optional, for semantic search) - dash.voyageai.com
+
+## Workflow
+
+- **Backlog/roadmap tracking lives in Jira**, not `ROADMAP.md`. Project `YTD` on
+  `ggrohwin.atlassian.net` (Story Points, Priority, and a custom "Category"
+  field — Feature/Infra/Cleanup/Refactor/Learning — cover what the old
+  Type/Effort columns did). `ROADMAP.md` was retired 2026-08-24: it's a frozen
+  historical snapshot of the pre-Jira backlog, not updated on new commits.
+  Detailed analysis/spike write-ups that used to go in GitHub Issue
+  descriptions now go in Confluence pages in the same space instead.
+
+## Key Endpoints
+
+- `GET /` - Main digest page
+- `GET /api/refresh` - Trigger manual refresh of videos
+- `GET /api/videos` - JSON endpoint for video list with summaries
+
 ## Test mode: a channel-selection proof of concept
 
 `scripts/start-test.ps1` runs this same codebase in a second mode, on
@@ -91,54 +146,3 @@ interview — an unfixed N+1 query in `get_digest_items()`, an
 Jira `YTD-32`, "Remove contrived Sentry demo bugs"). Issues from these
 are pre-existing/intentional in both run modes — don't mistake them for
 real signal from either the normal app or the test-mode experiment.
-
-## Quick Start
-
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Copy .env.example to .env and add your API keys
-cp .env.example .env
-
-# Edit config.yaml to add your preferred YouTube channels
-
-# Run the app (use python -m to avoid Smart App Control blocking uvicorn.exe)
-.venv\Scripts\python -m uvicorn src.main:app --reload --port 8001
-```
-
-Open http://localhost:8001 in your browser (see "Test mode: a
-channel-selection proof of concept" above — test mode uses 8002).
-
-## Project Structure
-
-- `src/main.py` - FastAPI application entry point
-- `src/youtube.py` - YouTube API client for fetching videos
-- `src/transcripts.py` - Transcript fetching using youtube-transcript-api
-- `src/summarizer.py` - Claude API integration for generating summaries
-- `src/database.py` - SQLite database operations
-- `src/models.py` - Pydantic models for type safety
-- `templates/digest.html` - Jinja2 template for the web interface
-- `config.yaml` - Channel list and digest preferences
-- `.env` - API keys (not committed to git)
-
-## API Keys Required
-
-1. **YouTube Data API v3** - Get from Google Cloud Console
-2. **Anthropic API** - Get from console.anthropic.com
-
-## Workflow
-
-- **Backlog/roadmap tracking lives in Jira**, not `ROADMAP.md`. Project `YTD` on
-  `ggrohwin.atlassian.net` (Story Points, Priority, and a custom "Category"
-  field — Feature/Infra/Cleanup/Refactor/Learning — cover what the old
-  Type/Effort columns did). `ROADMAP.md` was retired 2026-08-24: it's a frozen
-  historical snapshot of the pre-Jira backlog, not updated on new commits.
-  Detailed analysis/spike write-ups that used to go in GitHub Issue
-  descriptions now go in Confluence pages in the same space instead.
-
-## Key Endpoints
-
-- `GET /` - Main digest page
-- `GET /api/refresh` - Trigger manual refresh of videos
-- `GET /api/videos` - JSON endpoint for video list with summaries
