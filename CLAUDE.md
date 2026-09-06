@@ -82,26 +82,6 @@ that channel is error-prone**. Treat the category groupings above as a
 reasonable, evidence-informed hypothesis that real Sentry activity is what
 actually validates over time — not something the probe itself confirmed.
 
-### Reading Sentry `environment:test` activity — what actually matters
-
-When asked to check Sentry for "interesting activity" from test mode, the
-useful signal is **novel error types/patterns, not more of what's already
-been seen**. Two categories of already-known noise to recognize and not
-over-report:
-
-1. **The YouTube IP-block error** ("YouTube is blocking requests from your
-   IP") — the dominant, sometimes only, failure mode seen so far (see the
-   probe test above). A handful of these is expected background noise, not
-   the channel-specific signal the experiment is looking for.
-2. **The deliberately-staged demo bugs** below — pre-existing and unrelated
-   to this experiment.
-
-So: when summarizing `environment:test` Sentry activity, group by distinct
-error message rather than just raw event/issue count, and call out
-specifically what's **new** — a message or pattern not already covered by
-the two categories above — since that's the actual signal this experiment
-is trying to surface.
-
 ### Deliberately-staged demo bugs
 
 This codebase currently contains bugs staged for an unrelated Sentry-product

@@ -3,6 +3,9 @@
 .sentryclirc
 cookies.txt
 
+# Machine-local Claude config (absolute paths, not portable across machines)
+.claude/*.local.*
+
 # Database
 data/*.db
 *.db
