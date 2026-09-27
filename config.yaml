@@ -17,6 +17,7 @@ channels:
     filter_shorts: true
   - id: "UC_RovKmk0OCbuZjA8f08opw"
     name: "Futurepedia"
+    filter_shorts: true
   - id: "UCoy6cTJ7Tg0dqS-DI-_REsA"
     name: "Chase AI"
     filter_shorts: true
@@ -26,6 +27,7 @@ channels:
     name: "Pooja Dutt"
   - id: "UCcIXc5mJsHVYTZR1maL5l9w"
     name: "DeepLearningAI"
+    filter_shorts: true
   - id: "UC1EbMMyEyliGYvDNYmdRbRw"
     name: "Eric Before"
     filter_shorts: true
@@ -47,6 +49,10 @@ channels:
     name: "Google Cloud Tech"
   - id: "UCawZsQWqfGSbCI5yjkdVkTA"
     name: "Matthew Berman"
+    filter_shorts: true
+  - id: "UC4sdJIrKWKxymZ5lwVSBzTw"
+    name: "Josh Simmons"
+    filter_shorts: true
 
 digest:
   max_videos_per_channel: 5
