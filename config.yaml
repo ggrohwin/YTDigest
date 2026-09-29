@@ -53,6 +53,8 @@ channels:
   - id: "UC4sdJIrKWKxymZ5lwVSBzTw"
     name: "Josh Simmons"
     filter_shorts: true
+  - id: "UCEvsxF4Z12vwpwDUaU02yiA"
+    name: "Zapier"
 
 digest:
   max_videos_per_channel: 5
