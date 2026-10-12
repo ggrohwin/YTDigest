@@ -3,7 +3,7 @@ description: Check YTDigest's Sentry project for new/interesting activity
 ---
 
 Check the Sentry project `ytdigest` (org `george-grohwin`) for activity in the
-last $ARGUMENTS (default: 24h if no window given).
+last $ARGUMENTS (default: 5d if no window given).
 
 Cover **both** `environment:production` and `environment:test` — query each
 explicitly, never assume one.
@@ -29,6 +29,33 @@ Noise-filtering rules:
 
 Summarize concisely: what's new, what's known noise (one line, don't detail),
 and anything that looks worth acting on.
+
+**Distinct open issues table**: after the summary, also produce a table of
+every currently *unresolved* issue in the project, both environments,
+collapsed into distinct problems. This is a current-state snapshot of
+unresolved issues, not limited to the activity window above.
+- Merge issues whose messages differ only in a video ID, URL, or similar
+  per-item value (e.g. `Error fetching transcript for <id>: ...` with the
+  same suffix). Messages that differ in *what failed* stay separate rows,
+  even if they share a root cause. Don't merge the connectivity-type
+  failures (DNS, SSL timeout, connection timeout, etc.) into one row.
+- Columns: `#` | distinct issue (normalized message, bolded short label
+  first) | Sentry issues (count, then short IDs) | events (total) | env
+  (`prod` / `test` / `both`) | first → last seen | category.
+- Category is **Known** or **New** relative to the baseline file, plus a
+  short qualifier where useful (e.g. "Known (connectivity)", "Known, cause
+  unknown", "Demo bug (YTD-32)"). Bold **New**.
+- Determine env and event counts at the event level (`search_errors`
+  grouped by issue + environment), since an issue's own last-seen and
+  counts span all environments even when the list is filtered by one.
+  Performance issues (N+1) aren't in the errors dataset, so take their env
+  from the issue-level queries and say so in a note.
+- First-seen dates are capped by Sentry's ~30-day retention; add a note
+  when that understates an issue's real age.
+- If the issue list comes back full at the search limit, filter out the
+  dominant pattern and re-query so nothing is hidden by truncation.
+- Below the table, add only brief notes: anything **New**, and any caveats
+  about how the table was built.
 
 **After summarizing**, update the baseline memory file (from
 `.claude/memory-paths.local.md`) with any genuinely new findings: append new
