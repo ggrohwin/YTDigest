@@ -56,6 +56,13 @@ unresolved issues, not limited to the activity window above.
   dominant pattern and re-query so nothing is hidden by truncation.
 - Below the table, add only brief notes: anything **New**, and any caveats
   about how the table was built.
+- Also write the table and its notes to `reports/sentry-open-issues.md`
+  (gitignored), overwriting it each run so it always holds the latest
+  snapshot. Start the file with a `# Sentry distinct open issues` heading
+  and a line giving the generation time (local date and time) and the
+  issue count (e.g. "29 unresolved issues, 10 distinct"). Make the short
+  issue IDs in the table links to their Sentry issue pages. Show the table
+  in chat too.
 
 **After summarizing**, update the baseline memory file (from
 `.claude/memory-paths.local.md`) with any genuinely new findings: append new
