@@ -57,6 +57,16 @@ channel-selection proof of concept" below — test mode uses 8002).
 - `GET /api/refresh` - Trigger manual refresh of videos
 - `GET /api/videos` - JSON endpoint for video list with summaries
 
+### Deliberately-staged demo bugs
+
+This codebase currently contains bugs staged for an unrelated Sentry-product
+interview — an unfixed N+1 query in `get_digest_items()`, an
+`await asyncio.sleep(3)` artificial race window in `save_video()`, and a
+`/sentry-debug` endpoint that raises a `ZeroDivisionError` on demand (see
+Jira `YTD-32`, "Remove contrived Sentry demo bugs"). Issues from these
+are pre-existing/intentional in both run modes — don't mistake them for
+real signal from either the normal app or the test-mode experiment.
+
 ## Test mode: a channel-selection proof of concept
 
 `scripts/start-test.ps1` runs this same codebase in a second mode, on
@@ -69,14 +79,12 @@ only by that `environment` tag, so any Sentry query needs an explicit
 `environment:production` or `environment:test` filter rather than assuming
 one or the other.
 
-(A separate `../YTDigest-test` clone was used earlier for the same purpose
-and has been retired/folded into this setup — its `CLAUDE.md` is no longer
-maintained; this file is now the source of truth.)
-
 **Why test mode exists**: to generate real, organically-occurring Sentry
-error activity as raw material for a separate portfolio project — a
-Sentry → ticketing-system (e.g. JIRA) integration that reads Sentry's API
-and creates tickets from real issues. The data needs to be genuine app
+error activity as raw material for a separate portfolio project,
+**sentry-jira-sync** (`C:\Dev\sentry-jira-sync`): a Sentry → Jira
+integration that receives Sentry webhooks and creates tickets from real
+issues. Ongoing Sentry analysis (the `/sentry-check` command and its
+issue baseline) lives in that project, not here. The data needs to be genuine app
 behavior, not synthetic/fabricated errors, so the approach is to make
 *real* failures more likely (via `config.test.yaml`'s channel list), never
 to fake them.
@@ -136,13 +144,3 @@ should be read as **inconclusive due to the IP block, not confirmation
 that channel is error-prone**. Treat the category groupings above as a
 reasonable, evidence-informed hypothesis that real Sentry activity is what
 actually validates over time — not something the probe itself confirmed.
-
-### Deliberately-staged demo bugs
-
-This codebase currently contains bugs staged for an unrelated Sentry-product
-interview — an unfixed N+1 query in `get_digest_items()`, an
-`await asyncio.sleep(3)` artificial race window in `save_video()`, and a
-`/sentry-debug` endpoint that raises a `ZeroDivisionError` on demand (see
-Jira `YTD-32`, "Remove contrived Sentry demo bugs"). Issues from these
-are pre-existing/intentional in both run modes — don't mistake them for
-real signal from either the normal app or the test-mode experiment.
