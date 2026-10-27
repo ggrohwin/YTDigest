@@ -66,7 +66,7 @@ def get_channel_uploads(
 
     uploads_playlist_id = get_channel_uploads_playlist_id(youtube, channel_id)
     if not uploads_playlist_id:
-        logger.warning(f"Could not find uploads playlist for channel {channel_id}")
+        logger.error(f"Could not find uploads playlist for channel {channel_id}")
         return []
 
     try:
@@ -164,8 +164,9 @@ def get_video_details(video_ids: list[str]) -> dict:
             item["id"]: {
                 "title": item["snippet"]["title"],
                 "description": item["snippet"]["description"],
-                "duration": item["contentDetails"]["duration"],
-                "view_count": item["statistics"].get("viewCount", 0),
+                # Live/upcoming videos have no duration (or statistics) yet
+                "duration": item.get("contentDetails", {}).get("duration"),
+                "view_count": item.get("statistics", {}).get("viewCount", 0),
             }
             for item in response.get("items", [])
         }

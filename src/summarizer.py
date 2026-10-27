@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Literal, Optional
 
 import anthropic
+import sentry_sdk
 
 from .models import CATEGORIES, ArticleSummary, Summary
 from .tag_normalizer import TagNormalizer
@@ -164,6 +165,22 @@ if this {content_type} is relevant to their interests."""
             f"Error parsing Claude response for {content_type} {item_id}: {e}"
         )
         logger.debug(f"Response was: {response_text[:500]}")
+        # The fallback below hides this from the caller, so report it explicitly.
+        # capture_exception groups by stack (one issue, not one per item_id).
+        with sentry_sdk.new_scope() as scope:
+            scope.set_tag("failure", "summary_json_parse")
+            scope.set_tag("content_type", content_type)
+            scope.set_context(
+                "claude_response",
+                {
+                    "item_id": item_id,
+                    "stop_reason": response.stop_reason,
+                    "length": len(response_text),
+                    "head": response_text[:300],
+                    "tail": response_text[-300:],
+                },
+            )
+            sentry_sdk.capture_exception(e)
         if content_type == "video":
             return Summary(
                 video_id=item_id,

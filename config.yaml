@@ -10,7 +10,7 @@ channels:
   - id: "UC0C-17n9iuUQPylguM1d-lQ"
     name: "Nate B Jones"
     filter_shorts: true
-  - id: "UCAwT-7B6StW_xzXPku6v7MQ"
+  - id: "UCvjBQ_VzhInndfu2L12mCXA"
     name: "Mo Bitar"
   - id: "UCZcR2SVWaGWNlMqPxvQS3vw"
     name: "Hard Fork"
@@ -43,10 +43,12 @@ channels:
   - id: "UC7YmAKGIRoDWT3O68Cf1aaA"
     name: "Dave Linthicum is not AI"
     filter_shorts: true
-  - id: "UCIkU9Fe0OccRmqBMXRm1Q7A"
+  - id: "UCh04CepWeaJT7wJUIgnmzJQ"
     name: "AI Agents Podcast"
+    filter_shorts: true
   - id: "UCJS9pqu9BzkAMNTmzNMNhvg"
     name: "Google Cloud Tech"
+    filter_shorts: true
   - id: "UCawZsQWqfGSbCI5yjkdVkTA"
     name: "Matthew Berman"
     filter_shorts: true

@@ -27,6 +27,25 @@ cp .env.example .env
 
 Open http://localhost:8001 in your browser.
 
+## How It Works
+
+On startup the app fetches recent videos from every configured channel, then
+runs two background loops inside the same process:
+
+| Loop | Interval (`config.yaml`) | Does |
+|------|--------------------------|------|
+| Video fetcher | `video_refresh_interval` (1 hour) | Finds new videos, records metadata |
+| Transcript fetcher | `transcript_fetch_interval` (~5 min), `transcript_batch_size` (1) | Fetches a transcript, then summarizes and embeds it |
+
+```
+YouTube API --> videos (pending) --> transcript --> Claude summary --> embeddings
+```
+
+Transcripts are fetched slowly on purpose to avoid YouTube IP blocking.
+
+See [docs/how-it-works.md](docs/how-it-works.md) for the full startup
+sequence, loop behavior, status values, and on-demand endpoints.
+
 ## API Keys Required
 
 1. **YouTube Data API v3** — [Google Cloud Console](https://console.cloud.google.com/)
@@ -48,6 +67,7 @@ src/
 templates/
   digest.html      Jinja2 web interface
 config.yaml        Channel list and preferences
+docs/              Extra documentation (how-it-works.md, api-endpoints.md)
 tests/             pytest test suite
 ```
 
